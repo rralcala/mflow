@@ -1,0 +1,5 @@
+__pycache__
+cache/*.pkl
+.vscode
+debug.log
+.coverage

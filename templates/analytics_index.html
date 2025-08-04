@@ -1,0 +1,8 @@
+{% block body %}
+  <form action="{{ prefix }}monthly-pnl" method="get"> 
+    <label> <input type="checkbox" name="income" value="1">Include Income </label>
+    <label> <input type="checkbox" name="expenses" value="1">Include Expenses </label> 
+    <label> <input type="checkbox" name="oneOff" value="1" checked>Include One-Offs </label> 
+    <button type="submit">Monthly P&L</button> 
+  </form>
+{% endblock %}

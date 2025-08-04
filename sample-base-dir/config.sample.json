@@ -1,0 +1,21 @@
+{
+  "DATE_FORMAT_STRING": "%Y-%m-%d",
+  "YEAR": 365.25,
+  "DB_SECRET_KEY": "CHANGE_ME",
+  "USERS": 
+    { "1": {
+        "name": "user1",
+        "username": "user1",
+        "password": "sha256ofpassword",
+        "email": "user1@example.com"
+      }
+    ,
+    "2": {
+      "name": "user2",
+      "username": "user2",
+      "password": "sha256ofpassword",
+      "email": "user2@example.com"
+    }
+    }
+
+}
