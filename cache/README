@@ -1,0 +1,10 @@
+# Cache Directory
+
+This directory is used by the application to cache remote requests.
+
+**Note:**  
+- Files and subdirectories in this folder are generated automatically.
+- You can safely delete the contents to clear the cache; the application will recreate them as needed.
+- Do not store important files here, as they may be overwritten or removed.
+
+This README serves as a placeholder to ensure the directory is tracked by version control systems.
