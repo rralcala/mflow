@@ -1,12 +1,20 @@
 from typing import List, Dict, Any
+import os
+from gspread import service_account as gspread_service_account
+from googleapiclient.discovery import build
+from google.oauth2 import service_account
+from pathlib import Path
 
-from gspread import service_account
-
-USDPYG = 7500
-
+SERVICE_ACCOUNT_FILE = Path('./key.json')
 # Authenticate with your service account credentials
 # Replace 'path/to/your/service_account.json' with the actual path
-client = service_account(filename="./key.json")
+# Path to your service account key file
+
+SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
+# Replace with your folder ID
+FOLDER_ID = '1gIMkSpMDygnUH1C13hKHZi1VVF8FUzk5'
+print(os.listdir(SERVICE_ACCOUNT_FILE.parent))
+client = gspread_service_account(SERVICE_ACCOUNT_FILE.absolute())
 
 def get_table(sheet: str, worksheet: str):
     """
@@ -45,3 +53,24 @@ def get_sheet_settings(sheet: str) -> Dict[str, Any]:
     """
     settings = get_dict(sheet, "Summary")
     return settings
+
+
+
+def list_files_in_folder() -> List[str]:
+    # Authenticate and build the service
+    print(os.getcwd())
+    creds = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    service = build('drive', 'v3', credentials=creds)
+
+    # Query for files in the folder
+    results = service.files().list(
+        q=f"'{FOLDER_ID}' in parents and trashed=false",
+        fields="files(id, name)"
+    ).execute()
+
+    files = results.get('files', [])
+    results = []
+    for file in files:
+        results.append(file['name'])
+    return results

@@ -1,23 +1,58 @@
 import logging
+import pprint
 from typing import List
+
 from asset_classes.fetcher import fetch_if_not_cached
 from asset_classes import account
 from lib import util
+from lib.gdrive import list_files_in_folder
 
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-logging.basicConfig(level=logging.DEBUG)
 
 USDPYG = util.USDPYG
 
-def print_table(data: List[List[str]]):
-    """
-    Function to print the data in a formatted way.
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.basicConfig(level=logging.DEBUG)
+logging.debug("Listing files in Google Drive folder:")
 
-    :param data: List of lists containing the data to be printed.
-    """
-    for row in data:
-        print("\t".join(row))
+files = list_files_in_folder()
+items = { "USD": [], "PYG": [] }
+for file in files:
+    logging.debug(f"Fetching asset data for {file}")
+    fetched = fetch_if_not_cached(file)
+    if isinstance(fetched, list):
+        for sub_item in fetched:
+            items[sub_item.currency].append(sub_item)
+    else:
+        items[fetched.currency].append(fetched)
 
+logging.info(f"Fetched {len(items)} assets:")
+tpval = 0.0
+tnval = 0.0
+for k,v in items.items():
+    print(f"{k}: {len(v)} assets")
+    pval = 0.0
+    nval = 0.0
+    for asset in v:
+        curval = asset.get_current_value()[0]
+        if curval > 0:
+            pval += curval 
+        else:
+            nval += curval
+        
+    
+    if k == "PYG":
+        pval /= USDPYG
+        nval /= USDPYG
+    tpval += pval
+    tnval += nval
+    logging.info(f"Positive value: {pval:,.2f} {k}, Negative value: {nval:,.2f} {k}")
+logging.info(f"Total positive value: {tpval:,.2f} USD, Total negative value: {tnval:,.2f} USD")
+logging.info(f"Total portfolio value: {tpval + tnval:,.2f} USD")
+
+
+
+
+"""
 total_balance = 0.0
 flow = {"USD": 0.0, "PYG": 0.0}
 
@@ -65,3 +100,4 @@ for asset in assets:
 
 print(f"{flow} {flow['USD'] + flow['PYG']/USDPYG:,.2f}")
 print(f"{total_balance:,.2f}")
+"""

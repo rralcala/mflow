@@ -1,10 +1,11 @@
-import logging
-from typing import List
 
-from g_tools import get_table, get_sheet_settings, USDPYG
+from typing import List, Tuple
+from asset_classes.asset import Asset
+from lib.gdrive import get_table, get_sheet_settings
 
 
-class Property:
+class Property(Asset):
+    """Represents a property asset with its attributes and methods to calculate its value."""
 
     def __init__(
         self,
@@ -23,27 +24,38 @@ class Property:
         self.purchase_date = purchase_date
         self.latest_price = latest_price
         self.rented_price = rented_price
-    def __repr__(self):
-        return f"Properties({self.__dict__})"
+
+
+
     def get_income(self):
         """
         Returns the income from the property.
         """
         return self.rented_price, self.currency
+    
+    def get_current_value(self) -> Tuple[float, str]:
+        """ Returns the current value of the property in its currency.
+        """
+        return self.latest_price, self.currency
+    
+    def __repr__(self):
+        return f"Property({self.property_id}, Latest Price: {self.latest_price}, Currency: {self.currency})"
 
-def get_total_value(properties: List[Property]) -> float:
+
+def get_total_value(properties: List[Property], exchange: float) -> float:
     """
     Returns the total value of the property.
     """
     total = 0.0
     for property in properties:
         if property.currency == "PYG":
-            total += property.latest_price / USDPYG
-            #logging.debug(f"{property.property_id} = {property.latest_price / USDPYG}")
+            total += property.latest_price / exchange
+            # logging.debug(f"{property.property_id} = {property.latest_price / USDPYG}")
         else:
             total += property.latest_price
-            #logging.debug(f"{property.property_id} = {property.latest_price}")
+            # logging.debug(f"{property.property_id} = {property.latest_price}")
     return total
+
 
 def parse_properties(data: List[List[str]]) -> List[Property]:
     """

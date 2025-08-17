@@ -1,10 +1,11 @@
 import logging
-from typing import List
+from typing import List, Tuple
 
-from g_tools import get_table, get_sheet_settings, USDPYG
+from lib.gdrive import get_table, get_sheet_settings
 
 
 class Account:
+    """Represents a financial account with its attributes and methods to manage deposits and withdrawals."""
 
     def __init__(
         self,
@@ -36,11 +37,13 @@ class Account:
             return True
         return False
 
-    def get_balance(self):
-        return self.balance * self.factor
+    def get_current_value(self) -> Tuple[float, str]:
+        return (self.balance * self.factor), self.currency
 
+    def __repr__(self):
+        return f"Account({self.account_id}, Balance: {self.balance}, Currency: {self.currency})"
     def __str__(self):
-        return f"Account ID: {self.account_id}, Balance: {self.balance}"
+        return self.__repr__()
 
 
 def parse_accounts(data: List[List[str]]) -> List[Account]:
@@ -67,15 +70,15 @@ def parse_accounts(data: List[List[str]]) -> List[Account]:
 
     return parsed_accounts
 
-def get_total_value(accounts: List[Account]) -> float:
+def get_total_value(accounts: List[Account], exchange: float) -> float:
     """
     Returns the total value of all accounts in USD.
     """
     total_value = 0.0
     for account in accounts:
         
-        if account.currency == "PYG":
-            value = account.get_balance() / USDPYG
+        if account.currency != "USD":
+            value = account.get_balance() / exchange
         else:
             value = account.get_balance()
         total_value += value
@@ -99,13 +102,6 @@ def print_accounts(accounts: List[Account]):
     :param accounts: List of dictionaries containing account information.
     """
     print(f"{'Name':<30} {'Balance':<15} {'Currency':<10}")
-    total_balance = 0.0
-    for account in accounts:
-        if account.currency == "PYG":
-            balance = account.balance / USDPYG
-        else:
-            balance = account.balance
-        total_balance += balance
 
-        print(f"{account.account_id:<30} {balance:<15.2f} {account.currency:<10}")
-    print(f"{'Total':<30} {total_balance:<15.2f} USD")
+    for account in accounts:
+        print(f"{account.account_id:<30} {account.balance:<15.2f} {account.currency:<10}")
