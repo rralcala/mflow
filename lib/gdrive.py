@@ -1,9 +1,9 @@
+from pathlib import Path
 from typing import List, Dict, Any
-import os
+
 from gspread import service_account as gspread_service_account
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
-from pathlib import Path
 
 SERVICE_ACCOUNT_FILE = Path('./key.json')
 # Authenticate with your service account credentials
@@ -13,7 +13,7 @@ SERVICE_ACCOUNT_FILE = Path('./key.json')
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 # Replace with your folder ID
 FOLDER_ID = '1gIMkSpMDygnUH1C13hKHZi1VVF8FUzk5'
-print(os.listdir(SERVICE_ACCOUNT_FILE.parent))
+
 client = gspread_service_account(SERVICE_ACCOUNT_FILE.absolute())
 
 def get_table(sheet: str, worksheet: str):
@@ -58,7 +58,6 @@ def get_sheet_settings(sheet: str) -> Dict[str, Any]:
 
 def list_files_in_folder() -> List[str]:
     # Authenticate and build the service
-    print(os.getcwd())
     creds = service_account.Credentials.from_service_account_file(
         SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     service = build('drive', 'v3', credentials=creds)

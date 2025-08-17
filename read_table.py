@@ -4,8 +4,8 @@ from asset_classes.fetcher import fetch_if_not_cached
 from asset_classes import account
 from lib import util
 
-logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 USDPYG = util.USDPYG
 
@@ -26,18 +26,6 @@ total_balance += bond.capital / USDPYG if bond.currency == "PYG" else bond.capit
 #logging.debug(f"{bond.bond_id}: {bond.capital if bond.currency == 'USD' else bond.capital / USDPYG}")
 bond = fetch_if_not_cached("BOND-Telecel-1")
 logging.debug(bond.get_income())
-
-cd = fetch_if_not_cached("CD-PY-SUD-1777943")
-total_balance += cd.get_total_value(USDPYG)
-
-cd = fetch_if_not_cached("CD-PY-UENO-1")
-total_balance += cd.get_total_value(USDPYG)
-
-cd = fetch_if_not_cached("CD-PY-CONT-1")
-total_balance += cd.get_total_value(USDPYG)
-
-accounts = fetch_if_not_cached("CASH")
-total_balance += account.get_total_value(accounts, USDPYG)
 
 loan = fetch_if_not_cached("REC-Tania-1")
 amount, currency = loan.get_income()

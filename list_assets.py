@@ -10,8 +10,9 @@ from lib.gdrive import list_files_in_folder
 
 USDPYG = util.USDPYG
 
-logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+
 logging.debug("Listing files in Google Drive folder:")
 
 files = list_files_in_folder()
@@ -45,7 +46,7 @@ for k,v in items.items():
         nval /= USDPYG
     tpval += pval
     tnval += nval
-    logging.info(f"Positive value: {pval:,.2f} {k}, Negative value: {nval:,.2f} {k}")
+    logging.info(f"Positive value: {pval:,.2f}USD in {k}, Negative value: {nval:,.2f}USD in {k}")
 logging.info(f"Total positive value: {tpval:,.2f} USD, Total negative value: {tnval:,.2f} USD")
 logging.info(f"Total portfolio value: {tpval + tnval:,.2f} USD")
 

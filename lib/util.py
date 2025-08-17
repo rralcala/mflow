@@ -1,10 +1,5 @@
-from datetime import datetime, timedelta
-
-import logging
-import pickle
-from lib.gdrive import get_sheet_settings
-
 from croniter import croniter
+from datetime import datetime, timedelta
 
 FORMAT_STRING = "%m/%d/%Y"
 USDPYG = 7400
