@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 FORMAT_STRING = "%m/%d/%Y"
 USDPYG = 7400
 
+
 def count_cron_runs(cron_pattern: str, start_date: str, end_date: str) -> int:
     """
     Counts how many times a cron pattern runs between two dates.

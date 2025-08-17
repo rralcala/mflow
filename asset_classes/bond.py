@@ -8,8 +8,8 @@ from asset_classes.asset import Asset
 
 
 class Bond(Asset):
-    """Class representing a bond asset.
-    """
+    """Class representing a bond asset."""
+
     def __init__(
         self,
         bond_id: str,
@@ -61,7 +61,12 @@ def parse_bond(data: Dict[str, Any], sheet: str) -> Bond:
     payment_data = get_table(sheet, data["payment_schedule"])
     new_bond.payment_schedule = []
     for row in payment_data[1:]:
-        payment = {"seq": row[0], "date": row[1], "amount": float(row[2].replace(",", "")), "paid": row[3]}
+        payment = {
+            "seq": row[0],
+            "date": row[1],
+            "amount": float(row[2].replace(",", "")),
+            "paid": row[3],
+        }
         logging.debug(f"Payment: {payment}")
         new_bond.payment_schedule.append(payment)
 

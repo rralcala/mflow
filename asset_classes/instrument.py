@@ -1,4 +1,5 @@
 from typing import List, Tuple
+
 from asset_classes.asset import Asset
 from lib.gdrive import get_sheet_settings, get_table
 

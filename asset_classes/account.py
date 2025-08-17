@@ -1,4 +1,3 @@
-import logging
 from typing import List, Tuple
 
 from lib.gdrive import get_table, get_sheet_settings
@@ -42,6 +41,7 @@ class Account:
 
     def __repr__(self):
         return f"Account({self.account_id}, Balance: {self.balance}, Currency: {self.currency})"
+
     def __str__(self):
         return self.__repr__()
 
@@ -70,20 +70,22 @@ def parse_accounts(data: List[List[str]]) -> List[Account]:
 
     return parsed_accounts
 
+
 def get_total_value(accounts: List[Account], exchange: float) -> float:
     """
     Returns the total value of all accounts in USD.
     """
     total_value = 0.0
     for account in accounts:
-        
+
         if account.currency != "USD":
             value = account.get_balance() / exchange
         else:
             value = account.get_balance()
         total_value += value
-        #logging.debug(f"{account.institution} {account.account_id}: {value}")
+        # logging.debug(f"{account.institution} {account.account_id}: {value}")
     return total_value
+
 
 def fetch_accounts(sheet: str, worksheet: str):
     data = get_sheet_settings(sheet)
@@ -95,6 +97,7 @@ def fetch_accounts(sheet: str, worksheet: str):
     accounts = parse_accounts(ac_data)
     return accounts
 
+
 def print_accounts(accounts: List[Account]):
     """
     Function to print account information in a formatted way.
@@ -104,4 +107,6 @@ def print_accounts(accounts: List[Account]):
     print(f"{'Name':<30} {'Balance':<15} {'Currency':<10}")
 
     for account in accounts:
-        print(f"{account.account_id:<30} {account.balance:<15.2f} {account.currency:<10}")
+        print(
+            f"{account.account_id:<30} {account.balance:<15.2f} {account.currency:<10}"
+        )

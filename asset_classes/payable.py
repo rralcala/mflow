@@ -49,7 +49,9 @@ def parse_payables(data: List[List[str]]) -> List[Payable]:
     parsed_accounts: List[Payable] = []
     for row in data[1:]:  # Skip header row
         if len(row) < 5:
-            logging.error("Row {row} does not have enough columns to parse as a Payable.")
+            logging.error(
+                "Row {row} does not have enough columns to parse as a Payable."
+            )
         account = Payable(
             country=row[0],
             currency=row[1],

@@ -1,4 +1,3 @@
-
 from typing import List, Tuple
 from asset_classes.asset import Asset
 from lib.gdrive import get_table, get_sheet_settings
@@ -25,19 +24,16 @@ class Property(Asset):
         self.latest_price = latest_price
         self.rented_price = rented_price
 
-
-
     def get_income(self):
         """
         Returns the income from the property.
         """
         return self.rented_price, self.currency
-    
+
     def get_current_value(self) -> Tuple[float, str]:
-        """ Returns the current value of the property in its currency.
-        """
+        """Returns the current value of the property in its currency."""
         return self.latest_price, self.currency
-    
+
     def __repr__(self):
         return f"Property({self.property_id}, Latest Price: {self.latest_price}, Currency: {self.currency})"
 

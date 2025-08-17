@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import Tuple
 
+
 class Asset(ABC):
     """
     Abstract base class for all asset classes.
     """
+
     @abstractmethod
     def get_income(self) -> Tuple[float, str]:
         """

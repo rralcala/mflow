@@ -7,6 +7,7 @@ from asset_classes.bond import fetch_bond
 from asset_classes.cd import fetch_cd
 from lib.gdrive import get_sheet_settings
 
+
 def fetch_if_not_cached(sheet: str) -> Asset:
     """
     Fetches data from a sheet if not cached.
