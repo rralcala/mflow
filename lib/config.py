@@ -1,0 +1,2 @@
+DATE_FORMAT_STRING = "%m/%d/%Y"
+USDPYG = 7320.46

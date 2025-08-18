@@ -4,8 +4,7 @@ from typing import Tuple, List
 
 from asset_classes.asset import Asset
 from lib.gdrive import get_sheet_settings, get_table
-
-FORMAT_STRING = "%m/%d/%Y"
+from lib.config import DATE_FORMAT_STRING
 
 
 class Payable(Asset):
@@ -13,21 +12,28 @@ class Payable(Asset):
         self,
         country: str,
         currency: str,
-        description: str,
+        identifier: str,
         amount: float,
         due_date: str,
     ):
         self.country = country
         self.currency = currency
-        self.description = description
+        self.identifier = identifier
         self.amount = amount
         self.due_date = due_date
 
-    def get_income(self) -> Tuple[float, str]:
-        date = datetime.strptime(self.due_date, FORMAT_STRING)
-        if date.month == datetime.now().month and date.year == datetime.now().year:
+    def get_income(self, today: datetime) -> Tuple[float, str]:
+        date = datetime.strptime(self.due_date, DATE_FORMAT_STRING)
+        if date.month == today.month and date.year == today.year:
             return self.amount, self.currency
-        return 0.0, "USD"
+        return 0.0, self.currency
+
+    def get_liquid_balance(self) -> Tuple[float, str]:
+        """
+        Returns the liquid balance of the payable.
+        This method can be overridden by subclasses if needed.
+        """
+        return 0.0, self.currency
 
     def get_current_value(self) -> Tuple[float, str]:
         """
@@ -36,7 +42,7 @@ class Payable(Asset):
         return self.amount, self.currency
 
     def __repr__(self):
-        return f"Payable({self.country}, {self.currency}, {self.description}, {self.amount}, {self.due_date})"
+        return f"Payable({self.country}, {self.currency}, {self.identifier}, {self.amount}, {self.due_date})"
 
 
 def parse_payables(data: List[List[str]]) -> List[Payable]:
@@ -55,7 +61,7 @@ def parse_payables(data: List[List[str]]) -> List[Payable]:
         account = Payable(
             country=row[0],
             currency=row[1],
-            description=row[2],
+            identifier=row[2],
             amount=float(row[4].replace(",", "")),
             due_date=row[3],
         )

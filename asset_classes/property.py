@@ -1,4 +1,6 @@
 from typing import List, Tuple
+from datetime import datetime
+
 from asset_classes.asset import Asset
 from lib.gdrive import get_table, get_sheet_settings
 
@@ -10,7 +12,7 @@ class Property(Asset):
         self,
         country: str,
         currency: str,
-        property_id: str,
+        identifier: str,
         purchase_price: float,
         purchase_date: str,
         latest_price: float,
@@ -18,13 +20,13 @@ class Property(Asset):
     ):
         self.country = country
         self.currency = currency
-        self.property_id = property_id
+        self.identifier = identifier
         self.purchase_price = purchase_price
         self.purchase_date = purchase_date
         self.latest_price = latest_price
         self.rented_price = rented_price
 
-    def get_income(self):
+    def get_income(self, today: datetime) -> Tuple[float, str]:
         """
         Returns the income from the property.
         """
@@ -34,8 +36,15 @@ class Property(Asset):
         """Returns the current value of the property in its currency."""
         return self.latest_price, self.currency
 
+    def get_liquid_balance(self) -> Tuple[float, str]:
+        """
+        Returns the liquid balance of the property.
+        This method can be overridden by subclasses if needed.
+        """
+        return 0.0, self.currency
+
     def __repr__(self):
-        return f"Property({self.property_id}, Latest Price: {self.latest_price}, Currency: {self.currency})"
+        return f"Property({self.identifier}, Latest Price: {self.latest_price}, Currency: {self.currency})"
 
 
 def get_total_value(properties: List[Property], exchange: float) -> float:
@@ -46,10 +55,8 @@ def get_total_value(properties: List[Property], exchange: float) -> float:
     for property in properties:
         if property.currency == "PYG":
             total += property.latest_price / exchange
-            # logging.debug(f"{property.property_id} = {property.latest_price / USDPYG}")
         else:
             total += property.latest_price
-            # logging.debug(f"{property.property_id} = {property.latest_price}")
     return total
 
 
@@ -67,7 +74,7 @@ def parse_properties(data: List[List[str]]) -> List[Property]:
         account = Property(
             country=row[0],
             currency=row[1],
-            property_id=row[2],
+            identifier=row[2],
             purchase_price=float(row[3].replace(",", "")),
             purchase_date=row[4],
             latest_price=float(row[5].replace(",", "")),

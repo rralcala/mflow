@@ -1,16 +1,18 @@
+from datetime import datetime
 from typing import List, Tuple
 
+from asset_classes.asset import Asset
 from lib.gdrive import get_table, get_sheet_settings
 
 
-class Account:
+class Account(Asset):
     """Represents a financial account with its attributes and methods to manage deposits and withdrawals."""
 
     def __init__(
         self,
         country: str,
         institution: str,
-        account_id: str,
+        identifier: str,
         currency: str,
         balance: float,
         factor: float = 1.0,
@@ -18,7 +20,7 @@ class Account:
     ):
         self.country = country
         self.institution = institution
-        self.account_id = account_id
+        self.identifier = identifier
         self.currency = currency
         self.balance = balance
         self.factor = factor
@@ -39,8 +41,16 @@ class Account:
     def get_current_value(self) -> Tuple[float, str]:
         return (self.balance * self.factor), self.currency
 
+    def get_income(self, today: datetime) -> Tuple[float, str]:
+        return 0.0, self.currency
+    
+    def get_liquid_balance(self) -> Tuple[float, str]:
+        if self.account_type.lower() == "savings" or self.account_type.lower() == "checking":
+            return self.balance, self.currency
+        return 0.0, "USD"
+    
     def __repr__(self):
-        return f"Account({self.account_id}, Balance: {self.balance}, Currency: {self.currency})"
+        return f"Account({self.identifier}, Balance: {self.balance}, Currency: {self.currency})"
 
     def __str__(self):
         return self.__repr__()
@@ -60,7 +70,7 @@ def parse_accounts(data: List[List[str]]) -> List[Account]:
         account = Account(
             country=row[0],
             institution=row[1],
-            account_id=row[2],
+            identifier=row[2],
             currency=row[3],
             balance=float(row[4].replace(",", "")),
             factor=float(row[5].replace(",", "")),
@@ -83,7 +93,6 @@ def get_total_value(accounts: List[Account], exchange: float) -> float:
         else:
             value = account.get_balance()
         total_value += value
-        # logging.debug(f"{account.institution} {account.account_id}: {value}")
     return total_value
 
 
@@ -96,17 +105,3 @@ def fetch_accounts(sheet: str, worksheet: str):
     ac_data = get_table(sheet, worksheet)
     accounts = parse_accounts(ac_data)
     return accounts
-
-
-def print_accounts(accounts: List[Account]):
-    """
-    Function to print account information in a formatted way.
-
-    :param accounts: List of dictionaries containing account information.
-    """
-    print(f"{'Name':<30} {'Balance':<15} {'Currency':<10}")
-
-    for account in accounts:
-        print(
-            f"{account.account_id:<30} {account.balance:<15.2f} {account.currency:<10}"
-        )

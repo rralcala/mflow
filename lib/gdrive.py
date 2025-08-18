@@ -1,7 +1,10 @@
+import logging
 from pathlib import Path
+import time
 from typing import List, Dict, Any
 
 from gspread import service_account as gspread_service_account
+from gspread.exceptions import APIError
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 
@@ -17,6 +20,38 @@ FOLDER_ID = "1gIMkSpMDygnUH1C13hKHZi1VVF8FUzk5"
 client = gspread_service_account(SERVICE_ACCOUNT_FILE.absolute())
 
 
+def retry(times, exceptions):
+    """
+    Retry Decorator
+    Retries the wrapped function/method `times` times if the exceptions listed
+    in ``exceptions`` are thrown
+    :param times: The number of times to repeat the wrapped function/method
+    :type times: Int
+    :param Exceptions: Lists of exceptions that trigger a retry attempt
+    :type Exceptions: Tuple of Exceptions
+    """
+
+    def decorator(func):
+        def newfn(*args, **kwargs):
+            attempt = 0
+            while attempt < times:
+                try:
+                    return func(*args, **kwargs)
+                except exceptions:
+                    logging.error(
+                        "Exception thrown when attempting to run %s, attempt "
+                        "%d of %d" % (func, attempt, times)
+                    )
+                    time.sleep(60)  # Exponential backoff
+                    attempt += 1
+            return func(*args, **kwargs)
+
+        return newfn
+
+    return decorator
+
+
+@retry(3, (APIError,))
 def get_table(sheet: str, worksheet: str):
     """
     Function to retrieve data from a Google Sheet.
@@ -46,7 +81,7 @@ def get_dict(sheet: str, worksheet: str) -> Dict[str, Any]:
         result[row[0].lower()] = row[1]
     return result
 
-
+@retry(3, (APIError,))
 def get_sheet_settings(sheet: str) -> Dict[str, Any]:
     """
     Function to retrieve settings from a specific sheet.
