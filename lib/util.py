@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 from croniter import croniter
 
+
 def count_cron_runs(cron_pattern: str, start_date: datetime, end_date: datetime) -> int:
     """
     Counts how many times a cron pattern runs between two dates.

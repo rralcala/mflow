@@ -8,6 +8,7 @@ from asset_classes.asset import Asset
 
 FORMAT = "%m/%d/%Y"
 
+
 class Recurrent(Asset):
     """Represents a recurrent financial flow with its attributes and methods to calculate its value."""
 
@@ -63,10 +64,7 @@ class Recurrent(Asset):
 
         if start >= self.start_date and end <= self.maturity_date:
 
-            cash_flow = (
-                count_cron_runs(self.recurrence, start, end)
-                * self.amount
-            )
+            cash_flow = count_cron_runs(self.recurrence, start, end) * self.amount
         else:
             cash_flow = 0.0
         return cash_flow, self.currency
@@ -75,6 +73,7 @@ class Recurrent(Asset):
 def last_date_of_month(today: datetime) -> datetime:
     last_day = calendar.monthrange(today.year, today.month)[1]
     return today.replace(day=last_day)
+
 
 def parse_recurrent(data: Dict[str, Any]) -> Recurrent:
     """

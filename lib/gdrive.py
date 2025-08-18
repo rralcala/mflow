@@ -81,6 +81,7 @@ def get_dict(sheet: str, worksheet: str) -> Dict[str, Any]:
         result[row[0].lower()] = row[1]
     return result
 
+
 @retry(3, (APIError,))
 def get_sheet_settings(sheet: str) -> Dict[str, Any]:
     """

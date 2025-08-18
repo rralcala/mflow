@@ -1,5 +1,8 @@
+import argparse
 import logging
 from datetime import datetime
+
+import matplotlib.pyplot as plt
 
 from asset_classes.fetcher import fetch_if_not_cached
 from lib.gdrive import list_files_in_folder
@@ -9,12 +12,38 @@ TODAY = datetime.strptime("09/01/2025", "%m/%d/%Y")
 logging.basicConfig(level=logging.DEBUG)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-logging.debug("Listing files in Google Drive folder:")
+def balance_at_month(date, items):
+    totals = {"USD": 0.0, "PYG": 0.0}
+    for k, v in items.items():
+        #logging.info(f"{k}: {len(v)} assets")
+        for asset in v:
+            income = asset.get_income(date)
+            if income[0] != 0.0:
+                #logging.info(f"{income[0]:,.2f} {income[1]} from {asset.identifier}")
+                totals[k] += income[0]
 
+    return totals['USD'] + totals['PYG'] / USDPYG
+
+def calculate_balance(items) -> float:
+    totals = {"USD": 0.0, "PYG": 0.0}
+    for k, v in items.items():
+        for asset in v:
+            
+            income = asset.get_liquid_balance()
+            if income[0] != 0.0:
+                totals[k] += income[0]
+    return totals["USD"] + totals["PYG"] / USDPYG
+
+
+parser = argparse.ArgumentParser(description="Calculate cash flow.")
+parser.add_argument("-p", "--plot", action="store_true", help="Create chart.")
+args = parser.parse_args()
+
+logging.debug("Listing files in Google Drive folder:")
 files = list_files_in_folder()
+
 items = {"USD": [], "PYG": []}
 for file in files:
-    logging.debug(f"Fetching asset data for {file}")
     fetched = fetch_if_not_cached(file)
     if isinstance(fetched, list):
         for sub_item in fetched:
@@ -22,28 +51,26 @@ for file in files:
     else:
         items[fetched.currency].append(fetched)
 
-logging.info(f"Fetched {len(items)} assets:")
+balance = calculate_balance(items)
+x = []
+y = []
+AGE_57 = 24500
+for v in range(24308, 24360):
+    year = v // 12
+    month = v % 12 + 1
+    today = datetime(year, month, 1)
+    totals = balance_at_month(today, items)
+    balance += totals
+    if args.plot:
+        y.append(balance)
+        x.append(f"{year}-{month:02d}")
+    logging.info(f"{year}-{month} {year-1984}: {totals:,.2f} {balance:,.2f} USD")
 
-totals = {"USD": 0.0, "PYG": 0.0}
-for k, v in items.items():
-    logging.info(f"{k}: {len(v)} assets")
-    for asset in v:
-        income = asset.get_income(TODAY)
-        if income[0] != 0.0:
-            logging.info(f"{income[0]:,.2f} {income[1]} from {asset.identifier}")
-            totals[k] += income[0]
-logging.info(f"Total income in USD: {totals['USD']:,.2f} USD")
-logging.info(f"Total income in PYG: {totals['PYG']:,.2f} PYG")
-logging.info(f"Total income: {totals['USD'] + totals['PYG'] / USDPYG:,.2f}")
-logging.info("---###END###---")
-for k, v in items.items():
-    logging.info(f"{k}: {len(v)} assets")
-    for asset in v:
-        income = asset.get_liquid_balance()
-        if income[0] != 0.0:
-            logging.info(f"{income[0]:,.2f} {income[1]} from {asset.identifier}")
-            totals[k] += income[0]
-
-logging.info(f"Total EOM in USD: {totals['USD']:,.2f} USD")
-logging.info(f"Total EOM in PYG: {totals['PYG']:,.2f} PYG")
-logging.info(f"Total EOM: {totals['USD'] + totals['PYG'] / USDPYG:,.2f}")
+if args.plot:
+    logging.info("Plotting enabled.")
+    plt.plot(x, y)
+    plt.xticks(rotation=90)
+    plt.xlabel('Month')
+    plt.ylabel('Dollar Balance')
+    plt.title('Cash Flow Over Time')
+    plt.show()

@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple
 from datetime import datetime
 
+
 class Asset(ABC):
     """
     Abstract base class for all asset classes.

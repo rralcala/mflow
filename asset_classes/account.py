@@ -26,29 +26,20 @@ class Account(Asset):
         self.factor = factor
         self.account_type = account_type
 
-    def deposit(self, amount: float):
-        if amount > 0:
-            self.balance += amount
-            return True
-        return False
-
-    def withdraw(self, amount: float):
-        if 0 < amount <= self.balance:
-            self.balance -= amount
-            return True
-        return False
-
     def get_current_value(self) -> Tuple[float, str]:
         return (self.balance * self.factor), self.currency
 
     def get_income(self, today: datetime) -> Tuple[float, str]:
         return 0.0, self.currency
-    
+
     def get_liquid_balance(self) -> Tuple[float, str]:
-        if self.account_type.lower() == "savings" or self.account_type.lower() == "checking":
+        if (
+            self.account_type.lower() == "savings"
+            or self.account_type.lower() == "checking"
+        ):
             return self.balance, self.currency
         return 0.0, "USD"
-    
+
     def __repr__(self):
         return f"Account({self.identifier}, Balance: {self.balance}, Currency: {self.currency})"
 
@@ -79,22 +70,6 @@ def parse_accounts(data: List[List[str]]) -> List[Account]:
         parsed_accounts.append(account)
 
     return parsed_accounts
-
-
-def get_total_value(accounts: List[Account], exchange: float) -> float:
-    """
-    Returns the total value of all accounts in USD.
-    """
-    total_value = 0.0
-    for account in accounts:
-
-        if account.currency != "USD":
-            value = account.get_balance() / exchange
-        else:
-            value = account.get_balance()
-        total_value += value
-    return total_value
-
 
 def fetch_accounts(sheet: str, worksheet: str):
     data = get_sheet_settings(sheet)

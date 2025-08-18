@@ -1,7 +1,6 @@
 import logging
 
 from asset_classes.fetcher import fetch_if_not_cached
-from asset_classes import account
 from lib.config import USDPYG
 from lib.gdrive import list_files_in_folder
 
@@ -10,8 +9,8 @@ logging.basicConfig(level=logging.DEBUG)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 logging.debug("Listing files in Google Drive folder:")
-
 files = list_files_in_folder()
+
 items = {"USD": [], "PYG": []}
 for file in files:
     logging.debug(f"Fetching asset data for {file}")
