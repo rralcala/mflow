@@ -60,7 +60,7 @@ class DepositCertificate(Asset):
         return total, self.currency
 
 
-def fetch_cd(sheet: str) -> DepositCertificate:
+def fetch(sheet: str) -> DepositCertificate:
     data = get_sheet_settings(sheet)
 
     if "itype" not in data or data["itype"] != "CD":

@@ -96,7 +96,7 @@ def parse_recurrent(data: Dict[str, Any]) -> Recurrent:
     return new_bond
 
 
-def fetch_recurrent(sheet: str) -> Recurrent:
+def fetch(sheet: str) -> Recurrent:
     data = get_sheet_settings(sheet)
     if "itype" not in data or data["itype"].lower() != "recurrent":
         raise ValueError("The first cell of the Summary sheet must be 'itype' and the")

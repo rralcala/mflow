@@ -85,7 +85,7 @@ def parse_properties(data: List[List[str]]) -> List[Property]:
     return parsed_accounts
 
 
-def fetch_properties(sheet: str) -> List[Property]:
+def fetch(sheet: str) -> List[Property]:
     sheet_settings = get_sheet_settings(sheet)
 
     if "itype" not in sheet_settings or sheet_settings["itype"].lower() != "property":

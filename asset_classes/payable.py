@@ -71,7 +71,7 @@ def parse_payables(data: List[List[str]]) -> List[Payable]:
     return parsed_accounts
 
 
-def fetch_payables(sheet: str) -> List[Payable]:
+def fetch(sheet: str) -> List[Payable]:
     sheet_settings = get_sheet_settings(sheet)
 
     if "itype" not in sheet_settings or sheet_settings["itype"].lower() != "payable":

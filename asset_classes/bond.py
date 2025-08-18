@@ -87,7 +87,7 @@ def parse_bond(data: Dict[str, Any], sheet: str) -> Bond:
     return new_bond
 
 
-def fetch_bond(sheet: str) -> Bond:
+def fetch(sheet: str) -> Bond:
     data = get_sheet_settings(sheet)
     if "itype" not in data or data["itype"].lower() != "bond":
         raise ValueError("The first cell of the Summary sheet must be 'Type' and the")

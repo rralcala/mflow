@@ -71,7 +71,7 @@ def parse_accounts(data: List[List[str]]) -> List[Account]:
 
     return parsed_accounts
 
-def fetch_accounts(sheet: str, worksheet: str):
+def fetch(sheet: str, worksheet: str):
     data = get_sheet_settings(sheet)
 
     if "itype" not in data or data["itype"].lower() != "cash":

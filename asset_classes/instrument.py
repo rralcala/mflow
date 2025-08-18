@@ -61,7 +61,7 @@ def get_total_value(assets: List[Instrument]) -> float:
     return total
 
 
-def fetch_portfolio(sheet: str) -> List[Instrument]:
+def fetch(sheet: str) -> List[Instrument]:
     sheet_settings = get_sheet_settings(sheet)
 
     if "itype" not in sheet_settings or sheet_settings["itype"].lower() != "portfolio":

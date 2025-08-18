@@ -3,8 +3,7 @@ import pickle
 
 from asset_classes.asset import Asset
 from asset_classes import account, instrument, recurrent, property, payable
-from asset_classes.bond import fetch_bond
-from asset_classes.cd import fetch_cd
+from asset_classes import cd, bond
 from lib.gdrive import get_sheet_settings
 
 
@@ -20,19 +19,19 @@ def fetch_if_not_cached(sheet: str) -> Asset:
         data = get_sheet_settings(sheet)
         itype = data.get("itype").lower()
         if itype == "cd":
-            item = fetch_cd(sheet)
+            item = cd.fetch(sheet)
         elif itype == "cash":
-            item = account.fetch_accounts(sheet, "Accounts")
+            item = account.fetch(sheet, "Accounts")
         elif itype == "recurrent":
-            item = recurrent.fetch_recurrent(sheet)
+            item = recurrent.fetch(sheet)
         elif itype == "property":
-            item = property.fetch_properties(sheet)
+            item = property.fetch(sheet)
         elif itype == "bond":
-            item = fetch_bond(sheet)
+            item = bond.fetch(sheet)
         elif itype == "portfolio":
-            item = instrument.fetch_portfolio(sheet)
+            item = instrument.fetch(sheet)
         elif itype == "payable":
-            item = payable.fetch_payables(sheet)
+            item = payable.fetch(sheet)
         else:
             raise ValueError(f"Unknown type: {itype}")
         with open(path, "wb") as f:
