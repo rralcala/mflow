@@ -36,5 +36,5 @@ def fetch_if_not_cached(sheet: str) -> Asset:
             raise ValueError(f"Unknown type: {itype}")
         with open(path, "wb") as f:
             pickle.dump(item, f)
-    logging.info(f"Loaded: {item}")
+    logging.debug(f"Loaded: {item}")
     return item

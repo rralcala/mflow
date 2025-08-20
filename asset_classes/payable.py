@@ -15,12 +15,14 @@ class Payable(Asset):
         identifier: str,
         amount: float,
         due_date: str,
+        commited: bool
     ):
         self.country = country
         self.currency = currency
         self.identifier = identifier
         self.amount = amount
         self.due_date = due_date
+        self.commited = commited
 
     def get_income(self, today: datetime) -> Tuple[float, str]:
         date = datetime.strptime(self.due_date, DATE_FORMAT_STRING)
@@ -39,7 +41,10 @@ class Payable(Asset):
         """
         Returns the value of the payable in its currency.
         """
-        return self.amount, self.currency
+        if self.commited:
+            return self.amount, self.currency
+        else:
+            return 0.0, self.currency
 
     def __repr__(self):
         return f"Payable({self.country}, {self.currency}, {self.identifier}, {self.amount}, {self.due_date})"
@@ -54,7 +59,7 @@ def parse_payables(data: List[List[str]]) -> List[Payable]:
     """
     parsed_accounts: List[Payable] = []
     for row in data[1:]:  # Skip header row
-        if len(row) < 5:
+        if len(row) < 6:
             logging.error(
                 "Row {row} does not have enough columns to parse as a Payable."
             )
@@ -64,6 +69,7 @@ def parse_payables(data: List[List[str]]) -> List[Payable]:
             identifier=row[2],
             amount=float(row[4].replace(",", "")),
             due_date=row[3],
+            commited=row[5].strip() == "1"
         )
         logging.debug(f"Parsed Payable: {account}")
         parsed_accounts.append(account)

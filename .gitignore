@@ -1,3 +1,5 @@
 __pycache__
+history.csv
 key.json
 cache/*.pkl
+crypto_key.json

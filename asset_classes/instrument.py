@@ -3,6 +3,7 @@ from typing import List, Tuple
 
 from asset_classes.asset import Asset
 from lib.gdrive import get_sheet_settings, get_table
+from lib.util import get_crypto_price
 
 
 class Instrument(Asset):
@@ -35,6 +36,8 @@ class Instrument(Asset):
         """
         Returns the value of the asset in USD.
         """
+        if self.symbol == "CROUSD":
+            self.price, self.currency = get_crypto_price("CROUSD")
         return self.qty * self.price * self.factor, self.currency
 
     def get_income(self, today: datetime) -> Tuple[float, str]:
