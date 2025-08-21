@@ -20,6 +20,8 @@ class Instrument(Asset):
         rate: float,
         dividend: str,
         currency: str,
+        acquisition_date: datetime,
+        acquisition_price: float
     ):
         self.symbol = symbol
         self.identifier = f"{location}_{symbol}"
@@ -31,6 +33,8 @@ class Instrument(Asset):
         self.estimated_dividend = estimated_dividend
         self.rate = rate
         self.dividend = dividend
+        self.acquisition_date = acquisition_date
+        self.acquisition_price = acquisition_price
 
     def get_current_value(self) -> Tuple[float, str]:
         """
@@ -101,6 +105,8 @@ def parse_portfolio(data: List[List[str]]) -> List[Instrument]:
             estimated_dividend=float(row[8].replace(",", "")),
             rate=float(row[7].replace("%", "")) / 100,
             currency=row[9],
+            acquisition_date=datetime.strptime(row[10], DATE_FORMAT_STRING),
+            acquisition_price=float(row[11].replace(",", ""))
         )
         if len(row) < 10:
             continue  # Skip rows that do not have enough columns
