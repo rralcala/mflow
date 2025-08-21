@@ -1,10 +1,10 @@
-from datetime import datetime
 import logging
-from typing import List, Dict, Any, Tuple
+from datetime import datetime
+from typing import Any, Dict, List, Tuple
 
 from asset_classes.asset import Asset
 from lib.gdrive import get_sheet_settings, get_table
-
+from lib.config import DATE_FORMAT_STRING
 
 class DepositCertificate(Asset):
     """Represents a financial asset with its attributes and methods to calculate its value."""
@@ -48,6 +48,9 @@ class DepositCertificate(Asset):
 
     def get_income(self, today: datetime) -> Tuple[float, str]:
         total = 0.0
+        maturity_date = datetime.strptime(self.maturity, DATE_FORMAT_STRING)
+        if maturity_date.month == today.month and maturity_date.year == today.year:
+            total += self.capital
         for d in self.interest_schedule:
             date = datetime.strptime(d["date"], "%m/%d/%Y")
             if (
@@ -58,6 +61,9 @@ class DepositCertificate(Asset):
                 total += d["amount"]
 
         return total, self.currency
+
+    def get_currency(self) -> str:
+        return self.currency
 
 
 def fetch(sheet: str) -> DepositCertificate:

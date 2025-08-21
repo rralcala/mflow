@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Tuple
 
 from asset_classes.asset import Asset
-from lib.gdrive import get_table, get_sheet_settings
+from lib.gdrive import get_sheet_settings, get_table
 
 
 class Account(Asset):
@@ -40,6 +40,9 @@ class Account(Asset):
             return self.balance, self.currency
         return 0.0, "USD"
 
+    def get_currency(self) -> str:
+        return self.currency
+
     def __repr__(self):
         return f"Account({self.identifier}, Balance: {self.balance}, Currency: {self.currency})"
 
@@ -70,6 +73,7 @@ def parse_accounts(data: List[List[str]]) -> List[Account]:
         parsed_accounts.append(account)
 
     return parsed_accounts
+
 
 def fetch(sheet: str, worksheet: str):
     data = get_sheet_settings(sheet)

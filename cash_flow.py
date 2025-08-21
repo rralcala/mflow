@@ -5,13 +5,14 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 
 from asset_classes.fetcher import fetch_if_not_cached
-from lib.gdrive import list_files_in_folder
 from lib.config import USDPYG
+from lib.gdrive import list_files_in_folder
 
 TODAY = datetime.strptime("09/01/2025", "%m/%d/%Y")
 logging.basicConfig(level=logging.DEBUG)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger("matplotlib.font_manager").setLevel(logging.WARNING)
+
 
 def balance_at_month(date, items):
     totals = {"USD": 0.0, "PYG": 0.0}
@@ -21,7 +22,8 @@ def balance_at_month(date, items):
             if income[0] != 0.0:
                 totals[k] += income[0]
 
-    return totals['USD'] + totals['PYG'] / USDPYG
+    return totals["USD"] + totals["PYG"] / USDPYG
+
 
 def calculate_balance(items) -> float:
     totals = {"USD": 0.0, "PYG": 0.0}
@@ -53,7 +55,7 @@ balance = calculate_balance(items)
 x = []
 y = []
 AGE_57 = (1984 + 57) * 12 + 8
-for v in range(24308, (2029*12)):
+for v in range(24308, (2031 * 12)):
     year = v // 12
     month = v % 12 + 1
     today = datetime(year, month, 1)
@@ -72,8 +74,8 @@ if args.plot:
     logging.info("Plotting enabled.")
     plt.plot(x, y)
     plt.xticks(rotation=90)
-    plt.hlines(y=0, xmin=x[0], xmax=x[-1], colors='red', linestyles='dashed')
-    plt.xlabel('Month')
-    plt.ylabel('Dollar Balance')
-    plt.title('Cash Flow Over Time')
+    plt.hlines(y=0, xmin=x[0], xmax=x[-1], colors="red", linestyles="dashed")
+    plt.xlabel("Month")
+    plt.ylabel("Dollar Balance")
+    plt.title("Cash Flow Over Time")
     plt.show()

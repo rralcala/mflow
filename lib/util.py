@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta
 from typing import Tuple
-import requests
 
+import requests
 from croniter import croniter
+
+CRYPTO_PUBLIC_API = "https://api.crypto.com/exchange/v1/public"
 
 
 def count_cron_runs(cron_pattern: str, start_date: datetime, end_date: datetime) -> int:
@@ -20,13 +22,15 @@ def count_cron_runs(cron_pattern: str, start_date: datetime, end_date: datetime)
         next_run = run_iter.get_next(datetime)
     return count
 
+
 def get_crypto_price(crypto_symbol: str) -> Tuple[float, str]:
     """
     Fetches the current price of a cryptocurrency.
     This is a placeholder function and should be implemented with actual API calls.
     """
-    url = f"https://api.crypto.com/exchange/v1/public/get-valuations?instrument_name={crypto_symbol}-INDEX&valuation_type=index_price&count=1"
-    response = requests.get(url)
-    
+    url = f"{CRYPTO_PUBLIC_API}/get-valuations?instrument_name={crypto_symbol}-INDEX&valuation_type=index_price&count=1"
+    response = requests.get(url, timeout=10)
+
     if "result" in response.json():
         return float(response.json()["result"]["data"][0]["v"]), "USD"
+    return 0.0, "USD"

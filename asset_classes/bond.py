@@ -1,12 +1,10 @@
-from datetime import datetime
 import logging
-
-from typing import Dict, Any, List, Tuple
-
-from lib.gdrive import get_sheet_settings, get_table
+from datetime import datetime
+from typing import Any, Dict, List, Tuple
 
 from asset_classes.asset import Asset
-
+from lib.gdrive import get_sheet_settings, get_table
+from lib.config import DATE_FORMAT_STRING
 
 class Bond(Asset):
     """Class representing a bond asset."""
@@ -35,6 +33,9 @@ class Bond(Asset):
         This method can be overridden by subclasses if needed.
         """
         total = 0.0
+        maturity_datetime = datetime.strptime(self.maturity_date, DATE_FORMAT_STRING)
+        if maturity_datetime.month == today.month and maturity_datetime.year == today.year:
+            total += self.capital
         for d in self.payment_schedule:
             date = datetime.strptime(d["date"], "%m/%d/%Y")
             if (
@@ -53,6 +54,9 @@ class Bond(Asset):
         This method can be overridden by subclasses if needed.
         """
         return self.capital, self.currency
+
+    def get_currency(self) -> str:
+        return self.currency
 
     def __repr__(self):
         return f"Bond ID: {self.identifier}, Face Value: {self.capital}, Interest Rate: {self.interest_rate}, Maturity Date: {self.maturity_date}"

@@ -1,10 +1,10 @@
-from datetime import datetime
 import logging
-from typing import Tuple, List
+from datetime import datetime
+from typing import List, Tuple
 
 from asset_classes.asset import Asset
-from lib.gdrive import get_sheet_settings, get_table
 from lib.config import DATE_FORMAT_STRING
+from lib.gdrive import get_sheet_settings, get_table
 
 
 class Payable(Asset):
@@ -15,7 +15,7 @@ class Payable(Asset):
         identifier: str,
         amount: float,
         due_date: str,
-        commited: bool
+        commited: bool,
     ):
         self.country = country
         self.currency = currency
@@ -46,6 +46,9 @@ class Payable(Asset):
         else:
             return 0.0, self.currency
 
+    def get_currency(self) -> str:
+        return self.currency
+
     def __repr__(self):
         return f"Payable({self.country}, {self.currency}, {self.identifier}, {self.amount}, {self.due_date})"
 
@@ -69,7 +72,7 @@ def parse_payables(data: List[List[str]]) -> List[Payable]:
             identifier=row[2],
             amount=float(row[4].replace(",", "")),
             due_date=row[3],
-            commited=row[5].strip() == "1"
+            commited=row[5].strip() == "1",
         )
         logging.debug(f"Parsed Payable: {account}")
         parsed_accounts.append(account)

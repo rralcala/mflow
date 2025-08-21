@@ -1,12 +1,12 @@
 import logging
-from pathlib import Path
 import time
-from typing import List, Dict, Any
+from pathlib import Path
+from typing import Any, Dict, List
 
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 from gspread import service_account as gspread_service_account
 from gspread.exceptions import APIError
-from googleapiclient.discovery import build
-from google.oauth2 import service_account
 
 SERVICE_ACCOUNT_FILE = Path("./key.json")
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
@@ -39,8 +39,10 @@ def retry(times, exceptions):
                     return func(*args, **kwargs)
                 except exceptions:
                     logging.error(
-                        "Exception thrown when attempting to run %s, attempt "
-                        "%d of %d" % (func, attempt, times)
+                        "Exception thrown when attempting to run %s, attempt %d of %d",
+                        func,
+                        attempt,
+                        times,
                     )
                     time.sleep(60)  # Exponential backoff
                     attempt += 1
@@ -94,6 +96,8 @@ def get_sheet_settings(sheet: str) -> Dict[str, Any]:
 
 
 def list_files_in_folder() -> List[str]:
+    """
+    Lists all files in a specific Google Drive folder."""
     # Authenticate and build the service
     creds = service_account.Credentials.from_service_account_file(
         SERVICE_ACCOUNT_FILE, scopes=SCOPES

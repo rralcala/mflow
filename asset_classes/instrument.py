@@ -4,7 +4,7 @@ from typing import List, Tuple
 from asset_classes.asset import Asset
 from lib.gdrive import get_sheet_settings, get_table
 from lib.util import get_crypto_price
-
+from lib.config import DATE_FORMAT_STRING
 
 class Instrument(Asset):
     """Represents a financial asset with its attributes and methods to calculate its value."""
@@ -38,6 +38,8 @@ class Instrument(Asset):
         """
         if self.symbol == "CROUSD":
             self.price, self.currency = get_crypto_price("CROUSD")
+        elif self.symbol == "BTCUSD":
+            self.price, self.currency = get_crypto_price("BTCUSD")
         return self.qty * self.price * self.factor, self.currency
 
     def get_income(self, today: datetime) -> Tuple[float, str]:
@@ -50,6 +52,9 @@ class Instrument(Asset):
     def get_liquid_balance(self) -> Tuple[float, str]:
         return 0.0, self.currency
 
+    def get_currency(self) -> str:
+        return self.currency
+
     def __repr__(self):
         return f"Asset(symbol={self.symbol}, value={self.get_current_value()[0]}, currency={self.currency}, location={self.location})"
 
@@ -60,7 +65,8 @@ def get_total_value(assets: List[Instrument]) -> float:
     """
     total = 0.0
     for asset in assets:
-        total += asset.get_current_value()
+        value, _ = asset.get_current_value()
+        total += value
     return total
 
 

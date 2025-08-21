@@ -1,8 +1,8 @@
-from typing import List, Tuple
 from datetime import datetime
+from typing import List, Tuple
 
 from asset_classes.asset import Asset
-from lib.gdrive import get_table, get_sheet_settings
+from lib.gdrive import get_sheet_settings, get_table
 
 
 class Property(Asset):
@@ -42,6 +42,9 @@ class Property(Asset):
         This method can be overridden by subclasses if needed.
         """
         return 0.0, self.currency
+
+    def get_currency(self) -> str:
+        return self.currency
 
     def __repr__(self):
         return f"Property({self.identifier}, Latest Price: {self.latest_price}, Currency: {self.currency})"
