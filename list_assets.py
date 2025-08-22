@@ -93,26 +93,40 @@ items = fetch_assets(files)
 logging.debug("Fetched %i assets:", len(items))
 tpval = 0.0
 tnval = 0.0
+returns = []
 for k, sub in items.items():
     pval = 0.0
     nval = 0.0
     for asset in sub:
-        curval, currency = asset.get_current_value()
-        if curval > 0:
+        current_value, currency = asset.get_current_value()
+        currval, current_return = asset.get_returns()
+        if current_value != currval:
+            logging.error(
+                "Current value %s does not match returns value %s for asset %s",
+                current_value,
+                currval,
+                asset.identifier,
+            )
+        if k == "PYG":
+            returns.append([current_value / USDPYG, current_return, asset.identifier])
+        else:
+            returns.append([current_value, current_return, asset.identifier])
+
+        if current_value > 0:
             if args.print_pos:
                 logging.info(
                     "Positive asset found: %s with value %s %s",
                     asset.identifier,
-                    f"{curval:,.0f}",
+                    f"{current_value:,.0f}",
                     currency,
                 )
-            pval += curval
-        elif curval < 0:
+            pval += current_value
+        elif current_value < 0:
             if args.print_neg:
                 logging.info(
-                    f"Negative asset found: {asset.identifier} with value {curval:,.0f} {currency}"
+                    f"Negative asset found: {asset.identifier} with value {current_value:,.0f} {currency}"
                 )
-            nval += curval
+            nval += current_value
 
     if k == "PYG":
         pval /= USDPYG
@@ -125,10 +139,16 @@ for k, sub in items.items():
         )
 
 if not args.check_history:
+    ret = 0.0
+    grand_total = tpval + tnval
+    for current_value, current_return, asset_id in returns:
+        tret = (current_value / grand_total) * current_return
+        ret += tret
     logging.info(
         f"Total positive value: {tpval:,.2f} USD, Total negative value: {tnval:,.2f} USD"
     )
-    logging.info(f"Total portfolio value: {tpval + tnval:,.2f} USD")
+    logging.info(f"Total portfolio value: {grand_total:,.2f} USD {ret*100:,.2f}% annualized return")
+
 else:
-    logging.info("History")
+    logging.info("Generating History")
     check_history(tpval, tnval)

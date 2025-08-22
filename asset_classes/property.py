@@ -3,7 +3,7 @@ from typing import List, Tuple
 
 from asset_classes.asset import Asset
 from lib.gdrive import get_sheet_settings, get_table
-
+from lib.config import DATE_FORMAT_STRING, YEAR
 
 class Property(Asset):
     """Represents a property asset with its attributes and methods to calculate its value."""
@@ -45,6 +45,19 @@ class Property(Asset):
 
     def get_currency(self) -> str:
         return self.currency
+
+    def get_returns(self) -> Tuple[float, float]:
+        """
+        Returns the current value and the annualized return of the asset.
+        """
+        holding_period_days = (datetime.now() - datetime.strptime(self.purchase_date, DATE_FORMAT_STRING)).days
+        if holding_period_days > YEAR:
+            holding_period_years = holding_period_days / YEAR
+            annualized_return = ((self.latest_price / self.purchase_price) - 1) / holding_period_years 
+        else:
+            annualized_return = (self.latest_price / self.purchase_price) - 1
+        # Assuming rented_price is the mothly rental income
+        return self.get_current_value()[0], annualized_return + (self.rented_price * 12 / self.latest_price)
 
     def __repr__(self):
         return f"Property({self.identifier}, Latest Price: {self.latest_price}, Currency: {self.currency})"

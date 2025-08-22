@@ -13,22 +13,22 @@ class DepositCertificate(Asset):
         self,
         identifier: str,
         capital: float,
-        rate: float,
         currency: str,
         maturity: str,
         country: str,
         itype: str,
         entity: str,
+        interest_rate: float,
         interest_schedule: List[Dict[str, Any]],
     ):
         self.identifier = identifier
         self.capital = capital
         self.currency = currency
-        self.rate = rate
         self.maturity = maturity
         self.country = country
         self.type = itype
         self.entity = entity
+        self.interest_rate = interest_rate
         self.interest_schedule: List[Dict[str, Any]] = interest_schedule
 
     def get_current_value(self) -> Tuple[float, str]:
@@ -42,6 +42,9 @@ class DepositCertificate(Asset):
             f"DepositCertificate(entity={self.identifier},"
             f" capital={self.capital}, currency={self.currency})"
         )
+
+    def get_returns(self) -> Tuple[float, float]:
+        return self.capital, self.interest_rate
 
     def get_liquid_balance(self) -> Tuple[float, str]:
         return 0.0, self.currency
@@ -84,16 +87,18 @@ def fetch(sheet: str) -> DepositCertificate:
                 "paid": row[3],
             }
         )
-
-    cd = DepositCertificate(
-        identifier=data["identifier"],
-        capital=float(data["capital"].replace(",", "")),
-        currency=data["currency"],
-        rate=float(data["rate"].replace("%", "")) / 100,
-        maturity=data["maturity"],
-        country=data["country"],
-        itype=data["itype"],
-        entity=data["entity"],
-        interest_schedule=interest,
-    )
+    try:
+        cd = DepositCertificate(
+            identifier=data["identifier"],
+            capital=float(data["capital"].replace(",", "")),
+            currency=data["currency"],
+            interest_rate=float(data["rate"].replace("%", "")) / 100,
+            maturity=data["maturity"],
+            country=data["country"],
+            itype=data["itype"],
+            entity=data["entity"],
+            interest_schedule=interest,
+        )
+    except KeyError as e:
+        raise ValueError(f"Missing required field in sheet {sheet}: {e}")
     return cd

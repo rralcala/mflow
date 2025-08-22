@@ -18,6 +18,8 @@ def fetch_if_not_cached(sheet: str) -> Asset | Sequence[Asset]:
     if os.path.exists(path):
         with open(path, "rb") as f:
             item = pickle.load(f)
+            if isinstance(item, instrument.Instrument):
+                item.need_update = True
     else:
         data = get_sheet_settings(sheet)
         itype = data.get("itype", "").lower()

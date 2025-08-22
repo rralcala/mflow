@@ -44,6 +44,9 @@ class Recurrent(Asset):
             return paid_amount, self.currency
         return 0.0, "USD"
 
+    def get_returns(self) -> Tuple[float, float]:
+        return self.get_current_value()[0], 0.0
+
     def __repr__(self):
         return f"Recurrent ID: {self.identifier}, Class: {self.flow_class}, Face Value: {self.amount}, Maturity Date: {self.maturity_date}"
 

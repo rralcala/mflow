@@ -43,6 +43,9 @@ class Account(Asset):
     def get_currency(self) -> str:
         return self.currency
 
+    def get_returns(self) -> Tuple[float, float]:
+        return self.balance * self.factor, 0.0
+
     def __repr__(self):
         return f"Account({self.identifier}, Balance: {self.balance}, Currency: {self.currency})"
 

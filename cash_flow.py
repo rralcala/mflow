@@ -55,7 +55,7 @@ balance = calculate_balance(items)
 x = []
 y = []
 AGE_57 = (1984 + 57) * 12 + 8
-for v in range(24308, (2031 * 12)):
+for v in range(24307, (2031 * 12)):
     year = v // 12
     month = v % 12 + 1
     today = datetime(year, month, 1)

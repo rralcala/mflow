@@ -49,6 +49,11 @@ class Payable(Asset):
     def get_currency(self) -> str:
         return self.currency
 
+    def get_returns(self) -> Tuple[float, float]:
+        if self.commited:
+            return self.amount, 0.0
+        return 0.0, 0.0
+
     def __repr__(self):
         return f"Payable({self.country}, {self.currency}, {self.identifier}, {self.amount}, {self.due_date})"
 

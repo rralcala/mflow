@@ -6,6 +6,7 @@ from lib.gdrive import get_sheet_settings, get_table
 from lib.util import get_crypto_price
 from lib.config import DATE_FORMAT_STRING
 
+
 class Instrument(Asset):
     """Represents a financial asset with its attributes and methods to calculate its value."""
 
@@ -35,15 +36,17 @@ class Instrument(Asset):
         self.dividend = dividend
         self.acquisition_date = acquisition_date
         self.acquisition_price = acquisition_price
+        self.need_update = True
 
     def get_current_value(self) -> Tuple[float, str]:
         """
         Returns the value of the asset in USD.
         """
-        if self.symbol == "CROUSD":
+        if self.need_update  and self.symbol == "CROUSD":
             self.price, self.currency = get_crypto_price("CROUSD")
-        elif self.symbol == "BTCUSD":
+        elif self.need_update  and self.symbol == "BTCUSD":
             self.price, self.currency = get_crypto_price("BTCUSD")
+        self.need_update = False
         return self.qty * self.price * self.factor, self.currency
 
     def get_income(self, today: datetime) -> Tuple[float, str]:
@@ -58,7 +61,19 @@ class Instrument(Asset):
 
     def get_currency(self) -> str:
         return self.currency
-
+    
+    def get_returns(self) -> Tuple[float, float]:
+        """
+        Returns the current value and the annualized return of the asset.
+        """
+        holding_period_days = (datetime.now() - self.acquisition_date).days
+        if holding_period_days > 365.25:
+            holding_period_years = holding_period_days / 365.25
+            annualized_return = ((self.price / self.acquisition_price) - 1) / holding_period_years
+        else:
+            annualized_return = (self.price / self.acquisition_price) - 1
+        return self.get_current_value()[0], annualized_return + self.rate
+    
     def __repr__(self):
         return f"Asset(symbol={self.symbol}, value={self.get_current_value()[0]}, currency={self.currency}, location={self.location})"
 
