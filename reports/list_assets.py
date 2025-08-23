@@ -100,19 +100,4 @@ def list_assets(print_pos: bool, print_neg: bool):
         logging.info(
         f"Positive value: {pval:,.2f}USD in {k}, Negative value: {nval:,.2f}USD in {k}"
     )
-    return tpval, tnval
-
-
-
-    ret = 0.0
-    grand_total = tpval + tnval
-    for current_value, current_return, _ in returns:
-        tret = (current_value / grand_total) * current_return
-        ret += tret
-    logging.info(
-    f"Total positive value: {tpval:,.2f} USD, Total negative value: {tnval:,.2f} USD"
-)
-    logging.info(
-    f"Total portfolio value: {grand_total:,.2f} USD {ret*100:,.2f}% annualized return"
-)
-
+    return tpval, tnval, returns

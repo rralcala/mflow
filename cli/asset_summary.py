@@ -8,6 +8,7 @@ import argparse
 import logging
 
 from reports.list_assets import list_assets
+from lib.util import config_logging
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calculate cash flow.")
@@ -19,11 +20,18 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
+    config_logging(args.debug)
 
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    tpval, tnval, returns = list_assets(args.print_pos, args.print_neg)
 
-    list_assets(args.print_pos, args.print_neg)
+    ret = 0.0
+    grand_total = tpval + tnval
+    for current_value, current_return, _ in returns:
+        tret = (current_value / grand_total) * current_return
+        ret += tret
+    logging.info(
+    f"Total positive value: {tpval:,.2f} USD, Total negative value: {tnval:,.2f} USD"
+)
+    logging.info(
+    f"Total portfolio value: {grand_total:,.2f} USD {ret*100:,.2f}% annualized return"
+)

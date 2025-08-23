@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import logging
 
 from croniter import croniter
 
@@ -17,3 +18,12 @@ def count_cron_runs(cron_pattern: str, start_date: datetime, end_date: datetime)
         count += 1
         next_run = run_iter.get_next(datetime)
     return count
+
+def config_logging(debug: bool):
+    logging.basicConfig(
+        level=logging.DEBUG if debug else logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+    )
+
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("matplotlib").setLevel(logging.WARNING)

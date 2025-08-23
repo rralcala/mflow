@@ -10,13 +10,15 @@ import logging
 import matplotlib.pyplot as plt
 
 from reports.cash_flow import cash_flow
+from lib.util import config_logging
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Calculate cash flow.")
     parser.add_argument("-p", "--plot", action="store_true", help="Create chart.")
+    parser.add_argument("-d", "--debug", action="store_true", help="Debug logging.")
     parser.add_argument(
-        "-d",
+        "-s",
         "--date",
         type=str,
         default="09/01/2025",
@@ -24,10 +26,11 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    config_logging(args.debug)
+
     x, y = cash_flow()
 
     if args.plot:
-        logging.info("Plotting Cash Flow Over Time.")
         plt.plot(x, y)
         plt.xticks(rotation=90)
         plt.hlines(y=0, xmin=x[0], xmax=x[-1], colors="red", linestyles="dashed")

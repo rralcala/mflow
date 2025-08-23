@@ -5,25 +5,20 @@ project_root = os.path.join(script_dir, '..')
 sys.path.insert(0, project_root)
 
 import argparse
-import logging
 
 import matplotlib.pyplot as plt
 
 from reports.list_assets import check_history, list_assets
+from lib.util import config_logging
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calculate cash flow.")
     parser.add_argument("-d", "--debug", action="store_true", help="Debug logging.")
     parser.add_argument("-p", "--plot", action="store_true", help="Create chart.")
-
     args = parser.parse_args()
 
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
+    config_logging(args.debug)
 
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
     tpval, tnval = list_assets(False, False)
     x, y = check_history(tpval, tnval)
     if args.plot:
