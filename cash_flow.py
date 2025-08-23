@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 from asset_classes.fetcher import fetch_if_not_cached
 from data.gdrive import list_files_in_folder
 import data.internal as internal
+from lib.config import DATE_FORMAT_STRING
 
-TODAY = datetime.strptime("09/01/2025", "%m/%d/%Y")
 logging.basicConfig(level=logging.DEBUG)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger("matplotlib.font_manager").setLevel(logging.WARNING)
@@ -37,7 +37,16 @@ def calculate_balance(items) -> float:
 
 parser = argparse.ArgumentParser(description="Calculate cash flow.")
 parser.add_argument("-p", "--plot", action="store_true", help="Create chart.")
+parser.add_argument(
+    "-d", 
+    "--date", 
+    type=str, 
+    default="09/01/2025", 
+    help='Start date in "MM/DD/YYYY" format.'
+    )
 args = parser.parse_args()
+
+TODAY = datetime.strptime(args.date, DATE_FORMAT_STRING)
 
 logging.debug("Listing files in Google Drive folder:")
 files = list_files_in_folder()
