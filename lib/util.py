@@ -17,4 +17,3 @@ def count_cron_runs(cron_pattern: str, start_date: datetime, end_date: datetime)
         count += 1
         next_run = run_iter.get_next(datetime)
     return count
-

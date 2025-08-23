@@ -6,6 +6,7 @@ from asset_classes.asset import Asset
 from data.gdrive import get_sheet_settings, get_table
 from lib.config import DATE_FORMAT_STRING
 
+
 class DepositCertificate(Asset):
     """Represents a financial asset with its attributes and methods to calculate its value."""
 

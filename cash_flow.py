@@ -1,12 +1,12 @@
-from datetime import datetime
 import argparse
 import logging
+from datetime import datetime
 
 import matplotlib.pyplot as plt
 
+import data.internal as internal
 from asset_classes.fetcher import fetch_if_not_cached
 from data.gdrive import list_files_in_folder
-import data.internal as internal
 from lib.config import DATE_FORMAT_STRING
 
 logging.basicConfig(level=logging.DEBUG)
@@ -38,12 +38,12 @@ def calculate_balance(items) -> float:
 parser = argparse.ArgumentParser(description="Calculate cash flow.")
 parser.add_argument("-p", "--plot", action="store_true", help="Create chart.")
 parser.add_argument(
-    "-d", 
-    "--date", 
-    type=str, 
-    default="09/01/2025", 
-    help='Start date in "MM/DD/YYYY" format.'
-    )
+    "-d",
+    "--date",
+    type=str,
+    default="09/01/2025",
+    help='Start date in "MM/DD/YYYY" format.',
+)
 args = parser.parse_args()
 
 TODAY = datetime.strptime(args.date, DATE_FORMAT_STRING)

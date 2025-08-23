@@ -1,15 +1,15 @@
-from datetime import datetime
-from typing import Sequence
 import argparse
 import csv
 import logging
 import sys
+from datetime import datetime
+from typing import Sequence
 
 import matplotlib.pyplot as plt
 
+import data.internal
 from asset_classes.fetcher import fetch_if_not_cached
 from data.gdrive import list_files_in_folder
-import data.internal
 
 
 def check_history(tpval: float, tnval: float):
@@ -41,6 +41,7 @@ def check_history(tpval: float, tnval: float):
     plt.title(f"Asset Value Change History {(tpval + tnval):,.0f}")
     plt.show()
 
+
 def fetch_assets(files):
     items = {"USD": [], "PYG": []}
     for file in files:
@@ -53,12 +54,15 @@ def fetch_assets(files):
             items[fetched.get_currency()].append(fetched)
     return items
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calculate cash flow.")
     parser.add_argument("-p", "--print-pos", action="store_true", help="Create chart.")
     parser.add_argument("-d", "--debug", action="store_true", help="Create chart.")
     parser.add_argument("-n", "--print-neg", action="store_true", help="Create chart.")
-    parser.add_argument("-c", "--check-history", action="store_true", help="Create chart.")
+    parser.add_argument(
+        "-c", "--check-history", action="store_true", help="Create chart."
+    )
     args = parser.parse_args()
 
     if args.debug:
@@ -96,7 +100,9 @@ if __name__ == "__main__":
                     asset.identifier,
                 )
             if k == "PYG":
-                returns.append([current_value / exchange, current_return, asset.identifier])
+                returns.append(
+                    [current_value / exchange, current_return, asset.identifier]
+                )
             else:
                 returns.append([current_value, current_return, asset.identifier])
 
@@ -137,4 +143,6 @@ if __name__ == "__main__":
         logging.info(
             f"Total positive value: {tpval:,.2f} USD, Total negative value: {tnval:,.2f} USD"
         )
-        logging.info(f"Total portfolio value: {grand_total:,.2f} USD {ret*100:,.2f}% annualized return")
+        logging.info(
+            f"Total portfolio value: {grand_total:,.2f} USD {ret*100:,.2f}% annualized return"
+        )

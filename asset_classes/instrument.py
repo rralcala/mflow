@@ -1,9 +1,9 @@
 from datetime import datetime
 from typing import List, Tuple
 
+import data.internal
 from asset_classes.asset import Asset
 from data.gdrive import get_sheet_settings, get_table
-import data.internal
 from lib.config import DATE_FORMAT_STRING
 
 
@@ -22,7 +22,7 @@ class Instrument(Asset):
         dividend: str,
         currency: str,
         acquisition_date: datetime,
-        acquisition_price: float
+        acquisition_price: float,
     ):
         self.symbol = symbol
         self.identifier = f"{location}_{symbol}"
@@ -42,9 +42,9 @@ class Instrument(Asset):
         """
         Returns the value of the asset in USD.
         """
-        if self.need_update  and self.symbol == "CROUSD":
+        if self.need_update and self.symbol == "CROUSD":
             self.price = data.internal.exchange_rate("CROUSD")
-        elif self.need_update  and self.symbol == "BTCUSD":
+        elif self.need_update and self.symbol == "BTCUSD":
             self.price = data.internal.exchange_rate("BTCUSD")
         self.need_update = False
         return self.qty * self.price * self.factor, self.currency
@@ -61,7 +61,7 @@ class Instrument(Asset):
 
     def get_currency(self) -> str:
         return self.currency
-    
+
     def get_returns(self) -> Tuple[float, float]:
         """
         Returns the current value and the annualized return of the asset.
@@ -69,11 +69,13 @@ class Instrument(Asset):
         holding_period_days = (datetime.now() - self.acquisition_date).days
         if holding_period_days > 365.25:
             holding_period_years = holding_period_days / 365.25
-            annualized_return = ((self.price / self.acquisition_price) - 1) / holding_period_years
+            annualized_return = (
+                (self.price / self.acquisition_price) - 1
+            ) / holding_period_years
         else:
             annualized_return = (self.price / self.acquisition_price) - 1
         return self.get_current_value()[0], annualized_return + self.rate
-    
+
     def __repr__(self):
         return f"Asset(symbol={self.symbol}, value={self.get_current_value()[0]}, currency={self.currency}, location={self.location})"
 
@@ -121,7 +123,7 @@ def parse_portfolio(data: List[List[str]]) -> List[Instrument]:
             rate=float(row[7].replace("%", "")) / 100,
             currency=row[9],
             acquisition_date=datetime.strptime(row[10], DATE_FORMAT_STRING),
-            acquisition_price=float(row[11].replace(",", ""))
+            acquisition_price=float(row[11].replace(",", "")),
         )
         if len(row) < 10:
             continue  # Skip rows that do not have enough columns
