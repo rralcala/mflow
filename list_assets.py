@@ -1,15 +1,14 @@
-import argparse
-import csv
-import logging
-import sys
 from datetime import datetime
 from typing import Sequence
+import argparse
+import logging
+import sys
 
 import matplotlib.pyplot as plt
 
-import data.internal
 from asset_classes.fetcher import fetch_if_not_cached
 from data.gdrive import list_files_in_folder
+import data.internal
 
 
 def check_history(tpval: float, tnval: float):

@@ -1,13 +1,13 @@
+from datetime import datetime
 import argparse
 import logging
-from datetime import datetime
 
 import matplotlib.pyplot as plt
 
-import data.internal as internal
 from asset_classes.fetcher import fetch_if_not_cached
 from data.gdrive import list_files_in_folder
 from lib.config import DATE_FORMAT_STRING
+import data.internal as internal
 
 logging.basicConfig(level=logging.DEBUG)
 logging.getLogger("urllib3").setLevel(logging.WARNING)

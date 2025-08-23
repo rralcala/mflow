@@ -1,10 +1,10 @@
 from datetime import datetime
 from typing import List, Tuple
 
-import data.internal
 from asset_classes.asset import Asset
 from data.gdrive import get_sheet_settings, get_table
 from lib.config import DATE_FORMAT_STRING
+import data.internal
 
 
 class Instrument(Asset):
