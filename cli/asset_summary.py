@@ -6,6 +6,7 @@ sys.path.insert(0, project_root)
 
 import argparse
 import logging
+from pprint import pprint
 
 from reports.list_assets import list_assets
 from lib.util import config_logging
@@ -22,13 +23,21 @@ if __name__ == "__main__":
 
     config_logging(args.debug)
 
-    tpval, tnval, returns = list_assets(args.print_pos, args.print_neg)
+    asset_data = list_assets(args.print_pos, args.print_neg)
 
     ret = 0.0
+    tpval = 0.0
+    tnval = 0.0
+    for _, pval, nval in asset_data["currency_summary"]:
+        tpval += pval
+        tnval += nval
+    
     grand_total = tpval + tnval
-    for current_value, current_return, _ in returns:
+    for current_value, current_return, _ in asset_data["return_history"]:
         tret = (current_value / grand_total) * current_return
         ret += tret
+    asset_data["return_history"] = []
+    pprint(asset_data)
     logging.info(
     f"Total positive value: {tpval:,.2f} USD, Total negative value: {tnval:,.2f} USD"
 )

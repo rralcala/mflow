@@ -19,7 +19,12 @@ if __name__ == "__main__":
 
     config_logging(args.debug)
 
-    tpval, tnval = list_assets(False, False)
+    asset_data = list_assets(False, False)
+    tpval = 0.0
+    tnval = 0.0
+    for currency, pval, nval in asset_data["currency_summary"]:
+        tpval += pval
+        tnval += nval
     x, y = check_history(tpval, tnval)
     if args.plot:
         plt.plot(x, y)

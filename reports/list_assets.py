@@ -45,16 +45,15 @@ def fetch_assets(files):
 
 
 def list_assets(print_pos: bool, print_neg: bool):
+    asset_data = { "negatives": [], "positives": [], "currency_summary": [] }
     files = list_files_in_folder()
     if not files:
         raise FileNotFoundError("No files found in the specified Google Drive folder.")
 
     assets = fetch_assets(files)
 
-    logging.debug("Fetched %i assets:", len(assets))
     exchange = data.internal.exchange_rate("USDPYG")
-    tpval = 0.0
-    tnval = 0.0
+
     returns = []
     for k, sub in assets.items():
         pval = 0.0
@@ -78,26 +77,16 @@ def list_assets(print_pos: bool, print_neg: bool):
 
             if current_value > 0:
                 if print_pos:
-                    logging.info(
-                    "Positive asset found: %s with value %s %s",
-                    asset.identifier,
-                    f"{current_value:,.0f}",
-                    currency,
-                )
+                    asset_data["positives"].append((asset.identifier, f"{current_value:,.0f} {currency}"))
                 pval += current_value
             elif current_value < 0:
                 if print_neg:
-                    logging.info(
-                    f"Negative asset found: {asset.identifier} with value {current_value:,.0f} {currency}"
-                )
+                    asset_data["negatives"].append((asset.identifier, f"{current_value:,.0f} {currency}"))
                 nval += current_value
         if k == "PYG":
             pval /= exchange
             nval /= exchange
-        tpval += pval
-        tnval += nval
 
-        logging.info(
-        f"Positive value: {pval:,.2f}USD in {k}, Negative value: {nval:,.2f}USD in {k}"
-    )
-    return tpval, tnval, returns
+        asset_data["currency_summary"].append((k, pval, nval))
+        asset_data["return_history"] = returns
+    return asset_data

@@ -1,14 +1,10 @@
 from datetime import datetime
+from typing import Sequence
 import logging
 
 from asset_classes.fetcher import fetch_if_not_cached
 from data.gdrive import list_files_in_folder
 from data import internal
-
-logging.basicConfig(level=logging.DEBUG)
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-logging.getLogger("matplotlib.font_manager").setLevel(logging.WARNING)
-
 
 def balance_at_month(date, items):
     totals = {"USD": 0.0, "PYG": 0.0}
@@ -37,15 +33,16 @@ def cash_flow():
     items = {"USD": [], "PYG": []}
     for file in files:
         fetched = fetch_if_not_cached(file)
-        if isinstance(fetched, list):
+        if isinstance(fetched, Sequence):
             for sub_item in fetched:
-                items[sub_item.currency].append(sub_item)
+                items[sub_item.get_currency()].append(sub_item)
         else:
-            items[fetched.currency].append(fetched)
+            items[fetched.get_currency()].append(fetched)
 
     balance = calculate_balance(items)
     x = []
     y = []
+    t = []
     for v in range(24307, (2031 * 12)):
         year = v // 12
         month = v % 12 + 1
@@ -54,10 +51,6 @@ def cash_flow():
         balance += totals
         y.append(balance)
         x.append(f"{year}-{month:02d}")
-        logging.info(f"{year}-{month} {year-1984}: {totals:,.2f} {balance:,.2f} USD")
+        t.append(totals)
 
-
-    min_value = min(y)
-    min_index = y.index(min_value)
-    logging.info(f"Minimum value: {min_value:,.2f} USD in {x[min_index]}")
-    return x, y
+    return x, y, t

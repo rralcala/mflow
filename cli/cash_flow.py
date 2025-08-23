@@ -28,7 +28,12 @@ if __name__ == "__main__":
 
     config_logging(args.debug)
 
-    x, y = cash_flow()
+    x, y, _= cash_flow()
+
+
+    min_value = min(y)
+    min_index = y.index(min_value)
+    logging.info(f"Minimum value: {min_value:,.2f} USD in {x[min_index]}")
 
     if args.plot:
         plt.plot(x, y)
@@ -37,4 +42,4 @@ if __name__ == "__main__":
         plt.xlabel("Month")
         plt.ylabel("Dollar Balance")
         plt.title("Cash Flow Over Time")
-        plt.show()
+        plt.draw()
