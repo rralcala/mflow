@@ -1,7 +1,7 @@
-from typing import Sequence
 import logging
 import os
 import pickle
+from typing import Sequence
 
 from asset_classes import account, bond, cd, instrument, payable
 from asset_classes import property as reprop

@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
 
 from croniter import croniter
 
@@ -18,6 +18,7 @@ def count_cron_runs(cron_pattern: str, start_date: datetime, end_date: datetime)
         count += 1
         next_run = run_iter.get_next(datetime)
     return count
+
 
 def config_logging(debug: bool):
     logging.basicConfig(

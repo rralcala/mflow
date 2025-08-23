@@ -1,6 +1,6 @@
+import logging
 from datetime import datetime
 from typing import Any, Dict, List, Tuple
-import logging
 
 from asset_classes.asset import Asset
 from data.gdrive import get_sheet_settings, get_table
