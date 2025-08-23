@@ -3,12 +3,13 @@ from typing import Sequence
 import argparse
 import csv
 import logging
-import matplotlib.pyplot as plt
 import sys
 
+import matplotlib.pyplot as plt
+
 from asset_classes.fetcher import fetch_if_not_cached
-from lib.config import USDPYG
-from lib.gdrive import list_files_in_folder
+from data.gdrive import list_files_in_folder
+import data.internal
 
 
 def check_history(tpval: float, tnval: float):
@@ -127,10 +128,10 @@ for k, sub in items.items():
                     f"Negative asset found: {asset.identifier} with value {current_value:,.0f} {currency}"
                 )
             nval += current_value
-
+    exchange = data.internal.exchange_rate("USDPYG")
     if k == "PYG":
-        pval /= USDPYG
-        nval /= USDPYG
+        pval /= exchange
+        nval /= exchange
     tpval += pval
     tnval += nval
     if not args.check_history:

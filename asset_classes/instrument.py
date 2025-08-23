@@ -2,8 +2,8 @@ from datetime import datetime
 from typing import List, Tuple
 
 from asset_classes.asset import Asset
-from lib.gdrive import get_sheet_settings, get_table
-from lib.util import get_crypto_price
+from data.gdrive import get_sheet_settings, get_table
+import data.internal
 from lib.config import DATE_FORMAT_STRING
 
 
@@ -43,9 +43,9 @@ class Instrument(Asset):
         Returns the value of the asset in USD.
         """
         if self.need_update  and self.symbol == "CROUSD":
-            self.price, self.currency = get_crypto_price("CROUSD")
+            self.price = data.internal.exchange_rate("CROUSD")
         elif self.need_update  and self.symbol == "BTCUSD":
-            self.price, self.currency = get_crypto_price("BTCUSD")
+            self.price = data.internal.exchange_rate("BTCUSD")
         self.need_update = False
         return self.qty * self.price * self.factor, self.currency
 

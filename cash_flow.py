@@ -1,12 +1,12 @@
+from datetime import datetime
 import argparse
 import logging
-from datetime import datetime
 
 import matplotlib.pyplot as plt
 
 from asset_classes.fetcher import fetch_if_not_cached
-from lib.config import USDPYG
-from lib.gdrive import list_files_in_folder
+from data.gdrive import list_files_in_folder
+import data.internal as internal
 
 TODAY = datetime.strptime("09/01/2025", "%m/%d/%Y")
 logging.basicConfig(level=logging.DEBUG)
@@ -22,7 +22,7 @@ def balance_at_month(date, items):
             if income[0] != 0.0:
                 totals[k] += income[0]
 
-    return totals["USD"] + totals["PYG"] / USDPYG
+    return totals["USD"] + totals["PYG"] / internal.exchange_rate("USDPYG")
 
 
 def calculate_balance(items) -> float:
@@ -32,7 +32,7 @@ def calculate_balance(items) -> float:
             income = asset.get_liquid_balance()
             if income[0] != 0.0:
                 totals[k] += income[0]
-    return totals["USD"] + totals["PYG"] / USDPYG
+    return totals["USD"] + totals["PYG"] / internal.exchange_rate("USDPYG")
 
 
 parser = argparse.ArgumentParser(description="Calculate cash flow.")

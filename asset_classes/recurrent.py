@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any, Dict, Tuple
 
 from asset_classes.asset import Asset
-from lib.gdrive import get_sheet_settings
+from data.gdrive import get_sheet_settings
 from lib.util import count_cron_runs
 
 FORMAT = "%m/%d/%Y"

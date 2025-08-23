@@ -7,7 +7,7 @@ from asset_classes import account, bond, cd, instrument, payable
 from asset_classes import property as reprop
 from asset_classes import recurrent
 from asset_classes.asset import Asset
-from lib.gdrive import get_sheet_settings
+from data.gdrive import get_sheet_settings
 
 
 def fetch_if_not_cached(sheet: str) -> Asset | Sequence[Asset]:
