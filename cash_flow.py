@@ -71,7 +71,7 @@ min_index = y.index(min_value)
 logging.info(f"Minimum value: {min_value:,.2f} USD in {x[min_index]}")
 
 if args.plot:
-    logging.info("Plotting enabled.")
+    logging.info("Plotting Cash Flow Over Time.")
     plt.plot(x, y)
     plt.xticks(rotation=90)
     plt.hlines(y=0, xmin=x[0], xmax=x[-1], colors="red", linestyles="dashed")

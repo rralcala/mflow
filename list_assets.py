@@ -13,27 +13,15 @@ import data.internal
 
 
 def check_history(tpval: float, tnval: float):
-    ordered_history = []
-    with open("history.csv", "r", encoding="utf-8") as csvfile:
-        # Create a reader object
-        csv_reader = csv.reader(csvfile)
-        today = datetime.now()
-        # Iterate through each row in the CSV file
-        for row in csv_reader:
-            ordered_history.append([row[0], float(row[1].replace(",", ""))])
+    ordered_history = data.internal.read_net_history()
 
+    today = datetime.now()
     new_key = f"{today.month}-{today.year}"
     if ordered_history[-1][0] == new_key:
-        ordered_history[-1][1] = tpval + tnval
-    else:
-        ordered_history.append([new_key, tpval + tnval])
+        ordered_history.pop()
+    ordered_history.append((new_key, tpval + tnval))
 
-    with open("history.csv", "w", encoding="utf-8") as file:
-        writer = csv.writer(file)
-        for _, row in enumerate(ordered_history):
-            data = [row[0], f"{row[1]:,.2f}"]
-            logging.debug("Writing to history: %s", data)
-            writer.writerow(data)
+    data.internal.write_net_history(ordered_history)
     p = ordered_history[-6][1]
     x = []
     y = []
@@ -53,20 +41,6 @@ def check_history(tpval: float, tnval: float):
     plt.title(f"Asset Value Change History {(tpval + tnval):,.0f}")
     plt.show()
 
-
-parser = argparse.ArgumentParser(description="Calculate cash flow.")
-parser.add_argument("-p", "--print-pos", action="store_true", help="Create chart.")
-parser.add_argument("-d", "--debug", action="store_true", help="Create chart.")
-parser.add_argument("-n", "--print-neg", action="store_true", help="Create chart.")
-parser.add_argument("-c", "--check-history", action="store_true", help="Create chart.")
-args = parser.parse_args()
-
-if args.debug:
-    logging.basicConfig(level=logging.DEBUG)
-else:
-    logging.basicConfig(level=logging.INFO)
-
-
 def fetch_assets(files):
     items = {"USD": [], "PYG": []}
     for file in files:
@@ -79,77 +53,88 @@ def fetch_assets(files):
             items[fetched.get_currency()].append(fetched)
     return items
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Calculate cash flow.")
+    parser.add_argument("-p", "--print-pos", action="store_true", help="Create chart.")
+    parser.add_argument("-d", "--debug", action="store_true", help="Create chart.")
+    parser.add_argument("-n", "--print-neg", action="store_true", help="Create chart.")
+    parser.add_argument("-c", "--check-history", action="store_true", help="Create chart.")
+    args = parser.parse_args()
 
-logging.getLogger("urllib3").setLevel(logging.WARNING)
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
-logging.debug("Listing files in Google Drive folder:")
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-files = list_files_in_folder()
-if not files:
-    logging.error("No files found in the specified Google Drive folder.")
-    sys.exit(1)
+    logging.debug("Listing files in Google Drive folder:")
 
-items = fetch_assets(files)
+    files = list_files_in_folder()
+    if not files:
+        logging.error("No files found in the specified Google Drive folder.")
+        sys.exit(1)
 
-logging.debug("Fetched %i assets:", len(items))
-tpval = 0.0
-tnval = 0.0
-returns = []
-for k, sub in items.items():
-    pval = 0.0
-    nval = 0.0
-    for asset in sub:
-        current_value, currency = asset.get_current_value()
-        currval, current_return = asset.get_returns()
-        if current_value != currval:
-            logging.error(
-                "Current value %s does not match returns value %s for asset %s",
-                current_value,
-                currval,
-                asset.identifier,
-            )
-        if k == "PYG":
-            returns.append([current_value / USDPYG, current_return, asset.identifier])
-        else:
-            returns.append([current_value, current_return, asset.identifier])
+    assets = fetch_assets(files)
 
-        if current_value > 0:
-            if args.print_pos:
-                logging.info(
-                    "Positive asset found: %s with value %s %s",
-                    asset.identifier,
-                    f"{current_value:,.0f}",
-                    currency,
-                )
-            pval += current_value
-        elif current_value < 0:
-            if args.print_neg:
-                logging.info(
-                    f"Negative asset found: {asset.identifier} with value {current_value:,.0f} {currency}"
-                )
-            nval += current_value
+    logging.debug("Fetched %i assets:", len(assets))
     exchange = data.internal.exchange_rate("USDPYG")
-    if k == "PYG":
-        pval /= exchange
-        nval /= exchange
-    tpval += pval
-    tnval += nval
-    if not args.check_history:
+    tpval = 0.0
+    tnval = 0.0
+    returns = []
+    for k, sub in assets.items():
+        pval = 0.0
+        nval = 0.0
+        for asset in sub:
+            current_value, currency = asset.get_current_value()
+            currval, current_return = asset.get_returns()
+            if current_value != currval:
+                logging.error(
+                    "Current value %s does not match returns value %s for asset %s",
+                    current_value,
+                    currval,
+                    asset.identifier,
+                )
+            if k == "PYG":
+                returns.append([current_value / exchange, current_return, asset.identifier])
+            else:
+                returns.append([current_value, current_return, asset.identifier])
+
+            if current_value > 0:
+                if args.print_pos:
+                    logging.info(
+                        "Positive asset found: %s with value %s %s",
+                        asset.identifier,
+                        f"{current_value:,.0f}",
+                        currency,
+                    )
+                pval += current_value
+            elif current_value < 0:
+                if args.print_neg:
+                    logging.info(
+                        f"Negative asset found: {asset.identifier} with value {current_value:,.0f} {currency}"
+                    )
+                nval += current_value
+        if k == "PYG":
+            pval /= exchange
+            nval /= exchange
+        tpval += pval
+        tnval += nval
+        if not args.check_history:
+            logging.info(
+                f"Positive value: {pval:,.2f}USD in {k}, Negative value: {nval:,.2f}USD in {k}"
+            )
+
+    if args.check_history:
+        logging.info("Generating History")
+        check_history(tpval, tnval)
+    else:
+        ret = 0.0
+        grand_total = tpval + tnval
+        for current_value, current_return, asset_id in returns:
+            tret = (current_value / grand_total) * current_return
+            ret += tret
         logging.info(
-            f"Positive value: {pval:,.2f}USD in {k}, Negative value: {nval:,.2f}USD in {k}"
+            f"Total positive value: {tpval:,.2f} USD, Total negative value: {tnval:,.2f} USD"
         )
-
-if not args.check_history:
-    ret = 0.0
-    grand_total = tpval + tnval
-    for current_value, current_return, asset_id in returns:
-        tret = (current_value / grand_total) * current_return
-        ret += tret
-    logging.info(
-        f"Total positive value: {tpval:,.2f} USD, Total negative value: {tnval:,.2f} USD"
-    )
-    logging.info(f"Total portfolio value: {grand_total:,.2f} USD {ret*100:,.2f}% annualized return")
-
-else:
-    logging.info("Generating History")
-    check_history(tpval, tnval)
+        logging.info(f"Total portfolio value: {grand_total:,.2f} USD {ret*100:,.2f}% annualized return")
