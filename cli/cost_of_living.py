@@ -19,7 +19,7 @@ logging.debug("Listing files in Google Drive folder:")
 asset_list = get_items()
 
 per_cur = {"PYG": 0.0, "USD": 0.0}
-curdate = datetime.datetime(year=2025, month=12, day=1, hour=0, minute=0, second=0)
+curdate = datetime.datetime(year=datetime.datetime.now().year, month=datetime.datetime.now().month, day=1, hour=0, minute=0, second=0) + datetime.timedelta(days=31)
 for currency, assets in asset_list.items():
     for asset in assets:
         value, _ = asset.get_income(curdate)

@@ -45,11 +45,7 @@ class Bond(Asset):
             total += self.capital
         for d in self.payment_schedule:
             date = datetime.strptime(d["date"], "%m/%d/%Y")
-            if (
-                d["paid"] != "0"
-                and date.month == today.month
-                and date.year == today.year
-            ):
+            if date.month == today.month and date.year == today.year:
                 logging.debug(f"Payment not paid: {d}")
                 total += d["amount"]
 

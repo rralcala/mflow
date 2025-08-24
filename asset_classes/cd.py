@@ -56,11 +56,7 @@ class DepositCertificate(Asset):
             total += self.capital
         for d in self.interest_schedule:
             date = datetime.strptime(d["date"], "%m/%d/%Y")
-            if (
-                d["paid"] != "0"
-                and date.month == today.month
-                and date.year == today.year
-            ):
+            if date.month == today.month and date.year == today.year:
                 total += d["amount"]
 
         return total, self.currency

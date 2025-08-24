@@ -28,9 +28,10 @@ if __name__ == "__main__":
 
     config_logging(args.debug)
 
-    x, y, _= cash_flow()
+    x, y, t = cash_flow()
 
-
+    for i, xv in enumerate(x):
+        print(f"{xv}: {y[i]:,.0f}USD {t[i][0]:,.0f}USD {t[i][1]:,.0f}PYG")
     min_value = min(y)
     min_index = y.index(min_value)
     logging.info(f"Minimum value: {min_value:,.2f} USD in {x[min_index]}")
@@ -42,4 +43,4 @@ if __name__ == "__main__":
         plt.xlabel("Month")
         plt.ylabel("Dollar Balance")
         plt.title("Cash Flow Over Time")
-        plt.draw()
+        plt.show()
