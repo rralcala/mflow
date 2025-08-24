@@ -1,7 +1,9 @@
-from typing import List, Tuple
+from typing import List, Sequence, Tuple
 import csv
 import logging
 import requests
+
+from asset_classes.fetcher import fetch_if_not_cached
 
 CRYPTO_PUBLIC_API = "https://api.crypto.com/exchange/v1/public"
 CURRENCY_DATA = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json"
@@ -22,6 +24,17 @@ def exchange_rate(currencies: str) -> float:
         price, _ = _get_crypto_price("CROUSD")
     return price
 
+def fetch_assets(files):
+    items = {"USD": [], "PYG": []}
+    for file in files:
+        logging.debug("Fetching asset data for %s", file)
+        fetched = fetch_if_not_cached(file)
+        if isinstance(fetched, Sequence):
+            for sub_item in fetched:
+                items[sub_item.get_currency()].append(sub_item)
+        else:
+            items[fetched.get_currency()].append(fetched)
+    return items
 
 QUOTE_CACHE = {}
 def _get_crypto_price(crypto_symbol: str) -> Tuple[float, str]:

@@ -1,8 +1,6 @@
 from datetime import datetime
-from typing import Sequence
 import logging
 
-from asset_classes.fetcher import fetch_if_not_cached
 from data.gdrive import list_files_in_folder
 import data.internal
 
@@ -29,28 +27,13 @@ def check_history(tpval: float, tnval: float):
         p = v
     return x, y
 
-
-
-def fetch_assets(files):
-    items = {"USD": [], "PYG": []}
-    for file in files:
-        logging.debug("Fetching asset data for %s", file)
-        fetched = fetch_if_not_cached(file)
-        if isinstance(fetched, Sequence):
-            for sub_item in fetched:
-                items[sub_item.get_currency()].append(sub_item)
-        else:
-            items[fetched.get_currency()].append(fetched)
-    return items
-
-
 def list_assets(print_pos: bool, print_neg: bool):
     asset_data = { "negatives": [], "positives": [], "currency_summary": [] }
     files = list_files_in_folder()
     if not files:
         raise FileNotFoundError("No files found in the specified Google Drive folder.")
 
-    assets = fetch_assets(files)
+    assets = data.internal.fetch_assets(files)
 
     exchange = data.internal.exchange_rate("USDPYG")
 
