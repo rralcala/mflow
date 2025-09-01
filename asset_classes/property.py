@@ -4,6 +4,7 @@ from typing import List, Tuple
 from asset_classes.asset import Asset
 from data.gdrive import get_sheet_settings, get_table
 from lib.config import DATE_FORMAT_STRING, YEAR
+from data.db import Transactions
 
 
 class Property(Asset):
@@ -31,11 +32,15 @@ class Property(Asset):
         """
         Returns the income from the property.
         """
-        return self.rented_price, self.currency
+        t = Transactions()
+        income = self.rented_price
+        for v in t.get(self.identifier, today.year, today.month):
+            income += v["amount"]
+        return income, self.currency
 
     def get_current_value(self) -> Tuple[float, str]:
         """Returns the current value of the property in its currency."""
-        return self.latest_price, self.currency
+        return self.latest_price + self.get_income(datetime.today())[0], self.currency
 
     def get_liquid_balance(self) -> Tuple[float, str]:
         """

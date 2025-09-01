@@ -1,14 +1,16 @@
 import os
 import sys
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.join(script_dir, '..')
+project_root = os.path.join(script_dir, "..")
 sys.path.insert(0, project_root)
 
 import argparse
 import logging
-
+from datetime import datetime
 import matplotlib.pyplot as plt
 
+from lib.config import DATE_FORMAT_STRING
 from reports.cash_flow import cash_flow
 from lib.util import config_logging
 
@@ -21,14 +23,15 @@ if __name__ == "__main__":
         "-s",
         "--date",
         type=str,
-        default="09/01/2025",
-        help='Start date in "MM/DD/YYYY" format.',
+        default=datetime.today().strftime(DATE_FORMAT_STRING),
+        help=f"Start date in {DATE_FORMAT_STRING} format.",
     )
     args = parser.parse_args()
 
     config_logging(args.debug)
-
-    x, y, t = cash_flow()
+    start = datetime.strptime(args.date, DATE_FORMAT_STRING)
+    logging.info(start)
+    x, y, t = cash_flow(start)
 
     for i, xv in enumerate(x):
         print(f"{xv}: {y[i]:,.0f}USD {t[i][0]:,.0f}USD {t[i][1]:,.0f}PYG")

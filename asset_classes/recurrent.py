@@ -5,6 +5,7 @@ from typing import Any, Dict, Tuple
 from asset_classes.asset import Asset
 from data.gdrive import get_sheet_settings
 from lib.util import count_cron_runs
+from data.db import Transactions
 
 FORMAT = "%m/%d/%Y"
 
@@ -70,6 +71,11 @@ class Recurrent(Asset):
             cash_flow = count_cron_runs(self.recurrence, start, end) * self.amount
         else:
             cash_flow = 0.0
+        t = Transactions()
+
+        for v in t.get(self.identifier, today.year, today.month):
+            cash_flow += v["amount"]
+
         return cash_flow, self.currency
 
     def get_currency(self) -> str:

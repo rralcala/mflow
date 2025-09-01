@@ -5,6 +5,7 @@ from typing import List, Tuple
 from asset_classes.asset import Asset
 from data.gdrive import get_sheet_settings, get_table
 from lib.config import DATE_FORMAT_STRING
+from data.db import Transactions
 
 
 class Payable(Asset):
@@ -25,9 +26,15 @@ class Payable(Asset):
         self.commited = commited
 
     def get_income(self, today: datetime) -> Tuple[float, str]:
-        date = datetime.strptime(self.due_date, DATE_FORMAT_STRING)
-        if date.month == today.month and date.year == today.year:
-            return self.amount, self.currency
+        date = datetime.strptime(self.due_date, DATE_FORMAT_STRING).replace(day=1)
+
+        if date <= today:
+            t = Transactions()
+            amount = self.amount
+            for v in t.get(self.identifier, "", ""):
+                amount += v["amount"]
+
+            return amount, self.currency
         return 0.0, self.currency
 
     def get_liquid_balance(self) -> Tuple[float, str]:
@@ -50,7 +57,11 @@ class Payable(Asset):
         return self.currency
 
     def get_returns(self) -> Tuple[float, float]:
-        if self.commited:
+        if self.commited:  # TODO and it's due
+            # t = Transactions()
+            amount = self.amount
+            # for v in t.get(self.identifier, today.year, today.month):
+            #    amount += v["amount"]
             return self.amount, 0.0
         return 0.0, 0.0
 

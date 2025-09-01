@@ -1,7 +1,8 @@
 import os
 import sys
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.join(script_dir, '..')
+project_root = os.path.join(script_dir, "..")
 sys.path.insert(0, project_root)
 
 import argparse
@@ -31,7 +32,7 @@ if __name__ == "__main__":
     for _, pval, nval in asset_data["currency_summary"]:
         tpval += pval
         tnval += nval
-    
+
     grand_total = tpval + tnval
     for current_value, current_return, _ in asset_data["return_history"]:
         tret = (current_value / grand_total) * current_return
@@ -39,8 +40,8 @@ if __name__ == "__main__":
     asset_data["return_history"] = []
     pprint(asset_data)
     logging.info(
-    f"Total positive value: {tpval:,.2f} USD, Total negative value: {tnval:,.2f} USD"
-)
+        f"Total positive value: {tpval:,.2f} USD, Total negative value: {tnval:,.2f} USD"
+    )
     logging.info(
-    f"Total portfolio value: {grand_total:,.2f} USD {ret*100:,.2f}% annualized return"
-)
+        f"Total portfolio value: {grand_total:,.2f} USD {ret*100:,.2f}% annualized return"
+    )

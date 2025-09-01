@@ -8,6 +8,7 @@ from asset_classes.fetcher import fetch_if_not_cached
 CRYPTO_PUBLIC_API = "https://api.crypto.com/exchange/v1/public"
 CURRENCY_DATA = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json"
 
+
 def exchange_rate(currencies: str) -> float:
     price = 1.0
     if currencies == "USDPYG":
@@ -24,6 +25,7 @@ def exchange_rate(currencies: str) -> float:
         price, _ = _get_crypto_price("CROUSD")
     return price
 
+
 def fetch_assets(files):
     items = {"USD": [], "PYG": []}
     for file in files:
@@ -36,7 +38,10 @@ def fetch_assets(files):
             items[fetched.get_currency()].append(fetched)
     return items
 
+
 QUOTE_CACHE = {}
+
+
 def _get_crypto_price(crypto_symbol: str) -> Tuple[float, str]:
     """
     Fetches the current price of a cryptocurrency.
@@ -44,14 +49,18 @@ def _get_crypto_price(crypto_symbol: str) -> Tuple[float, str]:
     """
     if crypto_symbol in QUOTE_CACHE:
         return QUOTE_CACHE[crypto_symbol]
-    
+
     url = f"{CRYPTO_PUBLIC_API}/get-valuations?instrument_name={crypto_symbol}-INDEX&valuation_type=index_price&count=1"
     response = requests.get(url, timeout=10)
 
     if "result" in response.json():
-        QUOTE_CACHE[crypto_symbol] = float(response.json()["result"]["data"][0]["v"]), "USD"
+        QUOTE_CACHE[crypto_symbol] = (
+            float(response.json()["result"]["data"][0]["v"]),
+            "USD",
+        )
         return QUOTE_CACHE[crypto_symbol]
     return 0.0, "USD"
+
 
 def read_net_history() -> List[Tuple[str, float]]:
     ordered_history = []
@@ -62,6 +71,7 @@ def read_net_history() -> List[Tuple[str, float]]:
         for row in csv_reader:
             ordered_history.append([row[0], float(row[1].replace(",", ""))])
     return ordered_history
+
 
 def write_net_history(ordered_history):
     with open("history.csv", "w", encoding="utf-8") as file:

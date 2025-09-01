@@ -37,13 +37,14 @@ def retry(times, exceptions):
             while attempt < times:
                 try:
                     return func(*args, **kwargs)
-                except exceptions:
+                except exceptions as e:
                     logging.error(
                         "Exception thrown when attempting to run %s, attempt %d of %d",
                         func,
                         attempt,
                         times,
                     )
+                    logging.error(e)
                     time.sleep(60)  # Exponential backoff
                     attempt += 1
             return func(*args, **kwargs)

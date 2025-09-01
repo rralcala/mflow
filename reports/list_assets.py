@@ -27,8 +27,9 @@ def check_history(tpval: float, tnval: float):
         p = v
     return x, y
 
+
 def list_assets(print_pos: bool, print_neg: bool):
-    asset_data = { "negatives": [], "positives": [], "currency_summary": [] }
+    asset_data = {"negatives": [], "positives": [], "currency_summary": []}
     files = list_files_in_folder()
     if not files:
         raise FileNotFoundError("No files found in the specified Google Drive folder.")
@@ -46,25 +47,29 @@ def list_assets(print_pos: bool, print_neg: bool):
             currval, current_return = asset.get_returns()
             if current_value != currval:
                 logging.error(
-                "Current value %s does not match returns value %s for asset %s",
-                current_value,
-                currval,
-                asset.identifier,
-            )
+                    "Current value %s does not match returns value %s for asset %s",
+                    current_value,
+                    currval,
+                    asset.identifier,
+                )
             if k == "PYG":
                 returns.append(
-                [current_value / exchange, current_return, asset.identifier]
-            )
+                    [current_value / exchange, current_return, asset.identifier]
+                )
             else:
                 returns.append([current_value, current_return, asset.identifier])
 
             if current_value > 0:
                 if print_pos:
-                    asset_data["positives"].append((asset.identifier, f"{current_value:,.0f} {currency}"))
+                    asset_data["positives"].append(
+                        (asset.identifier, f"{current_value:,.0f} {currency}")
+                    )
                 pval += current_value
             elif current_value < 0:
                 if print_neg:
-                    asset_data["negatives"].append((asset.identifier, f"{current_value:,.0f} {currency}"))
+                    asset_data["negatives"].append(
+                        (asset.identifier, f"{current_value:,.0f} {currency}")
+                    )
                 nval += current_value
         if k == "PYG":
             pval /= exchange
