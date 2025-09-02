@@ -10,15 +10,18 @@ def check_history(tpval: float, tnval: float):
 
     today = datetime.now()
     new_key = f"{today.month}-{today.year}"
-    if ordered_history[-1][0] == new_key:
+    if len(ordered_history) > 0 and ordered_history[-1][0] == new_key:
         ordered_history.pop()
+        data.internal.write_last_net_history(
+            str(today.year), str(today.month), tpval + tnval
+        )
     ordered_history.append((new_key, tpval + tnval))
 
-    data.internal.write_net_history(ordered_history)
-    p = ordered_history[-6][1]
+    history = -6 if len(ordered_history) > 6 else -len(ordered_history)
+    p = ordered_history[history][1]
     x = []
     y = []
-    for i in range(-6, 0):
+    for i in range(history, 0):
         v = ordered_history[i][1]
         logging.info(f"{ordered_history[i][0]}: {v:,.2f} {(v-p):,.2f} USD")
 

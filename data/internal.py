@@ -4,6 +4,7 @@ import logging
 import requests
 
 from asset_classes.fetcher import fetch_if_not_cached
+from data.db import Transactions
 
 CRYPTO_PUBLIC_API = "https://api.crypto.com/exchange/v1/public"
 CURRENCY_DATA = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json"
@@ -64,19 +65,12 @@ def _get_crypto_price(crypto_symbol: str) -> Tuple[float, str]:
 
 def read_net_history() -> List[Tuple[str, float]]:
     ordered_history = []
-    with open("history.csv", "r", encoding="utf-8") as csvfile:
-        # Create a reader object
-        csv_reader = csv.reader(csvfile)
-        # Iterate through each row in the CSV file
-        for row in csv_reader:
-            ordered_history.append([row[0], float(row[1].replace(",", ""))])
+    t = Transactions()
+    for row in t.get_balance_history():
+        ordered_history.append(f"{row['month']}-{row['year']}", float(row['amount']))
     return ordered_history
 
 
-def write_net_history(ordered_history):
-    with open("history.csv", "w", encoding="utf-8") as file:
-        writer = csv.writer(file)
-        for _, row in enumerate(ordered_history):
-            new_row = [row[0], f"{row[1]:,.2f}"]
-            logging.debug("Writing to history: %s", new_row)
-            writer.writerow(new_row)
+def write_last_net_history(year: str, month: str, amount: float):
+    t = Transactions()
+    
