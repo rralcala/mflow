@@ -14,20 +14,7 @@ from lib.config import DATE_FORMAT_STRING
 from reports.cash_flow import cash_flow
 from lib.util import config_logging
 
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description="Calculate cash flow.")
-    parser.add_argument("-p", "--plot", action="store_true", help="Create chart.")
-    parser.add_argument("-d", "--debug", action="store_true", help="Debug logging.")
-    parser.add_argument(
-        "-s",
-        "--date",
-        type=str,
-        default=datetime.today().strftime(DATE_FORMAT_STRING),
-        help=f"Start date in {DATE_FORMAT_STRING} format.",
-    )
-    args = parser.parse_args()
-
+def handle_cash_flow(args):
     config_logging(args.debug)
     start = datetime.strptime(args.date, DATE_FORMAT_STRING)
     logging.info(start)

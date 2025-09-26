@@ -30,7 +30,15 @@ class Bond(Asset):
         return 0.0, self.currency
 
     def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
-        return []
+        timeline = []
+        for payment in self.payment_schedule:
+            payment_date = datetime.strptime(payment["date"], DATE_FORMAT_STRING)
+            if payment_date <= end and payment["paid"] != "1":
+                timeline.append((payment_date.date(), (payment["amount"], self.currency)))
+        maturity_datetime = datetime.strptime(self.maturity_date, DATE_FORMAT_STRING)
+        if maturity_datetime <= end:
+            timeline.append((maturity_datetime.date(), (self.capital, self.currency)))
+        return timeline
 
     def get_returns(self) -> Tuple[float, float]:
         return self.capital, self.interest_rate

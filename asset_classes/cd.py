@@ -1,10 +1,11 @@
 from datetime import datetime, date
 from typing import Any, Dict, List, Tuple
+import logging
 
 from asset_classes.asset import Asset
+from data.db import Transactions
 from data.gdrive import get_sheet_settings, get_table
 from lib.config import DATE_FORMAT_STRING
-from data.db import Transactions
 
 
 class DepositCertificate(Asset):
@@ -51,10 +52,16 @@ class DepositCertificate(Asset):
         return 0.0, self.currency
 
     def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
-        maturity_date = datetime.strptime(self.maturity, DATE_FORMAT_STRING).date()
-        if end.date() >= maturity_date:
-            return [(maturity_date, (self.capital, self.currency))]
-        return []
+        timeline = []
+        for payment in self.interest_schedule:
+            payment_date = datetime.strptime(payment["date"], DATE_FORMAT_STRING)
+            if payment_date <= end and payment["paid"] != "1":
+                timeline.append((payment_date.date(), (payment["amount"], self.currency)))
+        maturity_datetime = datetime.strptime(self.maturity, DATE_FORMAT_STRING)
+        if maturity_datetime <= end:
+            logging.debug(f"Adding maturity payment on {maturity_datetime.date()} for {self.identifier}")
+            timeline.append((maturity_datetime.date(), (self.capital, self.currency)))
+        return timeline
 
     def get_income(self, today: datetime) -> Tuple[float, str]:
         total = 0.0

@@ -68,12 +68,11 @@ class Instrument(Asset):
         return amount, self.currency
 
     def get_liquid_balance(self) -> Tuple[float, str]:
-        print(self.liquid)
         return (
             self.qty * self.price * self.factor if self.liquid else 0.0
         ), self.currency
 
-    def get_timeline(self, end: datetime) -> List[Tuple[date, float]]:
+    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
         timeline = []
         timeline.append((datetime.today().date(), self.get_liquid_balance()))
         for date in cron_runs(self.dividend, datetime.today(), end):

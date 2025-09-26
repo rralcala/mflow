@@ -1,11 +1,11 @@
-import logging
 from datetime import datetime, date
 from typing import List, Tuple
+import logging
 
 from asset_classes.asset import Asset
+from data.db import Transactions
 from data.gdrive import get_sheet_settings, get_table
 from lib.config import DATE_FORMAT_STRING
-from data.db import Transactions
 
 
 class Payable(Asset):

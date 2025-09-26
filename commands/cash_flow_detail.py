@@ -1,15 +1,12 @@
-import argparse
-import logging
 from datetime import datetime, timedelta
-import pprint
-from lib.config import DATE_FORMAT_STRING
+
 from reports.cash_flow import generate_timeline
 from lib.util import config_logging
 
 
 def handle_cash_flow_detail(args):
     config_logging(args.debug)
-    end = datetime.today() + timedelta(days=145)
+    end = datetime.today() + timedelta(days=180)
     col = {
         "US": {"USD": 0},
         "PY": {"USD": 1, "PYG": 2},
