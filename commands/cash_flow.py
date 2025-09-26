@@ -1,11 +1,3 @@
-import os
-import sys
-
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.join(script_dir, "..")
-sys.path.insert(0, project_root)
-
-import argparse
 import logging
 from datetime import datetime
 import matplotlib.pyplot as plt
