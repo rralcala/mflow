@@ -1,9 +1,10 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import Any, Dict, List, Tuple
 
 from asset_classes.asset import Asset
 from data.gdrive import get_sheet_settings, get_table
 from lib.config import DATE_FORMAT_STRING
+from data.db import Transactions
 
 
 class DepositCertificate(Asset):
@@ -49,6 +50,12 @@ class DepositCertificate(Asset):
     def get_liquid_balance(self) -> Tuple[float, str]:
         return 0.0, self.currency
 
+    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
+        maturity_date = datetime.strptime(self.maturity, DATE_FORMAT_STRING).date()
+        if end.date() >= maturity_date:
+            return [(maturity_date, (self.capital, self.currency))]
+        return []
+
     def get_income(self, today: datetime) -> Tuple[float, str]:
         total = 0.0
         maturity_date = datetime.strptime(self.maturity, DATE_FORMAT_STRING)
@@ -58,7 +65,11 @@ class DepositCertificate(Asset):
             date = datetime.strptime(d["date"], "%m/%d/%Y")
             if date.month == today.month and date.year == today.year:
                 total += d["amount"]
-
+        t = Transactions()
+        identified = t.get(self.identifier, today.year, today.month)
+        # logging.debug(len(identified))
+        for v in identified:
+            total += v["amount"]
         return total, self.currency
 
     def get_currency(self) -> str:

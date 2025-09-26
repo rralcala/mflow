@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, date
 from typing import Any, Dict, List, Tuple
 
 from asset_classes.asset import Asset
@@ -19,6 +19,7 @@ class Bond(Asset):
         currency: str,
     ):
         self.identifier = identifier
+        self.country = "PY"
         self.capital = capital
         self.currency = currency
         self.interest_rate = interest_rate
@@ -27,6 +28,9 @@ class Bond(Asset):
 
     def get_liquid_balance(self) -> Tuple[float, str]:
         return 0.0, self.currency
+
+    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
+        return []
 
     def get_returns(self) -> Tuple[float, float]:
         return self.capital, self.interest_rate

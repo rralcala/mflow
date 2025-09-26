@@ -1,10 +1,10 @@
 import calendar
-from datetime import datetime
-from typing import Any, Dict, Tuple
-
+from datetime import datetime, date
+from typing import Any, Dict, Tuple, List
+import logging
 from asset_classes.asset import Asset
 from data.gdrive import get_sheet_settings
-from lib.util import count_cron_runs
+from lib.util import count_cron_runs, cron_runs
 from data.db import Transactions
 
 FORMAT = "%m/%d/%Y"
@@ -45,6 +45,14 @@ class Recurrent(Asset):
             return paid_amount, self.currency
         return 0.0, "USD"
 
+    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
+        timeline = []
+
+        for date in cron_runs(self.recurrence, datetime.today(), end):
+            if date >= self.start_date:
+                timeline.append((date.date(), (self.amount, self.currency)))
+        return timeline
+
     def get_returns(self) -> Tuple[float, float]:
         return self.get_current_value()[0], 0.0
 
@@ -72,8 +80,9 @@ class Recurrent(Asset):
         else:
             cash_flow = 0.0
         t = Transactions()
-
-        for v in t.get(self.identifier, today.year, today.month):
+        identified = t.get(self.identifier, today.year, today.month)
+        logging.debug(len(identified))
+        for v in identified:
             cash_flow += v["amount"]
 
         return cash_flow, self.currency

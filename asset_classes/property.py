@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import List, Tuple
-
+from dateutil.rrule import rrule, MONTHLY
 from asset_classes.asset import Asset
 from data.gdrive import get_sheet_settings, get_table
 from lib.config import DATE_FORMAT_STRING, YEAR
@@ -48,6 +48,13 @@ class Property(Asset):
         This method can be overridden by subclasses if needed.
         """
         return 0.0, self.currency
+
+    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
+        timeline = []
+        firsts = list(rrule(MONTHLY, dtstart=datetime.today(), until=end, bymonthday=1))
+        for fist_of_month in firsts:
+            timeline.append((fist_of_month.date(), self.get_income(fist_of_month)))
+        return timeline
 
     def get_currency(self) -> str:
         return self.currency

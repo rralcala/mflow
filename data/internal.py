@@ -1,5 +1,4 @@
 from typing import List, Sequence, Tuple
-import csv
 import logging
 import requests
 
@@ -31,7 +30,11 @@ def fetch_assets(files):
     items = {"USD": [], "PYG": []}
     for file in files:
         logging.debug("Fetching asset data for %s", file)
-        fetched = fetch_if_not_cached(file)
+        try:
+            fetched = fetch_if_not_cached(file)
+        except ValueError as e:
+            logging.error(e)
+            continue
         if isinstance(fetched, Sequence):
             for sub_item in fetched:
                 items[sub_item.get_currency()].append(sub_item)
@@ -67,10 +70,9 @@ def read_net_history() -> List[Tuple[str, float]]:
     ordered_history = []
     t = Transactions()
     for row in t.get_balance_history():
-        ordered_history.append(f"{row['month']}-{row['year']}", float(row['amount']))
+        ordered_history.append(f"{row['month']}-{row['year']}", float(row["amount"]))
     return ordered_history
 
 
 def write_last_net_history(year: str, month: str, amount: float):
     t = Transactions()
-    

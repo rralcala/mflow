@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import List, Tuple
 
 from asset_classes.asset import Asset
@@ -39,6 +39,9 @@ class Account(Asset):
         ):
             return self.balance, self.currency
         return 0.0, "USD"
+
+    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
+        return [(datetime.today().date(), self.get_liquid_balance())]
 
     def get_currency(self) -> str:
         return self.currency

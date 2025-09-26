@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, date
 from typing import List, Tuple
 
 from asset_classes.asset import Asset
@@ -43,6 +43,13 @@ class Payable(Asset):
         This method can be overridden by subclasses if needed.
         """
         return 0.0, self.currency
+
+    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
+        due_date_date = datetime.strptime(self.due_date, DATE_FORMAT_STRING).date()
+        if end.date() >= due_date_date:
+            return [(due_date_date, (self.amount, self.currency))]
+        else:
+            return []
 
     def get_current_value(self) -> Tuple[float, str]:
         """

@@ -1,11 +1,12 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import List, Tuple
 
 import data.internal
 from asset_classes.asset import Asset
 from data.gdrive import get_sheet_settings, get_table
-from lib.config import DATE_FORMAT_STRING
+from lib.config import DATE_FORMAT_STRING, LOCATION_COUNTRY
 from data.db import Transactions
+from lib.util import cron_runs
 
 
 class Instrument(Asset):
@@ -24,6 +25,7 @@ class Instrument(Asset):
         currency: str,
         acquisition_date: datetime,
         acquisition_price: float,
+        liquid: bool,
     ):
         self.symbol = symbol
         self.identifier = f"{location}_{symbol}"
@@ -32,11 +34,13 @@ class Instrument(Asset):
         self.qty = qty
         self.currency = currency
         self.location = location
+        self.country = LOCATION_COUNTRY[location]
         self.estimated_dividend = estimated_dividend
         self.rate = rate
         self.dividend = dividend
         self.acquisition_date = acquisition_date
         self.acquisition_price = acquisition_price
+        self.liquid = liquid
         self.need_update = True
 
     def get_current_value(self) -> Tuple[float, str]:
@@ -64,7 +68,17 @@ class Instrument(Asset):
         return amount, self.currency
 
     def get_liquid_balance(self) -> Tuple[float, str]:
-        return 0.0, self.currency
+        print(self.liquid)
+        return (
+            self.qty * self.price * self.factor if self.liquid else 0.0
+        ), self.currency
+
+    def get_timeline(self, end: datetime) -> List[Tuple[date, float]]:
+        timeline = []
+        timeline.append((datetime.today().date(), self.get_liquid_balance()))
+        for date in cron_runs(self.dividend, datetime.today(), end):
+            timeline.append((date.date(), (self.estimated_dividend, self.currency)))
+        return timeline
 
     def get_currency(self) -> str:
         return self.currency
@@ -84,7 +98,7 @@ class Instrument(Asset):
         return self.get_current_value()[0], annualized_return + self.rate
 
     def __repr__(self):
-        return f"Asset(symbol={self.symbol}, value={self.get_current_value()[0]}, currency={self.currency}, location={self.location})"
+        return f"Asset(symbol={self.symbol}, value={self.get_current_value()[0]}, currency={self.currency}, location={self.location}, liquid={self.liquid})"
 
 
 def get_total_value(assets: List[Instrument]) -> float:
@@ -131,8 +145,9 @@ def parse_portfolio(data: List[List[str]]) -> List[Instrument]:
             currency=row[9],
             acquisition_date=datetime.strptime(row[10], DATE_FORMAT_STRING),
             acquisition_price=float(row[11].replace(",", "")),
+            liquid=True if row[13] == "1" else False,
         )
-        if len(row) < 10:
+        if len(row) < 11:
             continue  # Skip rows that do not have enough columns
         parsed_accounts.append(asset)
 

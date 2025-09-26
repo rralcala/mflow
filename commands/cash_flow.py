@@ -31,16 +31,16 @@ if __name__ == "__main__":
     config_logging(args.debug)
     start = datetime.strptime(args.date, DATE_FORMAT_STRING)
     logging.info(start)
-    x, y, t = cash_flow(start)
-
+    x, balances, t = cash_flow(start)
+    print("Date:   \tBalance USD, Income USD, Income PYG")
     for i, xv in enumerate(x):
-        print(f"{xv}: {y[i]:,.0f}USD {t[i][0]:,.0f}USD {t[i][1]:,.0f}PYG")
-    min_value = min(y)
-    min_index = y.index(min_value)
+        print(f"{xv}:\t{balances[i]:,.0f}USD {t[i][0]:,.0f}USD {t[i][1]:,.0f}PYG")
+    min_value = min(balances)
+    min_index = balances.index(min_value)
     logging.info(f"Minimum value: {min_value:,.2f} USD in {x[min_index]}")
 
     if args.plot:
-        plt.plot(x, y)
+        plt.plot(x, balances)
         plt.xticks(rotation=90)
         plt.hlines(y=0, xmin=x[0], xmax=x[-1], colors="red", linestyles="dashed")
         plt.xlabel("Month")
