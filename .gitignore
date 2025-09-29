@@ -3,3 +3,4 @@ cache/*.pkl
 crypto_key.json
 history.csv
 key.json
+.vscode

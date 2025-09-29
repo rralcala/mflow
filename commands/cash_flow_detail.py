@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
 
-from reports.cash_flow import generate_timeline
+from data.internal import exchange_rate
 from lib.util import config_logging
+from reports.cash_flow import generate_timeline
 
 
 def handle_cash_flow_detail(args):
@@ -24,4 +25,7 @@ def handle_cash_flow_detail(args):
         uu += timeline[date][0]
         pu += timeline[date][1]
         pp += timeline[date][2]
-        print(f"{date}: {uu:10,.2f}USD {pu:10,.0f}USD {pp:15,.0f}PYG")
+        ppu = pp / exchange_rate("USDPYG")
+        print(
+            f"{date}: {uu:10,.2f}USD {pu:10,.0f}USD {pp:15,.0f}PYG ({ppu:10,.0f}USD) {uu+pu+ppu:10,.0f}USD"
+        )

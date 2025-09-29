@@ -16,11 +16,13 @@ def fetch_if_not_cached(sheet: str) -> Asset | Sequence[Asset]:
     """
     path = "./cache/" + sheet + ".pkl"
     if os.path.exists(path):
+        logging.debug("Loading from cache: %s", path)
         with open(path, "rb") as f:
             item = pickle.load(f)
             if isinstance(item, instrument.Instrument):
                 item.need_update = True
     else:
+        logging.debug("%s not found, loading from Google", path)
         data = get_sheet_settings(sheet)
         itype = data.get("itype", "").lower()
         if itype == "cd":

@@ -1,10 +1,12 @@
-from datetime import datetime, date
+from datetime import date, datetime
 from typing import List, Tuple
-from dateutil.rrule import rrule, MONTHLY
+
+from dateutil.rrule import MONTHLY, rrule
+
 from asset_classes.asset import Asset
+from data.db import Transactions
 from data.gdrive import get_sheet_settings, get_table
 from lib.config import DATE_FORMAT_STRING, YEAR
-from data.db import Transactions
 
 
 class Property(Asset):
@@ -52,8 +54,12 @@ class Property(Asset):
     def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
         timeline = []
         firsts = list(rrule(MONTHLY, dtstart=datetime.today(), until=end, bymonthday=1))
-        for fist_of_month in firsts:
-            timeline.append((fist_of_month.date(), self.get_income(fist_of_month)))
+        for first_of_month in firsts:
+            income = self.get_income(first_of_month)
+            if income[0] != 0.0:
+                timeline.append(
+                    (first_of_month.date(), self.get_income(first_of_month))
+                )
         return timeline
 
     def get_currency(self) -> str:

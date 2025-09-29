@@ -1,14 +1,15 @@
-from typing import Dict, List
 import json
 import logging
-import redis
 import sys
+from typing import Dict, List
+
+import redis
 
 BALANCE_HISTORY_KEY = "balance-history"
 
 
 class Transactions:
-    r = redis.Redis(host="127.0.0.1", port=6379, db=0)
+    r = redis.Redis(host="192.168.0.28", port=6379, db=0)
 
     def __init__(self):
         try:

@@ -1,10 +1,12 @@
 import logging
 from datetime import datetime
+
 import matplotlib.pyplot as plt
 
 from lib.config import DATE_FORMAT_STRING
-from reports.cash_flow import cash_flow
 from lib.util import config_logging
+from reports.cash_flow import cash_flow
+
 
 def handle_cash_flow(args):
     config_logging(args.debug)

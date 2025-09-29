@@ -1,8 +1,9 @@
 import logging
 from pprint import pprint
 
-from reports.list_assets import list_assets
 from lib.util import config_logging
+from reports.list_assets import list_assets
+
 
 def handle_asset_summary(args):
     config_logging(args.debug)

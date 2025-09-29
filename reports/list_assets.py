@@ -1,8 +1,8 @@
-from datetime import datetime
 import logging
+from datetime import datetime
 
-from data.gdrive import list_files_in_folder
 import data.internal
+from data.gdrive import list_files_in_folder
 
 
 def check_history(tpval: float, tnval: float):

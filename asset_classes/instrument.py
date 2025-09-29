@@ -1,11 +1,11 @@
-from datetime import datetime, date
+from datetime import date, datetime
 from typing import List, Tuple
 
 import data.internal
 from asset_classes.asset import Asset
+from data.db import Transactions
 from data.gdrive import get_sheet_settings, get_table
 from lib.config import DATE_FORMAT_STRING, LOCATION_COUNTRY
-from data.db import Transactions
 from lib.util import cron_runs
 
 
@@ -74,9 +74,12 @@ class Instrument(Asset):
 
     def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
         timeline = []
-        timeline.append((datetime.today().date(), self.get_liquid_balance()))
-        for date in cron_runs(self.dividend, datetime.today(), end):
-            timeline.append((date.date(), (self.estimated_dividend, self.currency)))
+        balance = self.get_liquid_balance()
+        if balance[0] != 0.0:
+            timeline.append((datetime.today().date(), balance))
+        if self.estimated_dividend != 0.0:
+            for date in cron_runs(self.dividend, datetime.today(), end):
+                timeline.append((date.date(), (self.estimated_dividend, self.currency)))
         return timeline
 
     def get_currency(self) -> str:

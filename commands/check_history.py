@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 
-from reports.list_assets import check_history, list_assets
 from lib.util import config_logging
+from reports.list_assets import check_history, list_assets
+
 
 def handle_check_history(args):
     config_logging(args.debug)

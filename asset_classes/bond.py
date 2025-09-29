@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, date
+from datetime import date, datetime
 from typing import Any, Dict, List, Tuple
 
 from asset_classes.asset import Asset
@@ -34,7 +34,9 @@ class Bond(Asset):
         for payment in self.payment_schedule:
             payment_date = datetime.strptime(payment["date"], DATE_FORMAT_STRING)
             if payment_date <= end and payment["paid"] != "1":
-                timeline.append((payment_date.date(), (payment["amount"], self.currency)))
+                timeline.append(
+                    (payment_date.date(), (payment["amount"], self.currency))
+                )
         maturity_datetime = datetime.strptime(self.maturity_date, DATE_FORMAT_STRING)
         if maturity_datetime <= end:
             timeline.append((maturity_datetime.date(), (self.capital, self.currency)))
@@ -56,9 +58,9 @@ class Bond(Asset):
         ):
             total += self.capital
         for d in self.payment_schedule:
-            date = datetime.strptime(d["date"], "%m/%d/%Y")
-            if date.month == today.month and date.year == today.year:
-                logging.debug(f"Payment not paid: {d}")
+            payment_date = datetime.strptime(d["date"], "%m/%d/%Y")
+            if payment_date.month == today.month and payment_date.year == today.year:
+                logging.debug("Payment not paid: %s", d)
                 total += d["amount"]
 
         return total, self.currency
@@ -74,7 +76,16 @@ class Bond(Asset):
         return self.currency
 
     def __repr__(self):
-        return f"Bond ID: {self.identifier}, Face Value: {self.capital}, Interest Rate: {self.interest_rate}, Maturity Date: {self.maturity_date}"
+        return (
+            "Bond ID:"
+            + self.identifier
+            + ", Face Value:"
+            + str(self.capital)
+            + ", Interest Rate: "
+            + str(self.interest_rate)
+            + ", Maturity Date: "
+            + self.maturity_date
+        )
 
 
 def parse_bond(data: Dict[str, Any], sheet: str) -> Bond:
@@ -100,7 +111,7 @@ def parse_bond(data: Dict[str, Any], sheet: str) -> Bond:
             "amount": float(row[2].replace(",", "")),
             "paid": row[3],
         }
-        logging.debug(f"Payment: {payment}")
+        logging.debug(f"Payment: %s", payment)
         new_bond.payment_schedule.append(payment)
 
     return new_bond

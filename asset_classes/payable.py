@@ -1,6 +1,6 @@
-from datetime import datetime, date
-from typing import List, Tuple
 import logging
+from datetime import date, datetime
+from typing import List, Tuple
 
 from asset_classes.asset import Asset
 from data.db import Transactions

@@ -1,6 +1,6 @@
-from datetime import datetime, date
-from typing import Any, Dict, List, Tuple
 import logging
+from datetime import date, datetime
+from typing import Any, Dict, List, Tuple
 
 from asset_classes.asset import Asset
 from data.db import Transactions
@@ -56,10 +56,14 @@ class DepositCertificate(Asset):
         for payment in self.interest_schedule:
             payment_date = datetime.strptime(payment["date"], DATE_FORMAT_STRING)
             if payment_date <= end and payment["paid"] != "1":
-                timeline.append((payment_date.date(), (payment["amount"], self.currency)))
+                timeline.append(
+                    (payment_date.date(), (payment["amount"], self.currency))
+                )
         maturity_datetime = datetime.strptime(self.maturity, DATE_FORMAT_STRING)
         if maturity_datetime <= end:
-            logging.debug(f"Adding maturity payment on {maturity_datetime.date()} for {self.identifier}")
+            logging.debug(
+                f"Adding maturity payment on {maturity_datetime.date()} for {self.identifier} of {self.capital} {self.currency}"
+            )
             timeline.append((maturity_datetime.date(), (self.capital, self.currency)))
         return timeline
 

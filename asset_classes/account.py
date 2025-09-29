@@ -1,4 +1,6 @@
-from datetime import datetime, date
+"""Represents a financial account likely liquid and with no interest."""
+
+from datetime import date, datetime
 from typing import List, Tuple
 
 from asset_classes.asset import Asset
@@ -6,7 +8,7 @@ from data.gdrive import get_sheet_settings, get_table
 
 
 class Account(Asset):
-    """Represents a financial account with its attributes and methods to manage deposits and withdrawals."""
+    """Represents a financial account to manage deposits and withdrawals."""
 
     def __init__(
         self,
@@ -41,6 +43,9 @@ class Account(Asset):
         return 0.0, "USD"
 
     def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
+        balance = self.get_liquid_balance()
+        if balance[0] == 0.0:
+            return []
         return [(datetime.today().date(), self.get_liquid_balance())]
 
     def get_currency(self) -> str:
@@ -82,6 +87,7 @@ def parse_accounts(data: List[List[str]]) -> List[Account]:
 
 
 def fetch(sheet: str, worksheet: str):
+    """Fetch the asset from Gooogle Sheets"""
     data = get_sheet_settings(sheet)
 
     if "itype" not in data or data["itype"].lower() != "cash":

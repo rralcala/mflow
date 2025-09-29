@@ -1,9 +1,9 @@
-from datetime import datetime
-
 import logging
+from datetime import datetime
+from typing import Generator, List, Tuple
 
-from data.gdrive import list_files_in_folder
 import data.internal
+from data.gdrive import list_files_in_folder
 
 
 def income_at_month(date, items):
@@ -31,15 +31,19 @@ def calculate_balance(items) -> float:
     return totals["USD"] + totals["PYG"] / data.internal.exchange_rate("USDPYG")
 
 
-def generate_timeline(end: datetime):
+def generate_timeline(
+    end: datetime,
+) -> Generator[Tuple[str, List[Tuple[datetime, Tuple[float, str]]]], None, None]:
     files = list_files_in_folder()
     items = data.internal.fetch_assets(files)
     tls = []
     for k, v in items.items():
         for asset in v:
             tl = asset.get_timeline(end)
-            tls.append((asset.country, tl))
-    return tls
+            if len(tl) == 0:
+                continue
+            logging.debug(f"Timeline for {asset.identifier}: {tl}")
+            yield (asset.country, tl)
 
 
 def cash_flow(today: datetime):
