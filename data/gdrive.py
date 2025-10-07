@@ -108,12 +108,17 @@ def list_files_in_folder() -> List[str]:
     # Query for files in the folder
     results = (
         service.files()
-        .list(q=f"'{FOLDER_ID}' in parents and trashed=false", fields="files(id, name)")
+        .list(
+            q=f"'{FOLDER_ID}' in parents and trashed=false",
+            fields="files(id, name, modifiedTime, mimeType)",
+        )
         .execute()
     )
 
     files = results.get("files", [])
-    results = []
-    for file in files:
-        results.append(file["name"])
-    return results
+    selected = []
+    for file in filter(
+        lambda f: f["mimeType"] == "application/vnd.google-apps.spreadsheet", files
+    ):
+        selected.append((file["name"], file["modifiedTime"]))
+    return selected

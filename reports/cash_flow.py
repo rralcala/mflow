@@ -2,8 +2,8 @@ import logging
 from datetime import datetime
 from typing import Generator, List, Tuple
 
-import data.internal
-from data.gdrive import list_files_in_folder
+from data.asset_store import load_assets
+from data.internal import exchange_rate
 
 
 def income_at_month(date, items):
@@ -28,14 +28,13 @@ def calculate_balance(items) -> float:
             income = asset.get_liquid_balance()
             if income[0] != 0.0:
                 totals[k] += income[0]
-    return totals["USD"] + totals["PYG"] / data.internal.exchange_rate("USDPYG")
+    return totals["USD"] + totals["PYG"] / exchange_rate("USDPYG")
 
 
 def generate_timeline(
     end: datetime,
 ) -> Generator[Tuple[str, List[Tuple[datetime, Tuple[float, str]]]], None, None]:
-    files = list_files_in_folder()
-    items = data.internal.fetch_assets(files)
+    items = load_assets()
     tls = []
     for k, v in items.items():
         for asset in v:
@@ -48,9 +47,8 @@ def generate_timeline(
 
 def cash_flow(today: datetime):
     logging.debug("Listing files in Google Drive folder:")
-    files = list_files_in_folder()
 
-    items = data.internal.fetch_assets(files)
+    items = load_assets()
     start = today.year * 12 + today.month - 1
     end = (today.year + 0) * 12 + today.month
     balance = calculate_balance(items)
@@ -62,7 +60,7 @@ def cash_flow(today: datetime):
         month = v % 12 + 1
         today = datetime(year, month, 1)
         totalsd, totalsg = income_at_month(today, items)
-        balance += totalsd + totalsg / data.internal.exchange_rate("USDPYG")
+        balance += totalsd + totalsg / exchange_rate("USDPYG")
         balances.append(balance)
         x.append(f"{year}-{month:02d}")
         t.append((totalsd, totalsg))

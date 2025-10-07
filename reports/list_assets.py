@@ -1,20 +1,19 @@
 import logging
 from datetime import datetime
 
-import data.internal
-from data.gdrive import list_files_in_folder
+from data.asset_store import load_assets
+from data.internal import (exchange_rate, read_net_history,
+                           write_last_net_history)
 
 
 def check_history(tpval: float, tnval: float):
-    ordered_history = data.internal.read_net_history()
+    ordered_history = read_net_history()
 
     today = datetime.now()
     new_key = f"{today.month}-{today.year}"
     if len(ordered_history) > 0 and ordered_history[-1][0] == new_key:
         ordered_history.pop()
-        data.internal.write_last_net_history(
-            str(today.year), str(today.month), tpval + tnval
-        )
+        write_last_net_history(str(today.year), str(today.month), tpval + tnval)
     ordered_history.append((new_key, tpval + tnval))
 
     history = -6 if len(ordered_history) > 6 else -len(ordered_history)
@@ -33,13 +32,8 @@ def check_history(tpval: float, tnval: float):
 
 def list_assets(print_pos: bool, print_neg: bool):
     asset_data = {"negatives": [], "positives": [], "currency_summary": []}
-    files = list_files_in_folder()
-    if not files:
-        raise FileNotFoundError("No files found in the specified Google Drive folder.")
-
-    assets = data.internal.fetch_assets(files)
-
-    exchange = data.internal.exchange_rate("USDPYG")
+    assets = load_assets()
+    exchange = exchange_rate("USDPYG")
 
     returns = []
     for k, sub in assets.items():

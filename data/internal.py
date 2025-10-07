@@ -1,11 +1,9 @@
 """Internal data handling functions."""
 
-import logging
-from typing import List, Sequence, Tuple
+from typing import List, Tuple
 
 import requests
 
-from asset_classes.fetcher import fetch_if_not_cached
 from data.db import Transactions
 
 CRYPTO_PUBLIC_API = "https://api.crypto.com/exchange/v1/public"
@@ -34,28 +32,6 @@ def exchange_rate(currencies: str) -> float:
     else:
         raise ValueError(f"Unknown currency pair {currencies}")
     return price
-
-
-def fetch_assets(files):
-    """Apply fetching logic and call fetch_if_not_cached for each asset file."""
-    items = {"USD": [], "PYG": []}
-    for file in files:
-
-        if file == "Transactions-1":
-            logging.debug("Skipping asset data for %s", file)
-            continue
-        logging.debug("Fetching asset data for <%s>", file)
-        try:
-            fetched = fetch_if_not_cached(file)
-        except ValueError as e:
-            logging.error(e)
-            continue
-        if isinstance(fetched, Sequence):
-            for sub_item in fetched:
-                items[sub_item.get_currency()].append(sub_item)
-        else:
-            items[fetched.get_currency()].append(fetched)
-    return items
 
 
 def _get_crypto_price(crypto_symbol: str) -> Tuple[float, str]:
