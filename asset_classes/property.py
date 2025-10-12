@@ -1,10 +1,9 @@
 from datetime import date, datetime
 from typing import List, Tuple
-
+import logging
 from dateutil.rrule import MONTHLY, rrule
 
 from asset_classes.asset import Asset
-from data.db import Transactions
 from data.gdrive import get_sheet_settings, get_table
 from lib.config import DATE_FORMAT_STRING, YEAR
 
@@ -21,6 +20,7 @@ class Property(Asset):
         purchase_date: str,
         latest_price: float,
         rented_price: float,
+        payday: int,
     ):
         self.country = country
         self.currency = currency
@@ -29,15 +29,13 @@ class Property(Asset):
         self.purchase_date = purchase_date
         self.latest_price = latest_price
         self.rented_price = rented_price
+        self.payday = payday
 
     def get_income(self, today: datetime) -> Tuple[float, str]:
         """
         Returns the income from the property.
         """
-        t = Transactions()
         income = self.rented_price
-        for v in t.get(self.identifier, today.year, today.month):
-            income += v["amount"]
         return income, self.currency
 
     def get_current_value(self) -> Tuple[float, str]:
@@ -53,7 +51,10 @@ class Property(Asset):
 
     def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
         timeline = []
-        firsts = list(rrule(MONTHLY, dtstart=datetime.today(), until=end, bymonthday=1))
+        if self.rented_price == 0.0:
+            return timeline
+        logging.debug(self)
+        firsts = list(rrule(MONTHLY, dtstart=datetime.today(), until=end, bymonthday=self.payday))
         for first_of_month in firsts:
             income = self.get_income(first_of_month)
             if income[0] != 0.0:
@@ -120,6 +121,7 @@ def parse_properties(data: List[List[str]]) -> List[Property]:
             purchase_date=row[4],
             latest_price=float(row[5].replace(",", "")),
             rented_price=float(row[6].replace(",", "")),
+            payday = int(row[7])
         )
         parsed_accounts.append(account)
 

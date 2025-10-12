@@ -1,10 +1,8 @@
 import calendar
-import logging
 from datetime import date, datetime
 from typing import Any, Dict, List, Tuple
 
 from asset_classes.asset import Asset
-from data.db import Transactions
 from data.gdrive import get_sheet_settings
 from lib.util import count_cron_runs, cron_runs
 
@@ -80,11 +78,6 @@ class Recurrent(Asset):
             cash_flow = count_cron_runs(self.recurrence, start, end) * self.amount
         else:
             cash_flow = 0.0
-        t = Transactions()
-        identified = t.get(self.identifier, today.year, today.month)
-        logging.debug(len(identified))
-        for v in identified:
-            cash_flow += v["amount"]
 
         return cash_flow, self.currency
 
