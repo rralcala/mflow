@@ -1,0 +1,35 @@
+// ...existing code...
+syntax = "proto3";
+
+package mflow.protobuf;
+
+option java_package = "com.rralcala.mflow.protobuf";
+option go_package = "github.com/rralc/mflow/protobuf;protobuf";
+
+// Represents an expense record
+message Expense {
+    string id = 1;            // UUID or unique identifier
+    double amount = 2;
+    string currency = 3;      // ISO currency code, e.g. "USD"
+    string date = 4;          // ISO 8601 date string (YYYY-MM-DD or full timestamp)
+    string category = 5;
+    string description = 6;
+    string account_id = 7;    // linked account identifier
+    repeated string tags = 8;
+    int64 created_at = 9;     // unix epoch seconds
+}
+
+// Request to create an expense
+message CreateExpenseRequest {
+    Expense expense = 1;
+}
+
+// Response returns the created expense (with id/created_at populated)
+message CreateExpenseResponse {
+    Expense expense = 1;
+}
+
+service ExpenseService {
+    // Creates a new expense and returns the created record
+    rpc CreateExpense(CreateExpenseRequest) returns (CreateExpenseResponse);
+}

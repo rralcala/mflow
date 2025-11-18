@@ -1,12 +1,11 @@
+from typing import Dict, List
+
 from asset_classes.fetcher import fetch_assets
-from data.gdrive import list_files_in_folder
+import data.gdrive
 
-
-def load_assets():
-    assets = {}
-    files = list_files_in_folder()
+def load_assets() -> Dict[str, List]:
+    files = data.gdrive.discover_assets()
     if not files:
-        raise FileNotFoundError("No files found in the specified Google Drive folder.")
-
+        return {}
     assets = fetch_assets(files)
     return assets

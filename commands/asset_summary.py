@@ -3,7 +3,7 @@ from pprint import pprint
 
 from lib.util import config_logging
 from reports.list_assets import list_assets
-
+import csv
 
 def handle_asset_summary(args):
     config_logging(args.debug)
@@ -23,6 +23,13 @@ def handle_asset_summary(args):
         ret += tret
     asset_data["return_history"] = []
     pprint(asset_data)
+    with open('people.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        for asset in asset_data['positives']:
+            v, c  = asset[1].split(" ")
+            writer.writerow([asset[0], v, c])
+
+
     logging.info(
         f"Total positive value : {tpval:,.2f} USD ({(tnval/tpval*-100):,.2f}% Debt)")
     logging.info(f"Total negative value : {tnval:,.2f} USD")

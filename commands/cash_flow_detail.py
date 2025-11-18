@@ -27,5 +27,5 @@ def handle_cash_flow_detail(args):
         pp += timeline[date][2]
         ppu = pp / exchange_rate("USDPYG")
         print(
-            f"{date}: {uu:10,.2f}USD {pu:10,.0f}USD {pp:15,.0f}PYG/[{ppu:10,.0f}USD] {uu+pu+ppu:10,.0f}USD"
+            f"{date}: {uu:10,.0f}USD {pu:10,.0f}USD {pp:15,.0f}PYG/[{ppu:10,.0f}USD] {uu+pu+ppu:10,.0f}USD"
         )

@@ -1,7 +1,7 @@
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -96,7 +96,7 @@ def get_sheet_settings(sheet: str) -> Dict[str, Any]:
     return settings
 
 
-def list_files_in_folder() -> List[str]:
+def discover_assets() -> List[Tuple[str, str]]:
     """
     Lists all files in a specific Google Drive folder."""
     # Authenticate and build the service

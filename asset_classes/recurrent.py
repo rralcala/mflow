@@ -22,6 +22,7 @@ class Recurrent(Asset):
         recurrence: str,
         start: str,
         flow_class: str,
+        parent_asset: str,
     ):
         self.identifier = identifier
         self.amount = amount
@@ -31,6 +32,7 @@ class Recurrent(Asset):
         self.maturity_date = datetime.strptime(end, FORMAT)
         self.recurrence = recurrence
         self.flow_class = flow_class
+        self.parent_asset = parent_asset
 
     def get_current_value(self) -> Tuple[float, str]:
         """
@@ -106,6 +108,7 @@ def parse_recurrent(data: Dict[str, Any]) -> Recurrent:
         end=data["end"],
         recurrence=data["recurrence"],
         start=data["start"],
+        parent_asset=data.get("parent_asset", ""),
     )
 
     return new_bond

@@ -27,6 +27,8 @@ def exchange_rate(currencies: str) -> float:
         price = QUOTE_CACHE["USDPYG"]
     elif currencies == "BTCUSD":
         price, _ = _get_crypto_price("BTCUSD")
+    elif currencies == "SOLUSD":
+        price, _ = _get_crypto_price("SOLUSD")
     elif currencies == "CROUSD":
         price, _ = _get_crypto_price("CROUSD")
     else:

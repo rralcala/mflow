@@ -20,7 +20,6 @@ class Property(Asset):
         purchase_date: str,
         latest_price: float,
         rented_price: float,
-        payday: int,
     ):
         self.country = country
         self.currency = currency
@@ -29,7 +28,8 @@ class Property(Asset):
         self.purchase_date = purchase_date
         self.latest_price = latest_price
         self.rented_price = rented_price
-        self.payday = payday
+        self.contracts = []
+
 
     def get_income(self, today: datetime) -> Tuple[float, str]:
         """
@@ -54,7 +54,7 @@ class Property(Asset):
         if self.rented_price == 0.0:
             return timeline
         logging.debug(self)
-        firsts = list(rrule(MONTHLY, dtstart=datetime.today(), until=end, bymonthday=self.payday))
+        firsts = list(rrule(MONTHLY, dtstart=datetime.today(), until=end, bymonthday=1))
         for first_of_month in firsts:
             income = self.get_income(first_of_month)
             if income[0] != 0.0:
@@ -120,8 +120,7 @@ def parse_properties(data: List[List[str]]) -> List[Property]:
             purchase_price=float(row[3].replace(",", "")),
             purchase_date=row[4],
             latest_price=float(row[5].replace(",", "")),
-            rented_price=float(row[6].replace(",", "")),
-            payday = int(row[7])
+            rented_price=float(row[6].replace(",", ""))
         )
         parsed_accounts.append(account)
 
