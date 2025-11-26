@@ -1,12 +1,13 @@
 import calendar
-from typing import Dict, Any, Tuple
-from datetime import datetime
+from datetime import date, datetime
+from typing import Any, Dict, List, Tuple
 
-from lib.gdrive import get_sheet_settings
-from lib.util import count_cron_runs
 from asset_classes.asset import Asset
+from data.datasource import DataSource
+from lib.util import count_cron_runs, cron_runs
 
 FORMAT = "%m/%d/%Y"
+
 
 class Recurrent(Asset):
     """Represents a recurrent financial flow with its attributes and methods to calculate its value."""
@@ -21,15 +22,23 @@ class Recurrent(Asset):
         recurrence: str,
         start: str,
         flow_class: str,
+        parent_asset: str,
     ):
         self.identifier = identifier
         self.amount = amount
         self.country = country
         self.currency = currency
-        self.start_date = datetime.strptime(start, FORMAT)
-        self.maturity_date = datetime.strptime(end, FORMAT)
+        if isinstance(start, datetime):
+            self.start_date = start
+        else:
+            self.start_date = datetime.strptime(start, FORMAT)
+        if isinstance(end, datetime):
+            self.maturity_date = end
+        else:
+            self.maturity_date = datetime.strptime(end, FORMAT)
         self.recurrence = recurrence
         self.flow_class = flow_class
+        self.parent_asset = parent_asset
 
     def get_current_value(self) -> Tuple[float, str]:
         """
@@ -42,6 +51,17 @@ class Recurrent(Asset):
             )
             return paid_amount, self.currency
         return 0.0, "USD"
+
+    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
+        timeline = []
+
+        for date in cron_runs(self.recurrence, datetime.today(), end):
+            if date >= self.start_date:
+                timeline.append((date.date(), (self.amount, self.currency)))
+        return timeline
+
+    def get_returns(self) -> Tuple[float, float]:
+        return self.get_current_value()[0], 0.0
 
     def __repr__(self):
         return f"Recurrent ID: {self.identifier}, Class: {self.flow_class}, Face Value: {self.amount}, Maturity Date: {self.maturity_date}"
@@ -63,18 +83,20 @@ class Recurrent(Asset):
 
         if start >= self.start_date and end <= self.maturity_date:
 
-            cash_flow = (
-                count_cron_runs(self.recurrence, start, end)
-                * self.amount
-            )
+            cash_flow = count_cron_runs(self.recurrence, start, end) * self.amount
         else:
             cash_flow = 0.0
+
         return cash_flow, self.currency
+
+    def get_currency(self) -> str:
+        return self.currency
 
 
 def last_date_of_month(today: datetime) -> datetime:
     last_day = calendar.monthrange(today.year, today.month)[1]
     return today.replace(day=last_day)
+
 
 def parse_recurrent(data: Dict[str, Any]) -> Recurrent:
     """
@@ -86,19 +108,20 @@ def parse_recurrent(data: Dict[str, Any]) -> Recurrent:
     new_bond = Recurrent(
         identifier=data["identifier"],
         flow_class=data["flow_class"].lower(),
-        amount=float(data["amount"].replace(",", "")),
+        amount=float(str(data["amount"]).replace(",", "")),
         country=data["country"],
         currency=data["currency"],
         end=data["end"],
         recurrence=data["recurrence"],
         start=data["start"],
+        parent_asset=data.get("parent_asset", ""),
     )
 
     return new_bond
 
 
-def fetch_recurrent(sheet: str) -> Recurrent:
-    data = get_sheet_settings(sheet)
+def fetch(sheet: DataSource) -> Recurrent:
+    data = sheet.get_sheet_settings()
     if "itype" not in data or data["itype"].lower() != "recurrent":
         raise ValueError("The first cell of the Summary sheet must be 'itype' and the")
 

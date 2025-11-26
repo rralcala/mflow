@@ -2,11 +2,10 @@ DATE_FORMAT_STRING = "%m/%d/%Y"
 YEAR = 365.25
 EXPECTED_ROI = 0.05
 LOCATION_COUNTRY = {
-    "Avalon": "PY",
     "Citi": "US",
     "Coinbase": "US",
     "Crypto.com": "US",
-    "PY-Loan": "PY",
+    "PY-Bank": "PY",
     "Coinomi": "US",
 }
-BASE_PATH = r"C:/Users/rralcala/remote-home/mflow-data/"
+BASE_PATH = r"../mflow-data/"

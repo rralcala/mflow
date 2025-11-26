@@ -1,3 +1,8 @@
 __pycache__
-key.json
 cache/*.pkl
+crypto_key.json
+history.csv
+key.json
+.vscode
+local_storage/!*.md
+lib/config.py

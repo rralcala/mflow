@@ -1,12 +1,15 @@
+from datetime import datetime
 import logging
-from pathlib import Path
 import time
-from typing import List, Dict, Any
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
 
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 from gspread import service_account as gspread_service_account
 from gspread.exceptions import APIError
-from googleapiclient.discovery import build
-from google.oauth2 import service_account
+
+from data.datasource import DataSource
 
 SERVICE_ACCOUNT_FILE = Path("./key.json")
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
@@ -37,11 +40,14 @@ def retry(times, exceptions):
             while attempt < times:
                 try:
                     return func(*args, **kwargs)
-                except exceptions:
+                except exceptions as e:
                     logging.error(
-                        "Exception thrown when attempting to run %s, attempt "
-                        "%d of %d" % (func, attempt, times)
+                        "Exception thrown when attempting to run %s, attempt %d of %d",
+                        func,
+                        attempt,
+                        times,
                     )
+                    logging.error(e)
                     time.sleep(60)  # Exponential backoff
                     attempt += 1
             return func(*args, **kwargs)
@@ -81,6 +87,7 @@ def get_dict(sheet: str, worksheet: str) -> Dict[str, Any]:
         result[row[0].lower()] = row[1]
     return result
 
+
 @retry(3, (APIError,))
 def get_sheet_settings(sheet: str) -> Dict[str, Any]:
     """
@@ -92,7 +99,9 @@ def get_sheet_settings(sheet: str) -> Dict[str, Any]:
     return settings
 
 
-def list_files_in_folder() -> List[str]:
+def discover_assets() -> List[DataSource]:
+    """
+    Lists all files in a specific Google Drive folder."""
     # Authenticate and build the service
     creds = service_account.Credentials.from_service_account_file(
         SERVICE_ACCOUNT_FILE, scopes=SCOPES
@@ -102,12 +111,24 @@ def list_files_in_folder() -> List[str]:
     # Query for files in the folder
     results = (
         service.files()
-        .list(q=f"'{FOLDER_ID}' in parents and trashed=false", fields="files(id, name)")
+        .list(
+            q=f"'{FOLDER_ID}' in parents and trashed=false",
+            fields="files(id, name, modifiedTime, mimeType)",
+        )
         .execute()
     )
 
     files = results.get("files", [])
-    results = []
-    for file in files:
-        results.append(file["name"])
-    return results
+    selected = []
+    for file in filter(
+        lambda f: f["mimeType"] == "application/vnd.google-apps.spreadsheet", files
+    ):
+        new_ds = DataSource(
+            "google", file["name"], datetime.fromisoformat(file["modifiedTime"])
+        )
+        new_ds._get_table = get_table
+        new_ds._get_dict = get_dict
+        new_ds._get_sheet_settings = get_sheet_settings
+        selected.append(new_ds)
+
+    return selected

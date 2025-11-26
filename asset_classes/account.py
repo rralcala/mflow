@@ -1,12 +1,14 @@
-from datetime import datetime
+"""Represents a financial account likely liquid and with no interest."""
+
+from datetime import date, datetime
 from typing import List, Tuple
 
 from asset_classes.asset import Asset
-from lib.gdrive import get_table, get_sheet_settings
+from data.datasource import DataSource
 
 
 class Account(Asset):
-    """Represents a financial account with its attributes and methods to manage deposits and withdrawals."""
+    """Represents a financial account to manage deposits and withdrawals."""
 
     def __init__(
         self,
@@ -26,29 +28,32 @@ class Account(Asset):
         self.factor = factor
         self.account_type = account_type
 
-    def deposit(self, amount: float):
-        if amount > 0:
-            self.balance += amount
-            return True
-        return False
-
-    def withdraw(self, amount: float):
-        if 0 < amount <= self.balance:
-            self.balance -= amount
-            return True
-        return False
-
     def get_current_value(self) -> Tuple[float, str]:
         return (self.balance * self.factor), self.currency
 
     def get_income(self, today: datetime) -> Tuple[float, str]:
         return 0.0, self.currency
-    
+
     def get_liquid_balance(self) -> Tuple[float, str]:
-        if self.account_type.lower() == "savings" or self.account_type.lower() == "checking":
+        if (
+            self.account_type.lower() == "savings"
+            or self.account_type.lower() == "checking"
+        ):
             return self.balance, self.currency
         return 0.0, "USD"
-    
+
+    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
+        balance = self.get_liquid_balance()
+        if balance[0] == 0.0:
+            return []
+        return [(datetime.today().date(), self.get_liquid_balance())]
+
+    def get_currency(self) -> str:
+        return self.currency
+
+    def get_returns(self) -> Tuple[float, float]:
+        return self.balance * self.factor, 0.0
+
     def __repr__(self):
         return f"Account({self.identifier}, Balance: {self.balance}, Currency: {self.currency})"
 
@@ -81,27 +86,13 @@ def parse_accounts(data: List[List[str]]) -> List[Account]:
     return parsed_accounts
 
 
-def get_total_value(accounts: List[Account], exchange: float) -> float:
-    """
-    Returns the total value of all accounts in USD.
-    """
-    total_value = 0.0
-    for account in accounts:
-
-        if account.currency != "USD":
-            value = account.get_balance() / exchange
-        else:
-            value = account.get_balance()
-        total_value += value
-    return total_value
-
-
-def fetch_accounts(sheet: str, worksheet: str):
-    data = get_sheet_settings(sheet)
+def fetch(sheet: DataSource, worksheet: str):
+    """Fetch the asset from Gooogle Sheets"""
+    data = sheet.get_sheet_settings()
 
     if "itype" not in data or data["itype"].lower() != "cash":
         raise ValueError("The first cell of the Summary sheet must be 'Type' and the")
 
-    ac_data = get_table(sheet, worksheet)
+    ac_data = sheet.get_table(worksheet)
     accounts = parse_accounts(ac_data)
     return accounts
