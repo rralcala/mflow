@@ -1,6 +1,7 @@
+import logging
 from datetime import date, datetime
 from typing import List, Tuple
-import logging
+
 from dateutil.rrule import MONTHLY, rrule
 
 from asset_classes.asset import Asset

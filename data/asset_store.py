@@ -1,9 +1,9 @@
 from typing import Dict, List
 
-from asset_classes.fetcher import fetch_assets
+import data.coinbase
 import data.gdrive
 import data.xl
-import data.coinbase
+from asset_classes.fetcher import fetch_assets
 
 
 def load_assets() -> Dict[str, List]:

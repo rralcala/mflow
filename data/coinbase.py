@@ -3,7 +3,8 @@ from datetime import datetime
 from coinbase.rest import RESTClient
 
 from asset_classes.instrument import Instrument
-from lib.config import COINBASE_API_KEY, COINBASE_API_SECRET, COINBASE_PORTFOLIO_ID
+from lib.config import (COINBASE_API_KEY, COINBASE_API_SECRET,
+                        COINBASE_PORTFOLIO_ID)
 
 
 def get_usdc_account():
@@ -50,7 +51,7 @@ def get_usdc_account():
                 dividend="0 0 1 * *",
                 currency="USD",
                 acquisition_date=datetime(2025, 9, 24),
-                acquisition_price=float(position['cost_basis']['value']) / qty,
+                acquisition_price=float(position["cost_basis"]["value"]) / qty,
                 liquid=True,
             )
             accounts.append(account)
