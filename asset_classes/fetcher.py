@@ -54,7 +54,7 @@ def fetch_from_google(sheet):
     return item
 
 
-def fetch_assets(files):
+def fetch_assets(files) -> dict[str, list[Asset]]:
     """Apply fetching logic and call fetch_if_not_cached for each asset file."""
     items = {"USD": [], "PYG": []}
     for file in files:
