@@ -8,6 +8,8 @@ from lib.config import COINBASE_API_KEY, COINBASE_API_SECRET, COINBASE_PORTFOLIO
 
 def get_usdc_account():
     # Replace with your own API Keys and ensure you use the correct key format (organizations/{org_id}/apiKeys/{key_id})
+    if COINBASE_API_KEY == "":
+        return None
     client = RESTClient(api_key=COINBASE_API_KEY, api_secret=COINBASE_API_SECRET)
 
     accounts = client.get_portfolio_breakdown(COINBASE_PORTFOLIO_ID)

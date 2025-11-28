@@ -9,3 +9,6 @@ LOCATION_COUNTRY = {
     "Coinomi": "US",
 }
 BASE_PATH = r"../mflow-data/"
+COINBASE_API_KEY = ""
+COINBASE_API_SECRET = ""
+COINBASE_PORTFOLIO_ID = ""
