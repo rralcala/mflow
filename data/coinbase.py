@@ -7,14 +7,15 @@ from lib.config import COINBASE_API_KEY, COINBASE_API_SECRET, COINBASE_PORTFOLIO
 
 
 def get_usdc_account():
+    accounts = []
     # Replace with your own API Keys and ensure you use the correct key format (organizations/{org_id}/apiKeys/{key_id})
     if COINBASE_API_KEY == "":
-        return None
+        return accounts
     client = RESTClient(api_key=COINBASE_API_KEY, api_secret=COINBASE_API_SECRET)
 
-    accounts = client.get_portfolio_breakdown(COINBASE_PORTFOLIO_ID)
+    portfolio = client.get_portfolio_breakdown(COINBASE_PORTFOLIO_ID)
     # Get account balances
-    spot_positions = accounts.to_dict()["breakdown"]["spot_positions"]
+    spot_positions = portfolio.to_dict()["breakdown"]["spot_positions"]
     for position in spot_positions:
         if position["asset"] == "USDC":
             qty = float(position["total_balance_crypto"])
@@ -33,5 +34,24 @@ def get_usdc_account():
                 acquisition_price=1.0,
                 liquid=True,
             )
-            return account
-    return None
+            accounts.append(account)
+        if position["asset"] == "SOL":
+            print(position)
+            qty = float(position["total_balance_crypto"])
+            rate = 0.0424
+            account = Instrument(
+                location="Coinbase",
+                symbol="SOLUSD",
+                price=float(position["total_balance_fiat"]) / qty,
+                factor=1.0,
+                qty=qty,
+                estimated_dividend=qty * rate / 12,
+                rate=rate,
+                dividend="0 0 1 * *",
+                currency="USD",
+                acquisition_date=datetime(2025, 9, 24),
+                acquisition_price=float(position['cost_basis']['value']) / qty,
+                liquid=True,
+            )
+            accounts.append(account)
+    return accounts

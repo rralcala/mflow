@@ -13,5 +13,5 @@ def load_assets() -> Dict[str, List]:
         assets = fetch_assets(files)
     else:
         assets = {"USD": [], "PYG": []}
-    assets["USD"].append(data.coinbase.get_usdc_account())
+    assets["USD"] = assets["USD"] + data.coinbase.get_usdc_account()
     return assets
