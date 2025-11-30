@@ -37,7 +37,6 @@ def get_usdc_account():
             )
             accounts.append(account)
         if position["asset"] == "SOL":
-            print(position)
             qty = float(position["total_balance_crypto"])
             rate = 0.0424
             account = Instrument(

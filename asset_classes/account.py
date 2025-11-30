@@ -19,6 +19,7 @@ class Account(Asset):
         balance: float,
         factor: float = 1.0,
         account_type: str = "Savings",
+        liquid: bool = True,
     ):
         self.country = country
         self.institution = institution
@@ -27,6 +28,7 @@ class Account(Asset):
         self.balance = balance
         self.factor = factor
         self.account_type = account_type
+        self.liquid = liquid
 
     def get_current_value(self) -> Tuple[float, str]:
         return (self.balance * self.factor), self.currency
@@ -35,9 +37,9 @@ class Account(Asset):
         return 0.0, self.currency
 
     def get_liquid_balance(self) -> Tuple[float, str]:
-        if (
+        if ( self.liquid and (
             self.account_type.lower() == "savings"
-            or self.account_type.lower() == "checking"
+            or self.account_type.lower() == "checking")
         ):
             return self.balance, self.currency
         return 0.0, "USD"
@@ -70,7 +72,7 @@ def parse_accounts(data: List[List[str]]) -> List[Account]:
     """
     parsed_accounts: List[Account] = []
     for row in data[1:]:  # Skip header row
-        if len(row) < 8:
+        if len(row) < 9:
             continue  # Skip rows that do not have enough columns
         account = Account(
             country=row[0],
@@ -80,6 +82,7 @@ def parse_accounts(data: List[List[str]]) -> List[Account]:
             balance=float(row[4].replace(",", "")),
             factor=float(row[5].replace(",", "")),
             account_type=row[7],
+            liquid=int(row[8]) == 1
         )
         parsed_accounts.append(account)
 

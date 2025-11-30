@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import logging
 
 from data.internal import exchange_rate
 from lib.util import config_logging
@@ -13,12 +14,18 @@ def handle_cash_flow_detail(args):
         "PY": {"USD": 1, "PYG": 2},
     }
     timeline = {}
+    upcoming = []
     for instrument in generate_timeline(end):
-        # countries.setdefault(instrument[0], {})
+        upcoming += instrument[1]
         for payments in instrument[1]:
             key = payments[0]
             timeline.setdefault(key, [0.0, 0.0, 0.0])
             timeline[key][col[instrument[0]][payments[1][1]]] += payments[1][0]
+    per_date = {}
+    upcoming = list(sorted(upcoming, key=lambda x: x[0]))
+    for item in upcoming:
+        per_date.setdefault(item[0], [])
+        per_date[item[0]].append(item[1])
     dates = list(sorted(timeline.keys()))
     uu, pu, pp = 0, 0, 0
     for date in dates:
@@ -29,3 +36,4 @@ def handle_cash_flow_detail(args):
         print(
             f"{date}: {uu:10,.0f}USD {pu:10,.0f}USD {pp:15,.0f}PYG/[{ppu:10,.0f}USD] {uu+pu+ppu:10,.0f}USD"
         )
+        logging.debug(per_date[date])
