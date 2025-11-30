@@ -6,6 +6,8 @@ import data.xl
 from asset_classes.fetcher import fetch_assets
 
 ASSET_CACHE = None
+
+
 def load_assets() -> Dict[str, List]:
     global ASSET_CACHE
     if ASSET_CACHE is not None:

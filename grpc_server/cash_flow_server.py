@@ -1,8 +1,8 @@
 import logging
+import os
+import sys
 from concurrent import futures
 from datetime import datetime, timedelta, timezone
-import sys
-import os
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.join(script_dir, "..")
@@ -11,15 +11,17 @@ sys.path.insert(0, project_root)
 import grpc
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from reports.cash_flow import generate_timeline
 import proto.cash_flow_pb2 as pb
 import proto.cash_flow_pb2_grpc as pb_grpc
+from reports.cash_flow import generate_timeline
 
 
 class CashFlowServicer(pb_grpc.CashFlowServiceServicer):
     def GenerateTimeline(self, request, context):
         # Convert request end timestamp to datetime, or default to one year from now
-        if request.HasField("end") and (request.end.seconds != 0 or request.end.nanos != 0):
+        if request.HasField("end") and (
+            request.end.seconds != 0 or request.end.nanos != 0
+        ):
             end_dt = request.end.ToDatetime()
         else:
             end_dt = datetime.now() + timedelta(days=365)

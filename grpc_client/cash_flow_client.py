@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
 import logging
+from datetime import datetime, timezone
 
 import grpc
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -8,7 +8,9 @@ import proto.cash_flow_pb2 as pb
 import proto.cash_flow_pb2_grpc as pb_grpc
 
 
-def fetch_timeline(end_dt: datetime | None = None, host: str = "localhost", port: int = 50051):
+def fetch_timeline(
+    end_dt: datetime | None = None, host: str = "localhost", port: int = 50051
+):
     """Fetch timeline from gRPC server and return list of (country, timeline) where
     timeline is list of (datetime, (amount, currency))."""
     channel = grpc.insecure_channel(f"{host}:{port}")

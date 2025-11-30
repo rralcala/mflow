@@ -3,8 +3,7 @@ from datetime import datetime
 from coinbase.rest import RESTClient
 
 from asset_classes.instrument import Instrument
-from lib.config import (COINBASE_API_KEY, COINBASE_API_SECRET,
-                        COINBASE_PORTFOLIO_ID)
+from lib.config import COINBASE_API_KEY, COINBASE_API_SECRET, COINBASE_PORTFOLIO_ID
 
 
 def get_usdc_account():

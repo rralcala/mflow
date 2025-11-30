@@ -1,9 +1,9 @@
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
 
 from data.internal import exchange_rate
-from lib.util import config_logging
 from grpc_client.cash_flow_client import fetch_timeline
+from lib.util import config_logging
 
 
 def handle_cash_flow_detail(args):
@@ -43,7 +43,7 @@ def handle_cash_flow_detail(args):
         print(
             f"{date}: {uu:10,.0f}USD {pu:10,.0f}USD {pp:15,.0f}PYG/[{ppu:10,.0f}USD] {uu+pu+ppu:10,.0f}USD"
         )
-        
+
         logging.debug(per_date[date])
     logging.info(f"Min PY USD: {min_pu:10,.0f}USD")
     logging.info(f"Min PY PYG: {min_pp:10,.0f}PYG")

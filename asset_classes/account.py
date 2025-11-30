@@ -37,9 +37,9 @@ class Account(Asset):
         return 0.0, self.currency
 
     def get_liquid_balance(self) -> Tuple[float, str]:
-        if ( self.liquid and (
+        if self.liquid and (
             self.account_type.lower() == "savings"
-            or self.account_type.lower() == "checking")
+            or self.account_type.lower() == "checking"
         ):
             return self.balance, self.currency
         return 0.0, "USD"
@@ -82,7 +82,7 @@ def parse_accounts(data: List[List[str]]) -> List[Account]:
             balance=float(row[4].replace(",", "")),
             factor=float(row[5].replace(",", "")),
             account_type=row[7],
-            liquid=int(row[8]) == 1
+            liquid=int(row[8]) == 1,
         )
         parsed_accounts.append(account)
 

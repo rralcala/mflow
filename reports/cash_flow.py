@@ -45,7 +45,9 @@ def generate_timeline(
             yield (asset.country, tl)
 
 
-def cash_flow(today: datetime):
+def cash_flow(
+    today: datetime,
+) -> Tuple[List[str], List[float], List[Tuple[float, float]]]:
     logging.debug("Listing files in Google Drive folder:")
 
     items = load_assets()

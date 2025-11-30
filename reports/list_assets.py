@@ -1,11 +1,15 @@
 import logging
-from datetime import datetime
+from typing import Dict, List, Tuple
 
 from data.asset_store import load_assets
 from data.internal import exchange_rate
 
 
-def list_assets(print_pos: bool, print_neg: bool):
+def list_assets(print_pos: bool, print_neg: bool) -> Tuple[
+    List[Tuple[str, float, float]],
+    List[Tuple[float, float, str]],
+    Dict[str, List[Tuple[str, str]]],
+]:
     asset_data = {"negatives": [], "positives": [], "currency_summary": []}
     assets = load_assets()
     exchange = exchange_rate("USDPYG")
@@ -49,4 +53,8 @@ def list_assets(print_pos: bool, print_neg: bool):
 
         asset_data["currency_summary"].append((k, pval, nval))
         asset_data["return_history"] = returns
-    return asset_data
+        breakdown = {
+            "postives": asset_data["positives"],
+            "negatives": asset_data["negatives"],
+        }
+    return asset_data["currency_summary"], asset_data["return_history"], breakdown
