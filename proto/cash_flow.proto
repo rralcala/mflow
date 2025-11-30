@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package mflow;
+
+import "google/protobuf/timestamp.proto";
+
+// Request to generate a cash-flow timeline until `end`.
+message GenerateTimelineRequest {
+  // If omitted, server may choose a sensible default (e.g. one year from now).
+  google.protobuf.Timestamp end = 1;
+}
+
+// Single payment entry in a timeline
+message Payment {
+  google.protobuf.Timestamp date = 1;
+  double amount = 2; // numeric amount in the provided currency
+  string currency = 3; // currency code, e.g. "USD" or "PYG"
+}
+
+// All payments for a given country / instrument
+message CountryTimeline {
+  string country = 1;
+  repeated Payment payments = 2;
+}
+
+// Response containing timelines for multiple instruments/countries
+message GenerateTimelineResponse {
+  repeated CountryTimeline timelines = 1;
+}
+
+service CashFlowService {
+  // Produce upcoming payment timeline grouped by country/instrument
+  rpc GenerateTimeline (GenerateTimelineRequest) returns (GenerateTimelineResponse);
+}

@@ -11,7 +11,7 @@ def get_usdc_account():
     accounts = []
     # Replace with your own API Keys and ensure you use the correct key format (organizations/{org_id}/apiKeys/{key_id})
     if COINBASE_API_KEY == "":
-        return accounts
+        raise ValueError("Coinbase API Key is not set.")
     client = RESTClient(api_key=COINBASE_API_KEY, api_secret=COINBASE_API_SECRET)
 
     portfolio = client.get_portfolio_breakdown(COINBASE_PORTFOLIO_ID)
