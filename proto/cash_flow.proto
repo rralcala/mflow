@@ -28,7 +28,40 @@ message GenerateTimelineResponse {
   repeated CountryTimeline timelines = 1;
 }
 
+// Messages and service for listing assets
+message ListAssetsRequest {
+  bool print_pos = 1;
+  bool print_neg = 2;
+}
+
+message AssetEntry {
+  string identifier = 1;
+  string formatted = 2;
+}
+
+message CurrencySummaryItem {
+  string currency = 1;
+  double positive_value = 2;
+  double negative_value = 3;
+}
+
+message ReturnHistoryItem {
+  double current_value = 1;
+  double current_return = 2;
+  string identifier = 3;
+}
+
+message ListAssetsResponse {
+  repeated CurrencySummaryItem currency_summary = 1;
+  repeated ReturnHistoryItem return_history = 2;
+  repeated AssetEntry positives = 3;
+  repeated AssetEntry negatives = 4;
+}
+
 service CashFlowService {
   // Produce upcoming payment timeline grouped by country/instrument
   rpc GenerateTimeline (GenerateTimelineRequest) returns (GenerateTimelineResponse);
+
+  // List assets (positives/negatives, currency summary, return history)
+  rpc ListAssets (ListAssetsRequest) returns (ListAssetsResponse);
 }

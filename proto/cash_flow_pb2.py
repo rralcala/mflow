@@ -18,10 +18,11 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
+from google.protobuf import \
+    timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x0f\x63\x61sh_flow.proto\x12\x05mflow\x1a\x1fgoogle/protobuf/timestamp.proto"B\n\x17GenerateTimelineRequest\x12\'\n\x03\x65nd\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp"U\n\x07Payment\x12(\n\x04\x64\x61te\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06\x61mount\x18\x02 \x01(\x01\x12\x10\n\x08\x63urrency\x18\x03 \x01(\t"D\n\x0f\x43ountryTimeline\x12\x0f\n\x07\x63ountry\x18\x01 \x01(\t\x12 \n\x08payments\x18\x02 \x03(\x0b\x32\x0e.mflow.Payment"E\n\x18GenerateTimelineResponse\x12)\n\ttimelines\x18\x01 \x03(\x0b\x32\x16.mflow.CountryTimeline2f\n\x0f\x43\x61shFlowService\x12S\n\x10GenerateTimeline\x12\x1e.mflow.GenerateTimelineRequest\x1a\x1f.mflow.GenerateTimelineResponseb\x06proto3'
+    b'\n\x0f\x63\x61sh_flow.proto\x12\x05mflow\x1a\x1fgoogle/protobuf/timestamp.proto"B\n\x17GenerateTimelineRequest\x12\'\n\x03\x65nd\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp"U\n\x07Payment\x12(\n\x04\x64\x61te\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06\x61mount\x18\x02 \x01(\x01\x12\x10\n\x08\x63urrency\x18\x03 \x01(\t"D\n\x0f\x43ountryTimeline\x12\x0f\n\x07\x63ountry\x18\x01 \x01(\t\x12 \n\x08payments\x18\x02 \x03(\x0b\x32\x0e.mflow.Payment"E\n\x18GenerateTimelineResponse\x12)\n\ttimelines\x18\x01 \x03(\x0b\x32\x16.mflow.CountryTimeline"9\n\x11ListAssetsRequest\x12\x11\n\tprint_pos\x18\x01 \x01(\x08\x12\x11\n\tprint_neg\x18\x02 \x01(\x08"3\n\nAssetEntry\x12\x12\n\nidentifier\x18\x01 \x01(\t\x12\x11\n\tformatted\x18\x02 \x01(\t"W\n\x13\x43urrencySummaryItem\x12\x10\n\x08\x63urrency\x18\x01 \x01(\t\x12\x16\n\x0epositive_value\x18\x02 \x01(\x01\x12\x16\n\x0enegative_value\x18\x03 \x01(\x01"V\n\x11ReturnHistoryItem\x12\x15\n\rcurrent_value\x18\x01 \x01(\x01\x12\x16\n\x0e\x63urrent_return\x18\x02 \x01(\x01\x12\x12\n\nidentifier\x18\x03 \x01(\t"\xc8\x01\n\x12ListAssetsResponse\x12\x34\n\x10\x63urrency_summary\x18\x01 \x03(\x0b\x32\x1a.mflow.CurrencySummaryItem\x12\x30\n\x0ereturn_history\x18\x02 \x03(\x0b\x32\x18.mflow.ReturnHistoryItem\x12$\n\tpositives\x18\x03 \x03(\x0b\x32\x11.mflow.AssetEntry\x12$\n\tnegatives\x18\x04 \x03(\x0b\x32\x11.mflow.AssetEntry2\xa9\x01\n\x0f\x43\x61shFlowService\x12S\n\x10GenerateTimeline\x12\x1e.mflow.GenerateTimelineRequest\x1a\x1f.mflow.GenerateTimelineResponse\x12\x41\n\nListAssets\x12\x18.mflow.ListAssetsRequest\x1a\x19.mflow.ListAssetsResponseb\x06proto3'
 )
 
 _globals = globals()
@@ -37,6 +38,16 @@ if not _descriptor._USE_C_DESCRIPTORS:
     _globals["_COUNTRYTIMELINE"]._serialized_end = 282
     _globals["_GENERATETIMELINERESPONSE"]._serialized_start = 284
     _globals["_GENERATETIMELINERESPONSE"]._serialized_end = 353
-    _globals["_CASHFLOWSERVICE"]._serialized_start = 355
-    _globals["_CASHFLOWSERVICE"]._serialized_end = 457
+    _globals["_LISTASSETSREQUEST"]._serialized_start = 355
+    _globals["_LISTASSETSREQUEST"]._serialized_end = 412
+    _globals["_ASSETENTRY"]._serialized_start = 414
+    _globals["_ASSETENTRY"]._serialized_end = 465
+    _globals["_CURRENCYSUMMARYITEM"]._serialized_start = 467
+    _globals["_CURRENCYSUMMARYITEM"]._serialized_end = 554
+    _globals["_RETURNHISTORYITEM"]._serialized_start = 556
+    _globals["_RETURNHISTORYITEM"]._serialized_end = 642
+    _globals["_LISTASSETSRESPONSE"]._serialized_start = 645
+    _globals["_LISTASSETSRESPONSE"]._serialized_end = 845
+    _globals["_CASHFLOWSERVICE"]._serialized_start = 848
+    _globals["_CASHFLOWSERVICE"]._serialized_end = 1017
 # @@protoc_insertion_point(module_scope)

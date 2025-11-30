@@ -10,7 +10,8 @@ def list_assets(print_pos: bool, print_neg: bool) -> Tuple[
     List[Tuple[float, float, str]],
     Dict[str, List[Tuple[str, str]]],
 ]:
-    asset_data = {"negatives": [], "positives": [], "currency_summary": []}
+    asset_data = {"negatives": [], "positives": []}
+    currency_summary = []
     assets = load_assets()
     exchange = exchange_rate("USDPYG")
 
@@ -51,10 +52,9 @@ def list_assets(print_pos: bool, print_neg: bool) -> Tuple[
             pval /= exchange
             nval /= exchange
 
-        asset_data["currency_summary"].append((k, pval, nval))
-        asset_data["return_history"] = returns
+        currency_summary.append((k, pval, nval))
         breakdown = {
             "postives": asset_data["positives"],
             "negatives": asset_data["negatives"],
         }
-    return asset_data["currency_summary"], asset_data["return_history"], breakdown
+    return currency_summary, returns, breakdown

@@ -44,6 +44,12 @@ class CashFlowServiceStub(object):
             response_deserializer=cash__flow__pb2.GenerateTimelineResponse.FromString,
             _registered_method=True,
         )
+        self.ListAssets = channel.unary_unary(
+            "/mflow.CashFlowService/ListAssets",
+            request_serializer=cash__flow__pb2.ListAssetsRequest.SerializeToString,
+            response_deserializer=cash__flow__pb2.ListAssetsResponse.FromString,
+            _registered_method=True,
+        )
 
 
 class CashFlowServiceServicer(object):
@@ -55,6 +61,12 @@ class CashFlowServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListAssets(self, request, context):
+        """List assets (positives/negatives, currency summary, return history)"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_CashFlowServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -62,6 +74,11 @@ def add_CashFlowServiceServicer_to_server(servicer, server):
             servicer.GenerateTimeline,
             request_deserializer=cash__flow__pb2.GenerateTimelineRequest.FromString,
             response_serializer=cash__flow__pb2.GenerateTimelineResponse.SerializeToString,
+        ),
+        "ListAssets": grpc.unary_unary_rpc_method_handler(
+            servicer.ListAssets,
+            request_deserializer=cash__flow__pb2.ListAssetsRequest.FromString,
+            response_serializer=cash__flow__pb2.ListAssetsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -94,6 +111,36 @@ class CashFlowService(object):
             "/mflow.CashFlowService/GenerateTimeline",
             cash__flow__pb2.GenerateTimelineRequest.SerializeToString,
             cash__flow__pb2.GenerateTimelineResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True,
+        )
+
+    @staticmethod
+    def ListAssets(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/mflow.CashFlowService/ListAssets",
+            cash__flow__pb2.ListAssetsRequest.SerializeToString,
+            cash__flow__pb2.ListAssetsResponse.FromString,
             options,
             channel_credentials,
             insecure,

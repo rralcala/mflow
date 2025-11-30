@@ -14,6 +14,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 import proto.cash_flow_pb2 as pb
 import proto.cash_flow_pb2_grpc as pb_grpc
 from reports.cash_flow import generate_timeline
+from reports.list_assets import list_assets
 
 
 class CashFlowServicer(pb_grpc.CashFlowServiceServicer):
@@ -42,6 +43,38 @@ class CashFlowServicer(pb_grpc.CashFlowServiceServicer):
                 payment = pb.Payment(date=ts, amount=amount, currency=currency)
                 ct.payments.append(payment)
             resp.timelines.append(ct)
+        return resp
+
+    def ListAssets(self, request, context):
+        # Call the local list_assets and map results to protobuf response
+        currency_summary, returns, breakdown = list_assets(
+            request.print_pos, request.print_neg
+        )
+
+        resp = pb.ListAssetsResponse()
+
+        for cur, pval, nval in currency_summary:
+            resp.currency_summary.add(
+                currency=cur, positive_value=pval, negative_value=nval
+            )
+
+        for item in returns:
+            # item: [current_value, current_return, identifier]
+            cv, cr, ident = item
+            resp.return_history.add(
+                current_value=cv, current_return=cr, identifier=ident
+            )
+
+        # breakdown may use key 'postives' (typo in source) or 'positives'
+        positives = breakdown.get("positives") or breakdown.get("postives") or []
+        negatives = breakdown.get("negatives") or []
+
+        for ident, formatted in positives:
+            resp.positives.add(identifier=ident, formatted=formatted)
+
+        for ident, formatted in negatives:
+            resp.negatives.add(identifier=ident, formatted=formatted)
+
         return resp
 
 

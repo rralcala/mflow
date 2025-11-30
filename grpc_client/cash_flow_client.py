@@ -35,6 +35,41 @@ def fetch_timeline(
     return results
 
 
+def fetch_list_assets(
+    print_pos: bool, print_neg: bool, host: str = "localhost", port: int = 50051
+):
+    """Fetch list_assets via gRPC and return (currency_summary, returns, breakdown)
+    where:
+      - currency_summary: list of (currency, positive_value, negative_value)
+      - returns: list of (current_value, current_return, identifier)
+      - breakdown: dict with keys 'postives' (typo) and 'negatives', each a list of (identifier, formatted)
+    """
+    channel = grpc.insecure_channel(f"{host}:{port}")
+    stub = pb_grpc.CashFlowServiceStub(channel)
+
+    req = pb.ListAssetsRequest(print_pos=print_pos, print_neg=print_neg)
+    resp = stub.ListAssets(req)
+
+    currency_summary = []
+    for cs in resp.currency_summary:
+        currency_summary.append((cs.currency, cs.positive_value, cs.negative_value))
+
+    returns = []
+    for rh in resp.return_history:
+        returns.append((rh.current_value, rh.current_return, rh.identifier))
+
+    positives = []
+    for a in resp.positives:
+        positives.append((a.identifier, a.formatted))
+
+    negatives = []
+    for a in resp.negatives:
+        negatives.append((a.identifier, a.formatted))
+
+    breakdown = {"postives": positives, "negatives": negatives}
+    return currency_summary, returns, breakdown
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     from datetime import timedelta
