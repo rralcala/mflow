@@ -27,10 +27,11 @@ cash_flow_detail_parser = subparsers.add_parser(
 cash_flow_detail_parser.add_argument(
     "-d", "--debug", action="store_true", help="Debug logging."
 )
+cash_flow_detail_parser.add_argument("-c", "--csv", action="store_true", help="In CSV format.")
 cash_flow_detail_parser.set_defaults(func=handle_cash_flow_detail)
 
 cash_flow_parser = subparsers.add_parser("cash-flow", help="Monthly cash flow")
-cash_flow_parser.add_argument("-p", "--plot", action="store_true", help="Create chart.")
+
 cash_flow_parser.add_argument(
     "-d", "--debug", action="store_true", help="Debug logging."
 )

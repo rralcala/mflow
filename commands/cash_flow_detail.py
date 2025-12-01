@@ -40,10 +40,14 @@ def handle_cash_flow_detail(args):
             min_pu = pu
         if pp < min_pp:
             min_pp = pp
-        print(
-            f"{date}: {uu:10,.0f}USD {pu:10,.0f}USD {pp:15,.0f}PYG/[{ppu:10,.0f}USD] {uu+pu+ppu:10,.0f}USD"
-        )
+        if args.csv:
+            print(f"{date:%Y-%m-%d},{uu:.0f},{pu:.0f},{pp:.0f},{ppu:.0f}")
+        else:
+            print(
+                f"{date:%Y-%m-%d}: {uu:10,.0f}USD {pu:10,.0f}USD {pp:15,.0f}PYG/[{ppu:10,.0f}USD] {uu+pu+ppu:10,.0f}USD"
+            )
 
         logging.debug(per_date[date])
-    logging.info(f"Min PY USD: {min_pu:10,.0f}USD")
-    logging.info(f"Min PY PYG: {min_pp:10,.0f}PYG")
+    if not args.csv:
+        logging.info(f"Min PY USD: {min_pu:10,.0f}USD")
+        logging.info(f"Min PY PYG: {min_pp:10,.0f}PYG")
