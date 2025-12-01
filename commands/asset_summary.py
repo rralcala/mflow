@@ -1,8 +1,7 @@
 import logging
-from datetime import datetime
 from pprint import pprint
 
-from data.sqlite import read_history, save_summary
+#from data.sqlite import read_history, save_summary
 from grpc_client.cash_flow_client import fetch_list_assets
 from lib.util import config_logging
 
