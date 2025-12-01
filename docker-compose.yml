@@ -1,0 +1,9 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "50051:50051"
+    volumes:
+      - ./:/app # Mounts a local application directory
+      -  C:/Users/rralcala/remote-home/mflow-data:/app/mflow-data # Mounts a named volume

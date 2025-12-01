@@ -33,8 +33,8 @@ def handle_asset_summary(args):
     logging.info(
         f"Total portfolio value: {grand_total:,.2f} USD ({ret*100:,.2f}% ARoI)"
     )
-    save_summary(datetime.now().strftime("%Y-%m-01"), f"{grand_total:.2f}")
-    history = read_history(2)
-    logging.info(
-        f"Monthly change: {float(history[0][1]) - float(history[1][1]):,.2f} USD"
-    )
+    # save_summary(datetime.now().strftime("%Y-%m-01"), f"{grand_total:.2f}")
+    # history = read_history(2)
+    # logging.info(
+    #    f"Monthly change: {float(history[0][1]) - float(history[1][1]):,.2f} USD"
+    # )

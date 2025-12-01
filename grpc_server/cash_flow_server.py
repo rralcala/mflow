@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import time
 from concurrent import futures
 from datetime import datetime, timedelta, timezone
 
@@ -19,6 +20,7 @@ from reports.list_assets import list_assets
 
 class CashFlowServicer(pb_grpc.CashFlowServiceServicer):
     def GenerateTimeline(self, request, context):
+        start_time = time.perf_counter()
         # Convert request end timestamp to datetime, or default to one year from now
         if request.HasField("end") and (
             request.end.seconds != 0 or request.end.nanos != 0
@@ -43,9 +45,14 @@ class CashFlowServicer(pb_grpc.CashFlowServiceServicer):
                 payment = pb.Payment(date=ts, amount=amount, currency=currency)
                 ct.payments.append(payment)
             resp.timelines.append(ct)
+        logging.info(
+            f"GenerateTimeline processed in {time.perf_counter() - start_time:.4f} seconds"
+        )
+
         return resp
 
     def ListAssets(self, request, context):
+        start_time = time.perf_counter()
         # Call the local list_assets and map results to protobuf response
         currency_summary, returns, breakdown = list_assets(
             request.print_pos, request.print_neg
@@ -74,7 +81,9 @@ class CashFlowServicer(pb_grpc.CashFlowServiceServicer):
 
         for ident, formatted in negatives:
             resp.negatives.add(identifier=ident, formatted=formatted)
-
+        logging.info(
+            f"ListAssets processed in {time.perf_counter() - start_time:.4f} seconds"
+        )
         return resp
 
 

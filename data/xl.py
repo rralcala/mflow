@@ -1,4 +1,5 @@
 import glob
+import logging
 import os
 from datetime import datetime
 from typing import Any, Dict, List, Tuple
@@ -55,7 +56,9 @@ def discover_assets() -> List[DataSource]:
     Lists all files in a specific Local folder."""
 
     selected = []
-    for file in glob.glob(os.path.join(BASE_PATH, "*.xlsx")):
+    found = glob.glob(os.path.join(BASE_PATH, "*.xlsx"))
+    logging.info(f"Discovered {len(found)} local Excel asset files.")
+    for file in found:
         new_ds = DataSource(
             "excel",
             os.path.basename(file).split(".")[0].split(".")[0],

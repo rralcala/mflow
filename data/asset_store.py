@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List
 
 import data.coinbase
@@ -12,7 +13,7 @@ def load_assets() -> Dict[str, List]:
     global ASSET_CACHE
     if ASSET_CACHE is not None:
         return ASSET_CACHE
-    print("Loading assets...")
+    logging.info("Loading assets...")
     files = data.gdrive.discover_assets()
     files = data.xl.discover_assets() + files
     if files:
