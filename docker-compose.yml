@@ -5,5 +5,6 @@ services:
     ports:
       - "50051:50051"
     volumes:
-      - ./:/app # Mounts a local application directory
+      #- ./:/app # Mounts a local application directory
       -  C:/Users/rralcala/remote-home/mflow-data:/app/mflow-data # Mounts a named volume
+      -  C:/Users/rralcala/code/mflow/cache:/app/cache

@@ -3,6 +3,7 @@ syntax = "proto3";
 package mflow;
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
 
 // Request to generate a cash-flow timeline until `end`.
 message GenerateTimelineRequest {
@@ -58,10 +59,15 @@ message ListAssetsResponse {
   repeated AssetEntry negatives = 4;
 }
 
+message BoolResponse {
+  bool success = 1; // The boolean field to return
+}
+
 service CashFlowService {
   // Produce upcoming payment timeline grouped by country/instrument
   rpc GenerateTimeline (GenerateTimelineRequest) returns (GenerateTimelineResponse);
 
   // List assets (positives/negatives, currency summary, return history)
   rpc ListAssets (ListAssetsRequest) returns (ListAssetsResponse);
+  rpc ClearCache (google.protobuf.Empty) returns (BoolResponse);
 }

@@ -16,6 +16,12 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.join(script_dir, "..")
 sys.path.insert(0, project_root)
 
+def clear_cached_data(args):
+    """Clear cache on gRPC server."""
+    from grpc_client.cash_flow_client import clear_cache as clear_cache
+
+    print(clear_cache().success)
+
 parser = argparse.ArgumentParser(description="Money flow cli!")
 subparsers = parser.add_subparsers(
     dest="command", required=True, help="Available commands"
@@ -58,6 +64,9 @@ asset_summary_parser.add_argument(
     "-c", "--check-history", action="store_true", help="Create chart."
 )
 asset_summary_parser.set_defaults(func=handle_asset_summary)
+
+clear_cache_parser = subparsers.add_parser("clear-cache", help="Clear cached data")
+clear_cache_parser.set_defaults(func=clear_cached_data)
 
 args = parser.parse_args()
 

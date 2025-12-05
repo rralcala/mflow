@@ -16,9 +16,11 @@ import proto.cash_flow_pb2 as pb
 import proto.cash_flow_pb2_grpc as pb_grpc
 from reports.cash_flow import generate_timeline
 from reports.list_assets import list_assets
-
+from data.asset_store import clear_asset_cache
 
 class CashFlowServicer(pb_grpc.CashFlowServiceServicer):
+    def ClearCache(self, request, context):
+        return pb.BoolResponse(success=clear_asset_cache())
     def GenerateTimeline(self, request, context):
         start_time = time.perf_counter()
         # Convert request end timestamp to datetime, or default to one year from now

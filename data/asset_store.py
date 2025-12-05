@@ -8,6 +8,10 @@ from asset_classes.fetcher import fetch_assets
 
 ASSET_CACHE = None
 
+def clear_asset_cache():
+    global ASSET_CACHE
+    ASSET_CACHE = None
+    return True
 
 def load_assets() -> Dict[str, List]:
     global ASSET_CACHE

@@ -34,6 +34,13 @@ def fetch_timeline(
         results.append((ct.country, timeline))
     return results
 
+def clear_cache(host: str = "localhost", port: int = 50051):
+    """Clear cache on gRPC server."""
+    channel = grpc.insecure_channel(f"{host}:{port}")
+    stub = pb_grpc.CashFlowServiceStub(channel)
+
+    resp = stub.ClearCache(pb.google_dot_protobuf_dot_empty__pb2.Empty())
+    return resp
 
 def fetch_list_assets(
     print_pos: bool, print_neg: bool, host: str = "localhost", port: int = 50051
