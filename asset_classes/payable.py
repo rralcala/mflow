@@ -2,8 +2,9 @@ import logging
 from datetime import date, datetime
 from typing import List, Tuple
 
+from mflow_shared_rralcala.data.datasource import DataSource
+
 from asset_classes.asset import Asset
-from data.datasource import DataSource
 from lib.config import DATE_FORMAT_STRING
 
 

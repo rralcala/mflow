@@ -1,8 +1,8 @@
 import logging
 from pprint import pprint
 
-#from data.sqlite import read_history, save_summary
 from grpc_client.cash_flow_client import fetch_list_assets
+
 from lib.util import config_logging
 
 
@@ -32,8 +32,3 @@ def handle_asset_summary(args):
     logging.info(
         f"Total portfolio value: {grand_total:,.2f} USD ({ret*100:,.2f}% ARoI)"
     )
-    # save_summary(datetime.now().strftime("%Y-%m-01"), f"{grand_total:.2f}")
-    # history = read_history(2)
-    # logging.info(
-    #    f"Monthly change: {float(history[0][1]) - float(history[1][1]):,.2f} USD"
-    # )

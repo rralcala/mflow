@@ -3,11 +3,12 @@ import os
 import pickle
 from typing import Sequence
 
+from mflow_shared_rralcala.data.datasource import DataSource
+
 from asset_classes import account, bond, cd, instrument, payable
 from asset_classes import property as reprop
 from asset_classes import recurrent
 from asset_classes.asset import Asset
-from data.datasource import DataSource
 
 
 def fetch_if_not_cached(data_file: DataSource) -> Asset | Sequence[Asset]:
@@ -15,7 +16,7 @@ def fetch_if_not_cached(data_file: DataSource) -> Asset | Sequence[Asset]:
     Fetches data from a sheet if not cached.
     """
     path = "./cache/" + data_file.name + ".pkl"
-    if os.path.exists(path) and os.path.getmtime(path) >= data_file.mtime.timestamp():
+    if os.path.exists(path) and os.path.getmtime(path) >= data_file.mtime:
         logging.debug("Loading from cache: %s", path)
         with open(path, "rb") as f:
             item = pickle.load(f)

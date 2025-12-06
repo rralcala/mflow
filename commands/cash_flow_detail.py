@@ -1,7 +1,8 @@
 import logging
 from datetime import datetime, timedelta
 
-from data.internal import exchange_rate
+from mflow_shared_rralcala.data.internal import exchange_rate
+
 from grpc_client.cash_flow_client import fetch_timeline
 from lib.util import config_logging
 

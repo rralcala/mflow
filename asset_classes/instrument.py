@@ -1,9 +1,10 @@
 from datetime import date, datetime
 from typing import List, Tuple
 
-import data.internal
+from mflow_shared_rralcala.data import internal
+from mflow_shared_rralcala.data.datasource import DataSource
+
 from asset_classes.asset import Asset
-from data.datasource import DataSource
 from lib.config import DATE_FORMAT_STRING, LOCATION_COUNTRY
 from lib.util import cron_runs
 
@@ -47,9 +48,9 @@ class Instrument(Asset):
         Returns the value of the asset in USD.
         """
         if self.need_update and self.symbol == "CROUSD":
-            self.price = data.internal.exchange_rate("CROUSD")
+            self.price = internal.exchange_rate("CROUSD")
         elif self.need_update and self.symbol == "BTCUSD":
-            self.price = data.internal.exchange_rate("BTCUSD")
+            self.price = internal.exchange_rate("BTCUSD")
         self.need_update = False
         return self.qty * self.price * self.factor, self.currency
 

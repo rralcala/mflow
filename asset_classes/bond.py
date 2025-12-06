@@ -2,8 +2,9 @@ import logging
 from datetime import date, datetime
 from typing import Any, Dict, List, Tuple
 
+from mflow_shared_rralcala.data.datasource import DataSource
+
 from asset_classes.asset import Asset
-from data.datasource import DataSource
 from lib.config import DATE_FORMAT_STRING
 
 
@@ -54,10 +55,10 @@ class Bond(Asset):
         This method can be overridden by subclasses if needed.
         """
         total = 0.0
-        maturity_datetime = datetime.strptime(self.maturity_date, DATE_FORMAT_STRING)
+
         if (
-            maturity_datetime.month == today.month
-            and maturity_datetime.year == today.year
+            self.maturity_date.month == today.month
+            and self.maturity_date.year == today.year
         ):
             total += self.capital
         for d in self.payment_schedule:
@@ -87,11 +88,11 @@ class Bond(Asset):
             + ", Interest Rate: "
             + str(self.interest_rate)
             + ", Maturity Date: "
-            + self.maturity_date
+            + self.maturity_date.strftime(DATE_FORMAT_STRING)
         )
 
 
-def parse_bond(data: Dict[str, Any], sheet: str) -> Bond:
+def parse_bond(data: Dict[str, Any], sheet: DataSource) -> Bond:
     """
     Function to parse account data from the provided data.
 

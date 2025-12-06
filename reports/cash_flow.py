@@ -2,8 +2,8 @@ import logging
 from datetime import datetime
 from typing import Generator, List, Tuple
 
-from data.asset_store import load_assets
-from data.internal import exchange_rate
+# from data.asset_store import load_assets
+from mflow_shared_rralcala.data.internal import exchange_rate
 
 
 def income_at_month(date, items):
@@ -32,11 +32,10 @@ def calculate_balance(items) -> float:
 
 
 def generate_timeline(
+    items,
     end: datetime,
 ) -> Generator[Tuple[str, List[Tuple[datetime, Tuple[float, str]]]], None, None]:
-    items = load_assets()
-    tls = []
-    for k, v in items.items():
+    for v in items.values():
         for asset in v:
             tl = asset.get_timeline(end)
             if len(tl) == 0:
@@ -46,11 +45,11 @@ def generate_timeline(
 
 
 def cash_flow(
+    items,
     today: datetime,
 ) -> Tuple[List[str], List[float], List[Tuple[float, float]]]:
     logging.debug("Listing files in Google Drive folder:")
 
-    items = load_assets()
     start = today.year * 12 + today.month - 1
     end = (today.year + 0) * 12 + today.month
     balance = calculate_balance(items)

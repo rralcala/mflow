@@ -1,18 +1,16 @@
 import logging
 from typing import Dict, List, Tuple
 
-from data.asset_store import load_assets
-from data.internal import exchange_rate
+from mflow_shared_rralcala.data.internal import exchange_rate
 
 
-def list_assets(print_pos: bool, print_neg: bool) -> Tuple[
+def list_assets(assets, print_pos: bool, print_neg: bool) -> Tuple[
     List[Tuple[str, float, float]],
     List[Tuple[float, float, str]],
     Dict[str, List[Tuple[str, str]]],
 ]:
     asset_data = {"negatives": [], "positives": []}
     currency_summary = []
-    assets = load_assets()
     exchange = exchange_rate("USDPYG")
 
     returns = []

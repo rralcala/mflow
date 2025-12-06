@@ -3,8 +3,9 @@
 from datetime import date, datetime
 from typing import List, Tuple
 
+from mflow_shared_rralcala.data.datasource import DataSource
+
 from asset_classes.asset import Asset
-from data.datasource import DataSource
 
 
 class Account(Asset):
@@ -37,10 +38,7 @@ class Account(Asset):
         return 0.0, self.currency
 
     def get_liquid_balance(self) -> Tuple[float, str]:
-        if self.liquid and (
-            self.account_type.lower() == "savings"
-            or self.account_type.lower() == "checking"
-        ):
+        if self.liquid:
             return self.balance, self.currency
         return 0.0, "USD"
 

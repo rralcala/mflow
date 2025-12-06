@@ -4,6 +4,7 @@ import sys
 import time
 from concurrent import futures
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.join(script_dir, "..")
@@ -11,16 +12,75 @@ sys.path.insert(0, project_root)
 
 import grpc
 from google.protobuf.timestamp_pb2 import Timestamp
+from mflow_shared_rralcala.data.asset_store import load_assets
+from mflow_shared_rralcala.data.coinbase import get_accounts
 
 import proto.cash_flow_pb2 as pb
 import proto.cash_flow_pb2_grpc as pb_grpc
+from asset_classes.fetcher import fetch_assets
+from asset_classes.instrument import Instrument
+from lib.config import (
+    BASE_PATH,
+    COINBASE_API_KEY,
+    COINBASE_API_SECRET,
+    COINBASE_PORTFOLIO_ID,
+)
 from reports.cash_flow import generate_timeline
 from reports.list_assets import list_assets
-from data.asset_store import clear_asset_cache
+
 
 class CashFlowServicer(pb_grpc.CashFlowServiceServicer):
+    def __init__(self):
+        super().__init__()
+        self.key_path = Path("./key.json")
+        self.load_assets()
+
+    def load_assets(self):
+        self.assets = load_assets(fetch_assets, BASE_PATH, self.key_path)
+        for position in get_accounts(
+            COINBASE_API_KEY, COINBASE_API_SECRET, COINBASE_PORTFOLIO_ID
+        ):
+            if position["asset"] == "USDC":
+                qty = float(position["total_balance_crypto"])
+                rate = 0.045
+                account = Instrument(
+                    location="Coinbase",
+                    symbol="USDC",
+                    price=1.0,
+                    factor=1.0,
+                    qty=qty,
+                    estimated_dividend=qty * rate / 12,
+                    rate=rate,
+                    dividend="0 0 1 * *",
+                    currency="USD",
+                    acquisition_date=datetime(2025, 9, 24),
+                    acquisition_price=1.0,
+                    liquid=True,
+                )
+                self.assets["USD"].append(account)
+            if position["asset"] == "SOL":
+                qty = float(position["total_balance_crypto"])
+                rate = 0.0424
+                account = Instrument(
+                    location="Coinbase",
+                    symbol="SOLUSD",
+                    price=float(position["total_balance_fiat"]) / qty,
+                    factor=1.0,
+                    qty=qty,
+                    estimated_dividend=qty * rate / 12,
+                    rate=rate,
+                    dividend="0 0 1 * *",
+                    currency="USD",
+                    acquisition_date=datetime(2025, 9, 24),
+                    acquisition_price=float(position["cost_basis"]["value"]) / qty,
+                    liquid=False,
+                )
+                self.assets["USD"].append(account)
+
     def ClearCache(self, request, context):
-        return pb.BoolResponse(success=clear_asset_cache())
+        self.assets = self.load_assets()
+        return pb.BoolResponse(success=True)
+
     def GenerateTimeline(self, request, context):
         start_time = time.perf_counter()
         # Convert request end timestamp to datetime, or default to one year from now
@@ -32,7 +92,7 @@ class CashFlowServicer(pb_grpc.CashFlowServiceServicer):
             end_dt = datetime.now() + timedelta(days=365)
 
         resp = pb.GenerateTimelineResponse()
-        for country, tl in generate_timeline(end_dt):
+        for country, tl in generate_timeline(self.assets, end_dt):
             ct = pb.CountryTimeline(country=country)
             for entry in tl:
                 # entry is (datetime, (amount, currency))
@@ -57,7 +117,7 @@ class CashFlowServicer(pb_grpc.CashFlowServiceServicer):
         start_time = time.perf_counter()
         # Call the local list_assets and map results to protobuf response
         currency_summary, returns, breakdown = list_assets(
-            request.print_pos, request.print_neg
+            self.assets, request.print_pos, request.print_neg
         )
 
         resp = pb.ListAssetsResponse()

@@ -2,8 +2,9 @@ import calendar
 from datetime import date, datetime
 from typing import Any, Dict, List, Tuple
 
+from mflow_shared_rralcala.data.datasource import DataSource
+
 from asset_classes.asset import Asset
-from data.datasource import DataSource
 from lib.util import count_cron_runs, cron_runs
 
 FORMAT = "%m/%d/%Y"
