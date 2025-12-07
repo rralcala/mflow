@@ -8,7 +8,6 @@ import sys
 from datetime import datetime
 
 from commands.asset_summary import handle_asset_summary
-from commands.cash_flow import handle_cash_flow
 from commands.cash_flow_detail import handle_cash_flow_detail
 from lib.config import DATE_FORMAT_STRING
 
@@ -38,21 +37,6 @@ cash_flow_detail_parser.add_argument(
 cash_flow_detail_parser.add_argument(
     "-c", "--csv", action="store_true", help="In CSV format."
 )
-cash_flow_detail_parser.set_defaults(func=handle_cash_flow_detail)
-
-cash_flow_parser = subparsers.add_parser("cash-flow", help="Monthly cash flow")
-
-cash_flow_parser.add_argument(
-    "-d", "--debug", action="store_true", help="Debug logging."
-)
-cash_flow_parser.add_argument(
-    "-s",
-    "--date",
-    type=str,
-    default=datetime.today().strftime(DATE_FORMAT_STRING),
-    help=f"Start date in {DATE_FORMAT_STRING} format.",
-)
-cash_flow_parser.set_defaults(func=handle_cash_flow)
 
 asset_summary_parser = subparsers.add_parser("asset-summary", help="Asset summary")
 asset_summary_parser.add_argument(
