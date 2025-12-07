@@ -14,11 +14,16 @@ import grpc
 from google.protobuf.timestamp_pb2 import Timestamp
 from mflow_shared_rralcala.data.asset_store import load_assets
 from mflow_shared_rralcala.data.coinbase import get_accounts
+from mflow_shared_rralcala.data.sqlite import (
+    find_accounts,
+    get_transactions_for_asset_id,
+)
 
 import proto.cash_flow_pb2 as pb
 import proto.cash_flow_pb2_grpc as pb_grpc
 from asset_classes.fetcher import fetch_assets
 from asset_classes.instrument import Instrument
+from asset_classes.account import Account
 from lib.config import (
     BASE_PATH,
     COINBASE_API_KEY,
@@ -37,6 +42,19 @@ class CashFlowServicer(pb_grpc.CashFlowServiceServicer):
 
     def load_assets(self):
         self.assets = load_assets(fetch_assets, BASE_PATH, self.key_path)
+        accounts = find_accounts(BASE_PATH)
+        for account in accounts:
+            transactions = get_transactions_for_asset_id(BASE_PATH, account[0])
+            self.assets["PYG"].append(
+                Account(
+                    "PY",
+                    "Continental",
+                    account[0],
+                    "PYG",
+                    float(transactions[-1][3]),
+                    1.0,
+                )
+            )
         for position in get_accounts(
             COINBASE_API_KEY, COINBASE_API_SECRET, COINBASE_PORTFOLIO_ID
         ):
