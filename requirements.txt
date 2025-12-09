@@ -19,7 +19,6 @@ gspread==6.2.1
 httplib2==0.31.0
 idna==3.11
 isort==7.0.0
-mflow_shared_rralcala==0.0.1
 oauthlib==3.3.1
 openpyxl==3.1.5
 proto-plus==1.26.1

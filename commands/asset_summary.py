@@ -1,5 +1,6 @@
 import logging
-from pprint import pprint
+import csv
+import sys
 
 from grpc_client.cash_flow_client import fetch_list_assets
 
@@ -22,8 +23,12 @@ def handle_asset_summary(args):
     for current_value, current_return, _ in returns:
         tret = (current_value / grand_total) * current_return
         ret += tret
-
-    pprint(breakdown)
+    writer = csv.writer(sys.stdout, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    for v in breakdown.values():
+        if len(v) > 0:
+            for row in v:
+                amount, currency = row[1].split(" ")
+                writer.writerow([row[0], amount, currency])
 
     logging.info(
         f"Total positive value : {tpval:,.2f} USD ({(tnval/tpval*-100):,.2f}% Debt to Assets)"
