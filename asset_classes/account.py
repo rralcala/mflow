@@ -3,9 +3,8 @@
 from datetime import date, datetime
 from typing import List, Tuple
 
-from mflow_shared_rralcala.data.datasource import DataSource
-
 from asset_classes.asset import Asset
+from data.datasource import DataSource
 
 
 class Account(Asset):
@@ -34,7 +33,7 @@ class Account(Asset):
     def get_current_value(self) -> Tuple[float, str]:
         return (self.balance * self.factor), self.currency
 
-    def get_income(self, today: datetime) -> Tuple[float, str]:
+    def get_income(self, today: datetime, include_capital=True) -> Tuple[float, str]:
         return 0.0, self.currency
 
     def get_liquid_balance(self) -> Tuple[float, str]:
@@ -59,6 +58,18 @@ class Account(Asset):
 
     def __str__(self):
         return self.__repr__()
+
+    def to_dict(self) -> dict:
+        return {
+            "country": self.country,
+            "institution": self.institution,
+            "identifier": self.identifier,
+            "currency": self.currency,
+            "balance": self.balance,
+            "factor": self.factor,
+            "account_type": self.account_type,
+            "liquid": self.liquid,
+        }
 
 
 def parse_accounts(data: List[List[str]]) -> List[Account]:

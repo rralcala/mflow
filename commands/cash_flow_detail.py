@@ -1,8 +1,7 @@
 import logging
 from datetime import datetime, timedelta
 
-from mflow_shared_rralcala.data.internal import exchange_rate
-
+from data.internal import exchange_rate
 from grpc_client.cash_flow_client import fetch_timeline
 from lib.util import config_logging
 
@@ -25,6 +24,7 @@ def handle_cash_flow_detail(args):
             timeline[key][col[instrument[0]][payments[1][1]]] += payments[1][0]
     per_date = {}
     upcoming = list(sorted(upcoming, key=lambda x: x[0]))
+
     for item in upcoming:
         per_date.setdefault(item[0], [])
         per_date[item[0]].append(item[1])

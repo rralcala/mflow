@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Generator, List, Tuple
 
 # from data.asset_store import load_assets
-from mflow_shared_rralcala.data.internal import exchange_rate
+from data.internal import exchange_rate
 
 
 def income_at_month(date, items):

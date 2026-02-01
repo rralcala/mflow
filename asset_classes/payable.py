@@ -2,9 +2,8 @@ import logging
 from datetime import date, datetime
 from typing import List, Tuple
 
-from mflow_shared_rralcala.data.datasource import DataSource
-
 from asset_classes.asset import Asset
+from data.datasource import DataSource
 from lib.config import DATE_FORMAT_STRING
 
 
@@ -25,14 +24,14 @@ class Payable(Asset):
         self.due_date = due_date
         self.commited = commited
 
-    def get_income(self, today: datetime) -> Tuple[float, str]:
+    def get_income(self, today: datetime, include_capital=True) -> Tuple[float, str]:
         date = datetime.strptime(self.due_date, DATE_FORMAT_STRING).replace(day=1)
+        amount = 0.0
+        if date.month == today.month and date.year == today.year:
+            if not self.commited or include_capital:
+                amount = self.amount
 
-        if date <= today:
-            amount = self.amount
-
-            return amount, self.currency
-        return 0.0, self.currency
+        return amount, self.currency
 
     def get_liquid_balance(self) -> Tuple[float, str]:
         """

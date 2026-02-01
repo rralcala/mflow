@@ -1,8 +1,21 @@
 import logging
+import pprint
 from datetime import datetime, timedelta
 from typing import List
 
 from croniter import croniter
+
+
+class FormatPrinter(pprint.PrettyPrinter):
+    def __init__(self, formats, **kwargs):
+        super(FormatPrinter, self).__init__(**kwargs)
+        self.formats = formats
+
+    def format(self, obj, ctx, maxlvl, lvl):
+        if type(obj) in self.formats:
+            # Use the specified format string
+            return self.formats[type(obj)].format(obj), 1, 0
+        return pprint.PrettyPrinter.format(self, obj, ctx, maxlvl, lvl)
 
 
 def count_cron_runs(cron_pattern: str, start_date: datetime, end_date: datetime) -> int:

@@ -3,12 +3,11 @@ import os
 import pickle
 from typing import Sequence
 
-from mflow_shared_rralcala.data.datasource import DataSource
-
 from asset_classes import account, bond, cd, instrument, payable
 from asset_classes import property as reprop
 from asset_classes import recurrent
 from asset_classes.asset import Asset
+from data.datasource import DataSource
 
 
 def fetch_if_not_cached(data_file: DataSource) -> Asset | Sequence[Asset]:

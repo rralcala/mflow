@@ -37,6 +37,7 @@ cash_flow_detail_parser.add_argument(
 cash_flow_detail_parser.add_argument(
     "-c", "--csv", action="store_true", help="In CSV format."
 )
+cash_flow_detail_parser.set_defaults(func=handle_cash_flow_detail)
 
 asset_summary_parser = subparsers.add_parser("asset-summary", help="Asset summary")
 asset_summary_parser.add_argument(

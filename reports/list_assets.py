@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, List, Tuple
 
-from mflow_shared_rralcala.data.internal import exchange_rate
+from data.internal import exchange_rate
 
 
 def list_assets(assets, print_pos: bool, print_neg: bool) -> Tuple[

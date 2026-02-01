@@ -1,9 +1,8 @@
-import logging
 import csv
+import logging
 import sys
 
 from grpc_client.cash_flow_client import fetch_list_assets
-
 from lib.util import config_logging
 
 
@@ -23,7 +22,9 @@ def handle_asset_summary(args):
     for current_value, current_return, _ in returns:
         tret = (current_value / grand_total) * current_return
         ret += tret
-    writer = csv.writer(sys.stdout, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    writer = csv.writer(
+        sys.stdout, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+    )
     for v in breakdown.values():
         if len(v) > 0:
             for row in v:

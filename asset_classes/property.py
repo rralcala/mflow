@@ -3,9 +3,9 @@ from datetime import date, datetime
 from typing import List, Tuple
 
 from dateutil.rrule import MONTHLY, rrule
-from mflow_shared_rralcala.data.datasource import DataSource
 
 from asset_classes.asset import Asset
+from data.datasource import DataSource
 from lib.config import DATE_FORMAT_STRING, YEAR
 
 
@@ -31,12 +31,13 @@ class Property(Asset):
         self.rented_price = rented_price
         self.contracts = []
 
-    def get_income(self, today: datetime) -> Tuple[float, str]:
+    def get_income(self, today: datetime, include_capital=True) -> Tuple[float, str]:
         """
         Returns the income from the property.
         """
-        income = self.rented_price
-        return income, self.currency
+
+        # income = self.rented_price
+        return 0.0, self.currency
 
     def get_current_value(self) -> Tuple[float, str]:
         """Returns the current value of the property in its currency."""

@@ -52,7 +52,13 @@ class DepositCertificate(Asset):
     def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
         timeline = []
         for payment in self.interest_schedule:
-            payment_date = datetime.strptime(payment["date"], DATE_FORMAT_STRING)
+            try:
+                payment_date = datetime.strptime(payment["date"], DATE_FORMAT_STRING)
+            except ValueError as e:
+                logging.warning(
+                    f"Could not parse date {payment['date']} for {self.identifier}"
+                )
+                raise e
             if payment_date <= end and payment["paid"] != "1":
                 timeline.append(
                     (payment_date.date(), (payment["amount"], self.currency))
@@ -65,14 +71,22 @@ class DepositCertificate(Asset):
             timeline.append((maturity_datetime.date(), (self.capital, self.currency)))
         return timeline
 
-    def get_income(self, today: datetime) -> Tuple[float, str]:
+    def get_income(self, today: datetime, include_capital=True) -> Tuple[float, str]:
         total = 0.0
         maturity_date = datetime.strptime(self.maturity, DATE_FORMAT_STRING)
-        if maturity_date.month == today.month and maturity_date.year == today.year:
+        if (
+            maturity_date.month == today.month
+            and maturity_date.year == today.year
+            and include_capital
+        ):
             total += self.capital
         for d in self.interest_schedule:
             date = datetime.strptime(d["date"], "%m/%d/%Y")
-            if date.month == today.month and date.year == today.year:
+            if (
+                date.month == today.month
+                and date.year == today.year
+                and d["paid"] != "1"
+            ):
                 total += d["amount"]
         return total, self.currency
 
