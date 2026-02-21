@@ -150,7 +150,10 @@ def monthly_pnl():
         grand_totals["USD"] += psums["USD"] + nsums["USD"]
         start = start + relativedelta(months=1)
     output.write(
-        f"\nGrand Totals: PYG {grand_totals['PYG']:,.0f} USD {grand_totals['USD']:,.2f}\n (Var {(grand_totals['PYG'] + grand_totals['USD']*exchange_rate("USDPYG"))/12:,.2f} PYGs)\n"
+        f"\nGrand Totals: PYG {grand_totals['PYG']:12,.0f}\n              USD    {grand_totals['USD']:12,.2f}\n\n"
+    )
+    output.write(
+        f"Net:          PYG {(grand_totals['PYG'] + grand_totals['USD']*exchange_rate("USDPYG")):12,.0f}\n"
     )
     response = make_response(output.getvalue(), 200)
     response.mimetype = "text/plain"
