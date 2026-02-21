@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Callable, Dict, List
 
 from data import gdrive, xl

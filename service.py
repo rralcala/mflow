@@ -2,7 +2,6 @@ import io
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 from dateutil.relativedelta import relativedelta
 from flask import Flask, make_response, request

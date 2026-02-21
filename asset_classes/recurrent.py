@@ -1,5 +1,4 @@
 import calendar
-import logging
 from datetime import date, datetime
 from typing import Any, Dict, List, Tuple
 
