@@ -1,11 +1,16 @@
 {% extends 'admin/master.html' %}
 {% block body %}
   <form action="/list-assets" method="get"> 
-    <label> <input type="checkbox" name="include" value="1"> Include item </label> 
+    
     <button type="submit">List Assets</button> 
   </form>
+
+  <form action="/investment-performance" method="get"> 
+    
+    <button type="submit">Investment Performance</button> 
+  </form>
   <form action="/cash-flow-detail" method="get"> 
-    <label> <input type="checkbox" name="include" value="1"> Include item </label> 
+    
     <button type="submit">Cash Flow</button> 
   </form>
   <form action="/monthly-pnl" method="get"> 

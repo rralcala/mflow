@@ -40,6 +40,10 @@ class Recurrent(Asset):
         self.flow_class = flow_class
         self.parent_asset = parent_asset
 
+    def calculate_year_performance(self):
+        """ I suspect that recurrents don't have performance, but let's see."""
+        return self.amount, 0.0, self.currency
+
     def get_current_value(self) -> Tuple[float, str]:
         """
         Returns the total value of the recurrent flow.

@@ -42,6 +42,11 @@ class Instrument(Asset):
         self.liquid = liquid
         self.need_update = True
 
+    
+    def calculate_year_performance(self) -> Tuple[float, float, str]:
+        value, currency = self.get_current_value()
+        return value, self.rate, currency
+    
     def get_current_value(self) -> Tuple[float, str]:
         """
         Returns the value of the asset in USD.

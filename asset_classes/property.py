@@ -31,11 +31,13 @@ class Property(Asset):
         self.rented_price = rented_price
         self.contracts = []
 
+    def calculate_year_performance(self) -> Tuple[float, float, str]:
+        return self.latest_price, 0.0, self.currency
+    
     def get_income(self, today: datetime, include_capital=True) -> Tuple[float, str]:
         """
-        Returns the income from the property.
+        Rental Income should be added as contract using a Recurrent.
         """
-
         # income = self.rented_price
         return 0.0, self.currency
 

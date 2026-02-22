@@ -28,7 +28,10 @@ class Bond(Asset):
         else:
             self.maturity_date = datetime.strptime(maturity_date, DATE_FORMAT_STRING)
         self.payment_schedule: List[Dict[str, Any]] = []
-
+    
+    def calculate_year_performance(self) -> Tuple[float, float, str]:
+        return self.get_current_value()[0], self.interest_rate, self.currency
+    
     def get_liquid_balance(self) -> Tuple[float, str]:
         return 0.0, self.currency
 

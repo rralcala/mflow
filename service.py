@@ -28,7 +28,7 @@ with open(config.BASE_PATH + "cdp_api_key.json", "r") as file:
     content = json.loads(file.read())
     config.COINBASE_API_KEY = content.get("name", "")
     config.COINBASE_API_SECRET = content.get("privateKey", "")
-
+    config.COINBASE_PORTFOLIO_ID = content.get("portfolioId", "") 
 
 def append_cb(assets):
     for position in get_accounts(
@@ -185,6 +185,30 @@ def list_assets():
     response.mimetype = "text/plain"
     return response
 
+@app.route("/investment-performance")
+def investment_performance():
+    global ASSETS
+    if not ASSETS:
+        ASSETS = load_assets(fetch_assets, config.BASE_PATH, "key.json")
+        append_cb(ASSETS)
+    a, b, c = r_list_assets(ASSETS, print_pos=True, print_neg=False)
+
+    sum = 0.0
+    for item in a:
+        sum += item[1] + item[2]
+
+    grand_total = sum
+    ret = 0.0
+    for current_value, current_return, _ in b:
+        tret = (current_value / grand_total) * current_return
+        ret += tret
+    response = make_response(printer.pformat(a) + "\n\n" + printer.pformat(b) + "\n\n" +
+        printer.pformat(c)
+        + f"\n\nReturn: {(ret*100):,.2f}%\n\nEstimated Monthly: {sum*ret/12:,.2f}$\n\nTotal: {sum:,.2f}$",
+        200,
+    )
+    response.mimetype = "text/plain"
+    return response
 
 @app.route("/cash-flow-detail")
 def cash_flow():
@@ -235,8 +259,12 @@ def cash_flow():
             + amounts["USD-PY"]
             + amounts["PYG-PY"] / exchange_rate("USDPYG")
         )
+        if amounts['PYG-PY'] > 0.0:
+            pyg_py_val = f"{amounts['PYG-PY']:,.2f}"
+        else:
+            pyg_py_val = f"<p style=\"color:red;\"><b>{amounts['PYG-PY']:,.2f}</b></p>"
         output.write(
-            f"<tr><td>{date}</td><td style=\"text-align: right;\">{amounts['USD-US']:,.2f}</td><td style=\"text-align: right;\">{amounts['USD-PY']:,.2f}</td><td style=\"text-align: right;\">{amounts['PYG-PY']:,.2f}</td><td style=\"text-align: right;\">{tl:,.2f}</td></tr>\n"
+            f"<tr><td>{date}</td><td style=\"text-align: right;\">{amounts['USD-US']:,.2f}</td><td style=\"text-align: right;\">{amounts['USD-PY']:,.2f}</td><td style=\"text-align: right;\">{pyg_py_val}</td><td style=\"text-align: right;\">{tl:,.2f}</td></tr>\n"
         )
     output.write("</table>")
     response = make_response(output.getvalue(), 200)
