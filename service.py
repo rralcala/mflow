@@ -15,7 +15,7 @@ from data.coinbase import get_accounts
 from data.internal import exchange_rate
 from lib import config, util
 from reports.cash_flow import generate_timeline
-from reports.list_assets import list_assets as r_list_assets
+from reports.list_assets import list_assets as r_list_assets, list_asset_performance
 
 ASSETS = None
 
@@ -191,20 +191,17 @@ def investment_performance():
     if not ASSETS:
         ASSETS = load_assets(fetch_assets, config.BASE_PATH, "key.json")
         append_cb(ASSETS)
-    a, b, c = r_list_assets(ASSETS, print_pos=True, print_neg=False)
-
-    sum = 0.0
-    for item in a:
-        sum += item[1] + item[2]
-
-    grand_total = sum
-    ret = 0.0
-    for current_value, current_return, _ in b:
-        tret = (current_value / grand_total) * current_return
-        ret += tret
-    response = make_response(printer.pformat(a) + "\n\n" + printer.pformat(b) + "\n\n" +
-        printer.pformat(c)
-        + f"\n\nReturn: {(ret*100):,.2f}%\n\nEstimated Monthly: {sum*ret/12:,.2f}$\n\nTotal: {sum:,.2f}$",
+    performance = list_asset_performance(ASSETS)
+    sum_value = 0.0
+    z_vol = 0.0
+    nz_vol = 0.0
+    for item in performance:
+        sum_value += item[1]
+        if item[3] == 0.0:
+            z_vol += item[1]
+        else:
+            nz_vol += item[1]
+    response = make_response(f"Total: {sum_value:,.2f}$\n\nZero Volume: {z_vol:,.2f}$\nNon-Zero Volume: {nz_vol:,.2f}$" + "\n\n" + printer.pformat(performance),
         200,
     )
     response.mimetype = "text/plain"

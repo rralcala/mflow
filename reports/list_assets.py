@@ -56,3 +56,23 @@ def list_assets(assets, print_pos: bool, print_neg: bool) -> Tuple[
             "negatives": asset_data["negatives"],
         }
     return currency_summary, returns, breakdown
+
+def list_asset_performance(assets) -> List[Tuple[str, float, str, float]]:
+
+    exchange = exchange_rate("USDPYG")
+
+    performance = []
+    for k, sub in assets.items():
+
+        for asset in sub:
+            current_value, current_return, currency = asset.calculate_year_performance()
+            if current_value <= 0.0:
+                continue
+            if k == "PYG":
+                performance.append(
+                    [asset.identifier, current_value / exchange, currency, current_return*100]
+                )
+            else:
+                performance.append([asset.identifier, current_value, currency, current_return*100])
+
+    return sorted(performance, key=lambda x: x[3], reverse=True)

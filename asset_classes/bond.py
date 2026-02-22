@@ -107,11 +107,17 @@ def parse_bond(data: Dict[str, Any], sheet: DataSource) -> Bond:
     :return: List of dictionaries with account information.
     """
     try:
+        rate_str = data["rate"]
+        if isinstance(rate_str, float):
+            interest_rate = rate_str
+        else:
+            interest_rate = float(rate_str.replace("%", "")) / 100
         new_bond = Bond(
             identifier=data["name"],
             currency=data["currency"],
+            interest_rate=interest_rate,
             capital=float(str(data["capital"]).replace(",", "")),
-            interest_rate=float(str(data["interest"]).replace("%", "")) / 100,
+            
             maturity_date=data["maturity_date"],
         )
     except ValueError as e:

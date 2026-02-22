@@ -23,11 +23,13 @@ class Recurrent(Asset):
         start: str,
         flow_class: str,
         parent_asset: str,
+        rate: float = 0.0,
     ):
         self.identifier = identifier
         self.amount = amount
         self.country = country
         self.currency = currency
+        self.rate = rate
         if isinstance(start, datetime):
             self.start_date = start
         else:
@@ -42,7 +44,7 @@ class Recurrent(Asset):
 
     def calculate_year_performance(self):
         """ I suspect that recurrents don't have performance, but let's see."""
-        return self.amount, 0.0, self.currency
+        return self.get_current_value()[0], self.rate, self.currency
 
     def get_current_value(self) -> Tuple[float, str]:
         """
@@ -125,6 +127,7 @@ def parse_recurrent(data: Dict[str, Any]) -> Recurrent:
         recurrence=data["recurrence"],
         start=data["start"],
         parent_asset=data.get("parent_asset", ""),
+        rate=data.get("rate", 0.0),
     )
 
     return new_bond
