@@ -70,7 +70,7 @@ def list_asset_performance(assets) -> List[Tuple[str, float, str, float]]:
                 continue
             if k == "PYG":
                 performance.append(
-                    [asset.identifier, current_value / exchange, currency, current_return*100]
+                    [asset.identifier, current_value / exchange, 'USD', current_return*100]
                 )
             else:
                 performance.append([asset.identifier, current_value, currency, current_return*100])

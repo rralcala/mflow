@@ -21,6 +21,7 @@ class Property(Asset):
         purchase_date: str,
         latest_price: float,
         rented_price: float,
+        total_return: float,
     ):
         self.country = country
         self.currency = currency
@@ -29,10 +30,11 @@ class Property(Asset):
         self.purchase_date = purchase_date
         self.latest_price = latest_price
         self.rented_price = rented_price
+        self.total_return = total_return
         self.contracts = []
 
     def calculate_year_performance(self) -> Tuple[float, float, str]:
-        return self.latest_price, 0.0, self.currency
+        return self.latest_price, self.total_return, self.currency
     
     def get_income(self, today: datetime, include_capital=True) -> Tuple[float, str]:
         """
@@ -124,6 +126,7 @@ def parse_properties(data: List[List[str]]) -> List[Property]:
             purchase_date=row[4],
             latest_price=float(row[5].replace(",", "")),
             rented_price=float(row[6].replace(",", "")),
+            total_return=float(row[7].replace("%", "")) / 100,
         )
         parsed_accounts.append(account)
 

@@ -28,7 +28,8 @@ with open(config.BASE_PATH + "cdp_api_key.json", "r") as file:
     content = json.loads(file.read())
     config.COINBASE_API_KEY = content.get("name", "")
     config.COINBASE_API_SECRET = content.get("privateKey", "")
-    config.COINBASE_PORTFOLIO_ID = content.get("portfolioId", "") 
+    config.COINBASE_PORTFOLIO_ID = content.get("portfolioId", "")
+
 
 def append_cb(assets):
     for position in get_accounts(
@@ -185,6 +186,7 @@ def list_assets():
     response.mimetype = "text/plain"
     return response
 
+
 @app.route("/investment-performance")
 def investment_performance():
     global ASSETS
@@ -195,17 +197,37 @@ def investment_performance():
     sum_value = 0.0
     z_vol = 0.0
     nz_vol = 0.0
+    over_7_sum = 0.0
+    z_assets = []
+    nz_assets = []
+    over_7_percent = []
     for item in performance:
         sum_value += item[1]
         if item[3] == 0.0:
             z_vol += item[1]
+            z_assets.append(item)
+        elif item[3] > 7.0:
+            over_7_percent.append(item)
+            over_7_sum += item[1]
         else:
             nz_vol += item[1]
-    response = make_response(f"Total: {sum_value:,.2f}$\n\nZero Volume: {z_vol:,.2f}$\nNon-Zero Volume: {nz_vol:,.2f}$" + "\n\n" + printer.pformat(performance),
+            nz_assets.append(item)
+    z_assets = sorted(z_assets, key=lambda x: x[1], reverse=True)
+    over_7_percent = sorted(over_7_percent, key=lambda x: x[1], reverse=True)
+    nz_assets = sorted(nz_assets, key=lambda x: x[1], reverse=True)
+    response = make_response(
+        f"Total: ${sum_value:,.0f}\n\n"
+        + printer.pformat(z_assets)
+        + f"\n\nZero % Capital: ${z_vol:,.0f} ({z_vol/sum_value*100:,.2f}%)\n\n"
+        + printer.pformat(nz_assets)
+        + f"\n\nUnder 7%: ${nz_vol:,.0f} ({nz_vol/sum_value*100:,.2f}%)\n\n"
+        + printer.pformat(over_7_percent)
+        + f"\n\nOver 7% Capital: ${over_7_sum:,.0f} ({over_7_sum/sum_value*100:,.2f}%)",
         200,
     )
     response.mimetype = "text/plain"
     return response
+
 
 @app.route("/cash-flow-detail")
 def cash_flow():
@@ -256,7 +278,7 @@ def cash_flow():
             + amounts["USD-PY"]
             + amounts["PYG-PY"] / exchange_rate("USDPYG")
         )
-        if amounts['PYG-PY'] > 0.0:
+        if amounts["PYG-PY"] > 0.0:
             pyg_py_val = f"{amounts['PYG-PY']:,.2f}"
         else:
             pyg_py_val = f"<p style=\"color:red;\"><b>{amounts['PYG-PY']:,.2f}</b></p>"
