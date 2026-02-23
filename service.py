@@ -16,11 +16,11 @@ from data.internal import exchange_rate
 from lib import config, util
 from reports.cash_flow import generate_timeline
 from reports.list_assets import list_assets as r_list_assets, list_asset_performance
-
+#from views.cash_flow import cash_flow  # noqa: F401 - import for side-effects to register route
 ASSETS = None
 
 
-printer = util.FormatPrinter({float: "{:,.2f}", int: "{:d}"})
+
 app = Flask(__name__)
 admin = Admin(app, name="mflow", theme=Bootstrap4Theme(swatch="cerulean"))
 
@@ -179,7 +179,7 @@ def list_assets():
         tret = (current_value / grand_total) * current_return
         ret += tret
     response = make_response(
-        printer.pformat(c)
+        util.PRINTER.pformat(c)
         + f"\n\nReturn: {(ret*100):,.2f}%\n\nEstimated Monthly: {sum*ret/12:,.2f}$\n\nTotal: {sum:,.2f}$",
         200,
     )
@@ -187,108 +187,18 @@ def list_assets():
     return response
 
 
-@app.route("/investment-performance")
-def investment_performance():
-    global ASSETS
-    if not ASSETS:
-        ASSETS = load_assets(fetch_assets, config.BASE_PATH, "key.json")
-        append_cb(ASSETS)
-    performance = list_asset_performance(ASSETS)
-    sum_value = 0.0
-    z_vol = 0.0
-    nz_vol = 0.0
-    over_7_sum = 0.0
-    z_assets = []
-    nz_assets = []
-    over_7_percent = []
-    for item in performance:
-        sum_value += item[1]
-        if item[3] == 0.0:
-            z_vol += item[1]
-            z_assets.append(item)
-        elif item[3] > 7.0:
-            over_7_percent.append(item)
-            over_7_sum += item[1]
-        else:
-            nz_vol += item[1]
-            nz_assets.append(item)
-    z_assets = sorted(z_assets, key=lambda x: x[1], reverse=True)
-    over_7_percent = sorted(over_7_percent, key=lambda x: x[1], reverse=True)
-    nz_assets = sorted(nz_assets, key=lambda x: x[1], reverse=True)
-    response = make_response(
-        f"Total: ${sum_value:,.0f}\n\n"
-        + printer.pformat(z_assets)
-        + f"\n\nZero % Capital: ${z_vol:,.0f} ({z_vol/sum_value*100:,.2f}%)\n\n"
-        + printer.pformat(nz_assets)
-        + f"\n\nUnder 7%: ${nz_vol:,.0f} ({nz_vol/sum_value*100:,.2f}%)\n\n"
-        + printer.pformat(over_7_percent)
-        + f"\n\nOver 7% Capital: ${over_7_sum:,.0f} ({over_7_sum/sum_value*100:,.2f}%)",
-        200,
-    )
-    response.mimetype = "text/plain"
-    return response
+# The `investment_performance` view has been moved to a dedicated module under
+# `views/investment_performance.py`.  This keeps the service file lean and
+# makes it easier to organize additional view logic in the future.
+#
+# The route is registered when the module is imported at the bottom of this
+# file.  See `views/investment_performance.py` for the implementation.
 
 
-@app.route("/cash-flow-detail")
-def cash_flow():
-    global ASSETS
-    if not ASSETS:
-        ASSETS = load_assets(fetch_assets, config.BASE_PATH, "key.json")
-        append_cb(ASSETS)
-    end_dt = datetime.now() + timedelta(days=365)
-    payments = []
-    for country, tl in generate_timeline(ASSETS, end_dt):
-        for entry in tl:
-            d, (amount, currency) = entry
-            dt = datetime(d.year, d.month, d.day)
-            if dt.tzinfo is None:
-                dt_aware = dt.replace(tzinfo=timezone.utc)
-            else:
-                dt_aware = dt.astimezone(timezone.utc)
-            payment = {
-                "country": country,
-                "date": dt_aware.strftime("%Y-%m-%d"),
-                "amount": amount,
-                "currency": currency,
-            }
-            payments.append(payment)
-
-    timeline = {}
-    payments = sorted(payments, key=lambda x: (x["date"], x["country"]))
-    uu = 0.0
-    up = 0.0
-    pp = 0.0
-    for payment in payments:
-        key = payment["date"]
-        timeline.setdefault(key, {"USD-US": uu, "USD-PY": up, "PYG-PY": pp})
-        timeline[key][f"{payment['currency']}-{payment['country']}"] += payment[
-            "amount"
-        ]
-        uu = timeline[key]["USD-US"]
-        up = timeline[key]["USD-PY"]
-        pp = timeline[key]["PYG-PY"]
-
-    output = io.StringIO()
-    output.write(
-        f'<table><tr><th>Date</th><th style="text-align: right;">USD-US</th><th style="text-align: right;">USD-PY</th><th style="text-align: right;">PYG-PY</th><th style="text-align: right;">Total</th></tr>\n'
-    )
-    for date, amounts in timeline.items():
-        tl = (
-            amounts["USD-US"]
-            + amounts["USD-PY"]
-            + amounts["PYG-PY"] / exchange_rate("USDPYG")
-        )
-        if amounts["PYG-PY"] > 0.0:
-            pyg_py_val = f"{amounts['PYG-PY']:,.2f}"
-        else:
-            pyg_py_val = f"<p style=\"color:red;\"><b>{amounts['PYG-PY']:,.2f}</b></p>"
-        output.write(
-            f"<tr><td>{date}</td><td style=\"text-align: right;\">{amounts['USD-US']:,.2f}</td><td style=\"text-align: right;\">{amounts['USD-PY']:,.2f}</td><td style=\"text-align: right;\">{pyg_py_val}</td><td style=\"text-align: right;\">{tl:,.2f}</td></tr>\n"
-        )
-    output.write("</table>")
-    response = make_response(output.getvalue(), 200)
-    response.mimetype = "text/html"
-    return response
+# the cash flow detail view has been relocated to
+# `views/cash_flow.py`.  See that module for the endpoint implementation.
+# this keeps the routing logic compartmentalized to the views package and
+# allows service.py to remain focused on configuration and shared helpers.
 
 
 @app.route("/cash-month-detail")
@@ -360,4 +270,18 @@ class AnalyticsView(BaseView):
 
 admin.add_view(AnalyticsView(name="Analytics", endpoint="analytics"))
 
-app.run()
+# import views after the app and globals have been defined so that the
+# decorators in the view modules can register themselves without causing
+# circular import errors.  Additional view modules should be imported here.
+from views import cash_flow as vcf, investment_performance as vip  # noqa: F401 - import for side-effects to register routes
+
+@app.route("/investment-performance")
+def investment_performance():
+    return vip.investment_performance()
+
+@app.route("/cash-flow-detail")
+def cash_flow():
+    return vcf.cash_flow()
+
+if __name__ == "__main__":
+    app.run()

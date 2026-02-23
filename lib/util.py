@@ -17,6 +17,7 @@ class FormatPrinter(pprint.PrettyPrinter):
             return self.formats[type(obj)].format(obj), 1, 0
         return pprint.PrettyPrinter.format(self, obj, ctx, maxlvl, lvl)
 
+PRINTER = FormatPrinter({float: "{:,.2f}", int: "{:d}"})
 
 def count_cron_runs(cron_pattern: str, start_date: datetime, end_date: datetime) -> int:
     return len(cron_runs(cron_pattern, start_date, end_date))
