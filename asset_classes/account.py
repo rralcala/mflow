@@ -32,7 +32,7 @@ class Account(Asset):
 
     def calculate_year_performance(self) -> Tuple[float, float, str]:
         return self.get_current_value()[0], 0.0, self.currency
-    
+
     def get_current_value(self) -> Tuple[float, str]:
         return (self.balance * self.factor), self.currency
 

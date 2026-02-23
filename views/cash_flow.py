@@ -1,39 +1,16 @@
-# when executed directly for debugging, the workspace root may not be on
-# sys.path which leads to ModuleNotFoundError for local packages (`lib`,
-# `asset_classes`, etc).  Insert the parent directory into sys.path if it's
-# missing so that the imports below succeed in that scenario.
-import os
-import sys
-
-if __name__ == "__main__":
-    workspace_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    if workspace_root not in sys.path:
-        sys.path.insert(0, workspace_root)
+import io
+from datetime import datetime, timedelta, timezone
 
 from flask import make_response
 
-import io
-from datetime import datetime, timezone, timedelta
-
-# config is needed for BASE_PATH when loading assets
-from lib import config
-
-from asset_classes.fetcher import fetch_assets
-from data.asset_store import load_assets
 from data.internal import exchange_rate
 from reports.cash_flow import generate_timeline
 
-import service
 
-def cash_flow():
-    # ensure assets are loaded in the shared cache
-    if not service.ASSETS:
-        service.ASSETS = load_assets(fetch_assets, config.BASE_PATH, "key.json")
-        service.append_cb(service.ASSETS)
-
+def cash_flow(assets):
     end_dt = datetime.now() + timedelta(days=365)
     payments = []
-    for country, tl in generate_timeline(service.ASSETS, end_dt):
+    for country, tl in generate_timeline(assets, end_dt):
         for entry in tl:
             d, (amount, currency) = entry
             dt = datetime(d.year, d.month, d.day)

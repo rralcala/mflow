@@ -57,6 +57,7 @@ def list_assets(assets, print_pos: bool, print_neg: bool) -> Tuple[
         }
     return currency_summary, returns, breakdown
 
+
 def list_asset_performance(assets) -> List[Tuple[str, float, str, float]]:
 
     exchange = exchange_rate("USDPYG")
@@ -70,9 +71,16 @@ def list_asset_performance(assets) -> List[Tuple[str, float, str, float]]:
                 continue
             if k == "PYG":
                 performance.append(
-                    [asset.identifier, current_value / exchange, 'USD', current_return*100]
+                    [
+                        asset.identifier,
+                        current_value / exchange,
+                        "USD",
+                        current_return * 100,
+                    ]
                 )
             else:
-                performance.append([asset.identifier, current_value, currency, current_return*100])
+                performance.append(
+                    [asset.identifier, current_value, currency, current_return * 100]
+                )
 
     return sorted(performance, key=lambda x: x[3], reverse=True)

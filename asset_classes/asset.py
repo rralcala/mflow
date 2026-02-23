@@ -18,8 +18,7 @@ class Asset(ABC):
 
     @abstractmethod
     def calculate_year_performance(self) -> Tuple[float, float, str]:
-        """
-        """
+        """ """
         pass
 
     @abstractmethod

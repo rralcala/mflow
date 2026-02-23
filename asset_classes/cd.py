@@ -31,10 +31,9 @@ class DepositCertificate(Asset):
         self.interest_rate = interest_rate
         self.interest_schedule: List[Dict[str, Any]] = interest_schedule
 
-    
     def calculate_year_performance(self) -> Tuple[float, float, str]:
         return self.get_current_value()[0], self.interest_rate, self.currency
-    
+
     def get_current_value(self) -> Tuple[float, str]:
         """
         Returns the value of the asset in USD.

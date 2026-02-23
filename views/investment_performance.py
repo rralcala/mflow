@@ -1,21 +1,12 @@
 from flask import make_response
 
-from asset_classes.fetcher import fetch_assets
-from data.asset_store import load_assets
-from lib import config, util
+from lib import util
 from reports.list_assets import list_asset_performance
 
-import service
 
 # register the route using the shared Flask application
-def investment_performance():
-    # use the ASSETS variable living in the service module so that all views
-    # operate on the same cache
-    if not service.ASSETS:
-        service.ASSETS = load_assets(fetch_assets, config.BASE_PATH, "key.json")
-        service.append_cb(service.ASSETS)
-
-    performance = list_asset_performance(service.ASSETS)
+def investment_performance(assets):
+    performance = list_asset_performance(assets)
     sum_value = 0.0
     z_vol = 0.0
     nz_vol = 0.0

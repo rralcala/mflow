@@ -43,7 +43,7 @@ class Recurrent(Asset):
         self.parent_asset = parent_asset
 
     def calculate_year_performance(self):
-        """ I suspect that recurrents don't have performance, but let's see."""
+        """I suspect that recurrents don't have performance, but let's see."""
         return self.get_current_value()[0], self.rate, self.currency
 
     def get_current_value(self) -> Tuple[float, str]:

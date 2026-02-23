@@ -15,10 +15,11 @@ from data.coinbase import get_accounts
 from data.internal import exchange_rate
 from lib import config, util
 from reports.cash_flow import generate_timeline
-from reports.list_assets import list_assets as r_list_assets, list_asset_performance
-#from views.cash_flow import cash_flow  # noqa: F401 - import for side-effects to register route
-ASSETS = None
+from reports.list_assets import list_asset_performance
+from reports.list_assets import list_assets as r_list_assets
 
+# from views.cash_flow import cash_flow  # noqa: F401 - import for side-effects to register route
+ASSETS = None
 
 
 app = Flask(__name__)
@@ -273,15 +274,30 @@ admin.add_view(AnalyticsView(name="Analytics", endpoint="analytics"))
 # import views after the app and globals have been defined so that the
 # decorators in the view modules can register themselves without causing
 # circular import errors.  Additional view modules should be imported here.
-from views import cash_flow as vcf, investment_performance as vip  # noqa: F401 - import for side-effects to register routes
+from views import \
+    cash_flow as vcf  # noqa: F401 - import for side-effects to register routes
+from views import investment_performance as vip
+
 
 @app.route("/investment-performance")
 def investment_performance():
-    return vip.investment_performance()
+    global ASSETS
+    # ensure assets are loaded in the shared cache
+    if not ASSETS:
+        ASSETS = load_assets(fetch_assets, config.BASE_PATH, "key.json")
+        append_cb(ASSETS)
+    return vip.investment_performance(ASSETS)
+
 
 @app.route("/cash-flow-detail")
 def cash_flow():
-    return vcf.cash_flow()
+    global ASSETS
+    # ensure assets are loaded in the shared cache
+    if not ASSETS:
+        ASSETS = load_assets(fetch_assets, config.BASE_PATH, "key.json")
+        append_cb(ASSETS)
+    return vcf.cash_flow(ASSETS)
+
 
 if __name__ == "__main__":
     app.run()

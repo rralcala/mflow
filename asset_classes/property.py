@@ -35,7 +35,7 @@ class Property(Asset):
 
     def calculate_year_performance(self) -> Tuple[float, float, str]:
         return self.latest_price, self.total_return, self.currency
-    
+
     def get_income(self, today: datetime, include_capital=True) -> Tuple[float, str]:
         """
         Rental Income should be added as contract using a Recurrent.

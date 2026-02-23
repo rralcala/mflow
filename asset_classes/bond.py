@@ -28,10 +28,10 @@ class Bond(Asset):
         else:
             self.maturity_date = datetime.strptime(maturity_date, DATE_FORMAT_STRING)
         self.payment_schedule: List[Dict[str, Any]] = []
-    
+
     def calculate_year_performance(self) -> Tuple[float, float, str]:
         return self.get_current_value()[0], self.interest_rate, self.currency
-    
+
     def get_liquid_balance(self) -> Tuple[float, str]:
         return 0.0, self.currency
 
@@ -117,7 +117,6 @@ def parse_bond(data: Dict[str, Any], sheet: DataSource) -> Bond:
             currency=data["currency"],
             interest_rate=interest_rate,
             capital=float(str(data["capital"]).replace(",", "")),
-            
             maturity_date=data["maturity_date"],
         )
     except ValueError as e:

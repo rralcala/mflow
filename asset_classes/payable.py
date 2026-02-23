@@ -26,7 +26,7 @@ class Payable(Asset):
 
     def calculate_year_performance(self) -> Tuple[float, float, str]:
         return self.amount, 0.0, self.currency
-    
+
     def get_income(self, today: datetime, include_capital=True) -> Tuple[float, str]:
         date = datetime.strptime(self.due_date, DATE_FORMAT_STRING).replace(day=1)
         amount = 0.0
