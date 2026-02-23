@@ -262,7 +262,9 @@ admin.add_view(AnalyticsView(name="Analytics", endpoint="analytics"))
 from views import \
     cash_flow as vcf  # noqa: F401 - import for side-effects to register routes
 from views import investment_performance as vip
-from views import upcoming_payments as vup  # noqa: F401 - import for side-effects to register routes
+from views import \
+    upcoming_payments as \
+    vup  # noqa: F401 - import for side-effects to register routes
 
 
 @app.route("/investment-performance")
@@ -284,14 +286,17 @@ def cash_flow():
         append_cb(ASSETS)
     return vcf.cash_flow(ASSETS)
 
+
 @app.route("/upcoming-payments")
 def upcoming_payments():
+    exclude_capital = request.args.get("exclude", "0") == "1"
     global ASSETS
     # ensure assets are loaded in the shared cache
     if not ASSETS:
         ASSETS = load_assets(fetch_assets, config.BASE_PATH, "key.json")
         append_cb(ASSETS)
-    return vup.upcoming_payments(ASSETS)
+    return vup.upcoming_payments(ASSETS, exclude_capital)
+
 
 if __name__ == "__main__":
     app.run()

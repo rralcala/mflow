@@ -71,14 +71,17 @@ class Instrument(Asset):
             self.qty * self.price * self.factor if self.liquid else 0.0
         ), self.currency
 
-    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
+    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str, bool]]]:
         timeline = []
         balance = self.get_liquid_balance()
         if balance[0] != 0.0:
-            timeline.append((datetime.today().date(), balance))
+            amount, currency = balance
+            timeline.append((datetime.today().date(), (amount, currency, True)))
         if self.estimated_dividend != 0.0:
             for date in cron_runs(self.dividend, datetime.today(), end):
-                timeline.append((date.date(), (self.estimated_dividend, self.currency)))
+                timeline.append(
+                    (date.date(), (self.estimated_dividend, self.currency, False))
+                )
         return timeline
 
     def get_currency(self) -> str:

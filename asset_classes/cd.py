@@ -52,7 +52,7 @@ class DepositCertificate(Asset):
     def get_liquid_balance(self) -> Tuple[float, str]:
         return 0.0, self.currency
 
-    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
+    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str, bool]]]:
         timeline = []
         for payment in self.interest_schedule:
             try:
@@ -64,14 +64,16 @@ class DepositCertificate(Asset):
                 raise e
             if payment_date <= end and payment["paid"] != "1":
                 timeline.append(
-                    (payment_date.date(), (payment["amount"], self.currency))
+                    (payment_date.date(), (payment["amount"], self.currency, False))
                 )
         maturity_datetime = datetime.strptime(self.maturity, DATE_FORMAT_STRING)
         if maturity_datetime <= end:
             logging.debug(
                 f"Adding maturity payment on {maturity_datetime.date()} for {self.identifier} of {self.capital} {self.currency}"
             )
-            timeline.append((maturity_datetime.date(), (self.capital, self.currency)))
+            timeline.append(
+                (maturity_datetime.date(), (self.capital, self.currency, True))
+            )
         return timeline
 
     def get_income(self, today: datetime, include_capital=True) -> Tuple[float, str]:

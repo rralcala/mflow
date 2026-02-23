@@ -35,17 +35,19 @@ class Bond(Asset):
     def get_liquid_balance(self) -> Tuple[float, str]:
         return 0.0, self.currency
 
-    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
+    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str, bool]]]:
         timeline = []
         for payment in self.payment_schedule:
             payment_date = payment["date"]
             if payment_date <= end and payment["paid"] != 1:
                 timeline.append(
-                    (payment_date.date(), (payment["amount"], self.currency))
+                    (payment_date.date(), (payment["amount"], self.currency, False))
                 )
         maturity_datetime = self.maturity_date
         if maturity_datetime <= end:
-            timeline.append((maturity_datetime.date(), (self.capital, self.currency)))
+            timeline.append(
+                (maturity_datetime.date(), (self.capital, self.currency, True))
+            )
         return timeline
 
     def get_returns(self) -> Tuple[float, float]:

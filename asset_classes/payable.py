@@ -43,10 +43,10 @@ class Payable(Asset):
         """
         return 0.0, self.currency
 
-    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
+    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str, bool]]]:
         due_date_date = datetime.strptime(self.due_date, DATE_FORMAT_STRING).date()
         if end.date() >= due_date_date:
-            return [(due_date_date, (self.amount, self.currency))]
+            return [(due_date_date, (self.amount, self.currency, False))]
         else:
             return []
 

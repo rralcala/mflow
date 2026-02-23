@@ -58,12 +58,12 @@ class Recurrent(Asset):
             return paid_amount, self.currency
         return 0.0, "USD"
 
-    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
+    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str, bool]]]:
         timeline = []
 
         for date in cron_runs(self.recurrence, datetime.today(), end):
             if date >= self.start_date:
-                timeline.append((date.date(), (self.amount, self.currency)))
+                timeline.append((date.date(), (self.amount, self.currency, False)))
         return timeline
 
     def get_returns(self) -> Tuple[float, float]:

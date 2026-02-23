@@ -54,7 +54,7 @@ class Property(Asset):
         """
         return 0.0, self.currency
 
-    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str]]]:
+    def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str, bool]]]:
         timeline = []
         if self.rented_price == 0.0:
             return timeline
@@ -63,9 +63,7 @@ class Property(Asset):
         for first_of_month in firsts:
             income = self.get_income(first_of_month)
             if income[0] != 0.0:
-                timeline.append(
-                    (first_of_month.date(), self.get_income(first_of_month))
-                )
+                timeline.append((first_of_month.date(), (income[0], income[1], False)))
         return timeline
 
     def get_currency(self) -> str:
