@@ -15,7 +15,6 @@ from data.coinbase import get_accounts
 from data.internal import exchange_rate
 from lib import config, util
 from reports.cash_flow import generate_timeline
-from reports.list_assets import list_asset_performance
 from reports.list_assets import list_assets as r_list_assets
 
 # from views.cash_flow import cash_flow  # noqa: F401 - import for side-effects to register route
@@ -188,20 +187,6 @@ def list_assets():
     return response
 
 
-# The `investment_performance` view has been moved to a dedicated module under
-# `views/investment_performance.py`.  This keeps the service file lean and
-# makes it easier to organize additional view logic in the future.
-#
-# The route is registered when the module is imported at the bottom of this
-# file.  See `views/investment_performance.py` for the implementation.
-
-
-# the cash flow detail view has been relocated to
-# `views/cash_flow.py`.  See that module for the endpoint implementation.
-# this keeps the routing logic compartmentalized to the views package and
-# allows service.py to remain focused on configuration and shared helpers.
-
-
 @app.route("/cash-month-detail")
 def month_flow():
     assets = load_assets(fetch_assets, config.BASE_PATH, "key.json")
@@ -277,6 +262,7 @@ admin.add_view(AnalyticsView(name="Analytics", endpoint="analytics"))
 from views import \
     cash_flow as vcf  # noqa: F401 - import for side-effects to register routes
 from views import investment_performance as vip
+from views import upcoming_payments as vup  # noqa: F401 - import for side-effects to register routes
 
 
 @app.route("/investment-performance")
@@ -298,6 +284,14 @@ def cash_flow():
         append_cb(ASSETS)
     return vcf.cash_flow(ASSETS)
 
+@app.route("/upcoming-payments")
+def upcoming_payments():
+    global ASSETS
+    # ensure assets are loaded in the shared cache
+    if not ASSETS:
+        ASSETS = load_assets(fetch_assets, config.BASE_PATH, "key.json")
+        append_cb(ASSETS)
+    return vup.upcoming_payments(ASSETS)
 
 if __name__ == "__main__":
     app.run()

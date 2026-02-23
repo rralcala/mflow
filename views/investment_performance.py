@@ -4,7 +4,6 @@ from lib import util
 from reports.list_assets import list_asset_performance
 
 
-# register the route using the shared Flask application
 def investment_performance(assets):
     performance = list_asset_performance(assets)
     sum_value = 0.0
