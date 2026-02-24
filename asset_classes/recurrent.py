@@ -18,9 +18,9 @@ class Recurrent(Asset):
         country: str,
         amount: float,
         currency: str,
-        end: str,
         recurrence: str,
         start: str,
+        end: str,
         flow_class: str,
         rate: float = 0.0,
     ):
@@ -55,7 +55,7 @@ class Recurrent(Asset):
                 * self.amount
             )
             return paid_amount, self.currency
-        return 0.0, "USD"
+        return 0.0, self.currency
 
     def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str, bool]]]:
         timeline = []
@@ -69,7 +69,7 @@ class Recurrent(Asset):
         return self.get_current_value()[0], 0.0
 
     def __repr__(self):
-        return f"Recurrent ID: {self.identifier}, Class: {self.flow_class}, Face Value: {self.amount}, Maturity Date: {self.maturity_date}"
+        return f"ID: {self.identifier} Country: {self.country}, Class: {self.flow_class}, Face Value: {self.amount} {self.currency}, Maturity Date: {self.maturity_date}"
 
     def get_liquid_balance(self) -> Tuple[float, str]:
         """
@@ -88,12 +88,8 @@ class Recurrent(Asset):
             day=1, hour=0, minute=0, second=0, microsecond=0
         )
         end = last_date_of_month(today)
-        # logging.warning("Calculating income for recurrent flow %s from %s to %s", self.identifier, start, end)
-        # logging.warning("Recurrent flow %s: start date %s, maturity date %s", self.identifier, self.start_date, self.maturity_date)
         if start >= rec_start and end <= self.maturity_date:
-
             runs = count_cron_runs(self.recurrence, start, end)
-            # logging.warning("Number of runs for recurrent flow %s: %d", self.identifier, runs)
             cash_flow = runs * self.amount
         else:
             cash_flow = 0.0
@@ -116,7 +112,7 @@ def parse_recurrent(data: Dict[str, Any]) -> Recurrent:
     :param data: List of lists containing the account data.
     :return: List of dictionaries with account information.
     """
-    new_bond = Recurrent(
+    new_rec = Recurrent(
         identifier=data["identifier"],
         flow_class=data["flow_class"].lower(),
         amount=float(str(data["amount"]).replace(",", "")),
@@ -129,7 +125,7 @@ def parse_recurrent(data: Dict[str, Any]) -> Recurrent:
         rate=data.get("rate", 0.0),
     )
 
-    return new_bond
+    return new_rec
 
 
 def fetch(sheet: DataSource) -> Recurrent:

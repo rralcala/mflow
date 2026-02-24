@@ -69,9 +69,7 @@ def list_assets(assets, print_pos: bool, print_neg: bool) -> Tuple[
 
 
 def list_asset_performance(assets) -> List[Tuple[str, float, str, float]]:
-
     exchange = exchange_rate("USDPYG")
-
     performance = []
     for currency, sub in assets.items():
 

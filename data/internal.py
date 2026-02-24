@@ -1,6 +1,7 @@
 """Internal data handling functions."""
 
 from typing import Tuple
+import logging
 
 import requests
 
@@ -14,7 +15,6 @@ QUOTE_CACHE = {}
 
 def exchange_rate(currencies: str) -> float:
     """Fetch exchange rate for given currency pair. Including crypto."""
-    price = 1.0
     if currencies == "USDPYG":
         if "USDPYG" not in QUOTE_CACHE:
             response = requests.get(CURRENCY_DATA, timeout=10)
@@ -22,16 +22,17 @@ def exchange_rate(currencies: str) -> float:
                 data = response.json()
                 if "pyg" in data["usd"]:
                     QUOTE_CACHE["USDPYG"] = float(data["usd"]["pyg"])
-        price = QUOTE_CACHE["USDPYG"]
+            else:
+                logging.error("Failed to fetch exchange rate for USDPYG: %s: %s", response.status_code, response.text)
+        return QUOTE_CACHE["USDPYG"]
     elif currencies == "BTCUSD":
-        price, _ = _get_crypto_price("BTCUSD")
+        return _get_crypto_price("BTCUSD")[0]
     elif currencies == "SOLUSD":
-        price, _ = _get_crypto_price("SOLUSD")
+        return _get_crypto_price("SOLUSD")[0]
     elif currencies == "CROUSD":
-        price, _ = _get_crypto_price("CROUSD")
+        return _get_crypto_price("CROUSD")[0]
     else:
         raise ValueError(f"Unknown currency pair {currencies}")
-    return price
 
 
 def _get_crypto_price(crypto_symbol: str) -> Tuple[float, str]:

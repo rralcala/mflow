@@ -1,35 +1,36 @@
 import sqlite3
+from lib.config import Config
 
-
-def insert_transaction(
-    base_path: str,
-    asset_id: str,
-    id: str,
-    description: str,
+def insert_recurrent(
+    identifier: str,
+    parent_asset_id: str,
+    country: str,
     amount: float,
-    balance: float,
-    date: str,
-    time: str,
-    origin: str,
-    tags: str,
+    currency: str,
+    recurrence: str,
+    start: str,
+    end: str,
+    flow_class: str,
+    rate: float = 0.0,
 ):
     # Connect to the database (creates 'mydatabase.db' if it doesn't exist)
-    conn = sqlite3.connect(base_path + "mydatabase.db")
+    conn = sqlite3.connect(Config.BASE_PATH + "mydatabase.db")
     cursor = conn.cursor()
 
     # Insert a new transaction
     cursor.execute(
-        "REPLACE INTO account_transactions (asset_id, id, description, amount, balance, date, time, origin, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "REPLACE INTO recurrent (identifier, parent_asset_id, country, amount, currency, recurrence, start, end, flow_class, rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
-            asset_id,
-            id,
-            description,
+            identifier,
+            parent_asset_id,
+            country,
             str(amount),
-            str(balance),
-            date,
-            time,
-            origin,
-            tags,
+            currency,
+            recurrence,
+            start,
+            end,
+            flow_class,
+            str(rate),
         ),
     )
 
