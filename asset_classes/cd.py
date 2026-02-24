@@ -3,7 +3,7 @@ from datetime import date, datetime
 from typing import Any, Dict, List, Tuple
 
 from asset_classes.asset import Asset
-from lib.config import DATE_FORMAT_STRING
+from lib.config import Config
 
 
 class DepositCertificate(Asset):
@@ -56,7 +56,9 @@ class DepositCertificate(Asset):
         timeline = []
         for payment in self.interest_schedule:
             try:
-                payment_date = datetime.strptime(payment["date"], DATE_FORMAT_STRING)
+                payment_date = datetime.strptime(
+                    payment["date"], Config.DATE_FORMAT_STRING
+                )
             except ValueError as e:
                 logging.warning(
                     f"Could not parse date {payment['date']} for {self.identifier}"
@@ -66,7 +68,7 @@ class DepositCertificate(Asset):
                 timeline.append(
                     (payment_date.date(), (payment["amount"], self.currency, False))
                 )
-        maturity_datetime = datetime.strptime(self.maturity, DATE_FORMAT_STRING)
+        maturity_datetime = datetime.strptime(self.maturity, Config.DATE_FORMAT_STRING)
         if maturity_datetime <= end:
             logging.debug(
                 f"Adding maturity payment on {maturity_datetime.date()} for {self.identifier} of {self.capital} {self.currency}"
@@ -78,7 +80,7 @@ class DepositCertificate(Asset):
 
     def get_income(self, today: datetime, include_capital=True) -> Tuple[float, str]:
         total = 0.0
-        maturity_date = datetime.strptime(self.maturity, DATE_FORMAT_STRING)
+        maturity_date = datetime.strptime(self.maturity, Config.DATE_FORMAT_STRING)
         if (
             maturity_date.month == today.month
             and maturity_date.year == today.year

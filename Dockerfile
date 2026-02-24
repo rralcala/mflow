@@ -10,6 +10,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of your application code
 COPY . .
 
-EXPOSE 50051
+EXPOSE 5000
 # Define the command to run your Python application
-CMD ["python", "grpc_server/cash_flow_server.py"]
+CMD ["python", "service.py", "--base", "/data/"]

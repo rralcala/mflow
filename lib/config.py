@@ -1,0 +1,10 @@
+class Config:
+    DATE_FORMAT_STRING = "%m/%d/%Y"
+    YEAR = 365.25
+    EXPECTED_ROI = 0.05
+    LOCATION_COUNTRY = {}
+    BASE_PATH = ""
+    SCRIPT_DIR = ""
+    COINBASE_API_KEY = ""
+    COINBASE_API_SECRET = ""
+    COINBASE_PORTFOLIO_ID = ""

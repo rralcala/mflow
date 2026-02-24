@@ -21,8 +21,7 @@ from asset_classes.instrument import Instrument
 from data.asset_store import load_assets
 from data.coinbase import get_accounts
 from data.sqlite import find_accounts, get_transactions_for_asset_id
-from lib.config import (BASE_PATH, COINBASE_API_KEY, COINBASE_API_SECRET,
-                        COINBASE_PORTFOLIO_ID)
+from lib.config import Config
 from reports.cash_flow import generate_timeline
 from reports.list_assets import list_assets
 
@@ -34,10 +33,10 @@ class CashFlowServicer(pb_grpc.CashFlowServiceServicer):
         self.load_assets()
 
     def load_assets(self):
-        self.assets = load_assets(fetch_assets, BASE_PATH, self.key_path)
-        accounts = find_accounts(BASE_PATH)
+        self.assets = load_assets(fetch_assets, Config.BASE_PATH, self.key_path)
+        accounts = find_accounts(Config.BASE_PATH)
         for account in accounts:
-            transactions = get_transactions_for_asset_id(BASE_PATH, account[0])
+            transactions = get_transactions_for_asset_id(Config.BASE_PATH, account[0])
             self.assets["PYG"].append(
                 Account(
                     "PY",
@@ -49,7 +48,9 @@ class CashFlowServicer(pb_grpc.CashFlowServiceServicer):
                 )
             )
         for position in get_accounts(
-            COINBASE_API_KEY, COINBASE_API_SECRET, COINBASE_PORTFOLIO_ID
+            Config.COINBASE_API_KEY,
+            Config.COINBASE_API_SECRET,
+            Config.COINBASE_PORTFOLIO_ID,
         ):
             if position["asset"] == "USDC":
                 qty = float(position["total_balance_crypto"])

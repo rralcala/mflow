@@ -3,18 +3,21 @@ from typing import Dict, List, Tuple
 
 from data.internal import exchange_rate
 
+POSITIVES = "positives"
+NEGATIVES = "negatives"
+
 
 def list_assets(assets, print_pos: bool, print_neg: bool) -> Tuple[
     List[Tuple[str, float, float]],
     List[Tuple[float, float, str]],
     Dict[str, List[Tuple[str, str]]],
 ]:
-    asset_data = {"negatives": [], "positives": []}
+    asset_data = {NEGATIVES: [], POSITIVES: []}
     currency_summary = []
     exchange = exchange_rate("USDPYG")
 
     returns = []
-    for k, sub in assets.items():
+    for currency, sub in assets.items():
         pval = 0.0
         nval = 0.0
         for asset in sub:
@@ -27,33 +30,40 @@ def list_assets(assets, print_pos: bool, print_neg: bool) -> Tuple[
                     currval,
                     asset.identifier,
                 )
-            if k == "PYG":
+            if currency == "PYG":
                 returns.append(
-                    [current_value / exchange, current_return, asset.identifier]
+                    [
+                        current_value / exchange,
+                        current_return,
+                        asset.identifier,
+                        asset.country,
+                    ]
                 )
             else:
-                returns.append([current_value, current_return, asset.identifier])
+                returns.append(
+                    [current_value, current_return, asset.identifier, asset.country]
+                )
 
             if current_value > 0:
                 if print_pos:
-                    asset_data["positives"].append(
+                    asset_data[POSITIVES].append(
                         (asset.identifier, f"{current_value:,.0f} {currency}")
                     )
                 pval += current_value
             elif current_value < 0:
                 if print_neg:
-                    asset_data["negatives"].append(
+                    asset_data[NEGATIVES].append(
                         (asset.identifier, f"{current_value:,.0f} {currency}")
                     )
                 nval += current_value
-        if k == "PYG":
+        if currency == "PYG":
             pval /= exchange
             nval /= exchange
 
-        currency_summary.append((k, pval, nval))
+        currency_summary.append((currency, pval, nval))
         breakdown = {
-            "postives": asset_data["positives"],
-            "negatives": asset_data["negatives"],
+            POSITIVES: asset_data[POSITIVES],
+            NEGATIVES: asset_data[NEGATIVES],
         }
     return currency_summary, returns, breakdown
 
@@ -63,13 +73,13 @@ def list_asset_performance(assets) -> List[Tuple[str, float, str, float]]:
     exchange = exchange_rate("USDPYG")
 
     performance = []
-    for k, sub in assets.items():
+    for currency, sub in assets.items():
 
         for asset in sub:
             current_value, current_return, currency = asset.calculate_year_performance()
             if current_value <= 0.0:
                 continue
-            if k == "PYG":
+            if currency == "PYG":
                 performance.append(
                     [
                         asset.identifier,

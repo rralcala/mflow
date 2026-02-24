@@ -4,7 +4,7 @@ from typing import List, Tuple
 
 from asset_classes.asset import Asset
 from data.datasource import DataSource
-from lib.config import DATE_FORMAT_STRING
+from lib.config import Config
 
 
 class Payable(Asset):
@@ -28,7 +28,9 @@ class Payable(Asset):
         return self.amount, 0.0, self.currency
 
     def get_income(self, today: datetime, include_capital=True) -> Tuple[float, str]:
-        date = datetime.strptime(self.due_date, DATE_FORMAT_STRING).replace(day=1)
+        date = datetime.strptime(self.due_date, Config.DATE_FORMAT_STRING).replace(
+            day=1
+        )
         amount = 0.0
         if date.month == today.month and date.year == today.year:
             if not self.commited or include_capital:
@@ -44,7 +46,9 @@ class Payable(Asset):
         return 0.0, self.currency
 
     def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str, bool]]]:
-        due_date_date = datetime.strptime(self.due_date, DATE_FORMAT_STRING).date()
+        due_date_date = datetime.strptime(
+            self.due_date, Config.DATE_FORMAT_STRING
+        ).date()
         if end.date() >= due_date_date:
             return [(due_date_date, (self.amount, self.currency, False))]
         else:

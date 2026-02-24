@@ -1,10 +1,11 @@
+import logging
 from datetime import date, datetime
 from typing import List, Tuple
 
 from asset_classes.asset import Asset
 from data import internal
 from data.datasource import DataSource
-from lib.config import DATE_FORMAT_STRING, LOCATION_COUNTRY
+from lib.config import Config
 from lib.util import cron_runs
 
 
@@ -33,7 +34,7 @@ class Instrument(Asset):
         self.qty = qty
         self.currency = currency
         self.location = location
-        self.country = LOCATION_COUNTRY[location]
+        self.country = Config.LOCATION_COUNTRY[location]
         self.estimated_dividend = estimated_dividend
         self.rate = rate
         self.dividend = dividend
@@ -147,7 +148,7 @@ def parse_portfolio(data: List[List[str]]) -> List[Instrument]:
             estimated_dividend=float(row[8].replace(",", "")),
             rate=float(row[7].replace("%", "")) / 100,
             currency=row[9],
-            acquisition_date=datetime.strptime(row[10], DATE_FORMAT_STRING),
+            acquisition_date=datetime.strptime(row[10], Config.DATE_FORMAT_STRING),
             acquisition_price=float(row[11].replace(",", "")),
             liquid=True if row[13] == "1" else False,
         )

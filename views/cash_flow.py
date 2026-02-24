@@ -12,7 +12,7 @@ def cash_flow(assets):
     payments = []
     for country, tl in generate_timeline(assets, end_dt):
         for entry in tl:
-            d, (amount, currency) = entry
+            d, (amount, currency, _) = entry
             dt = datetime(d.year, d.month, d.day)
             if dt.tzinfo is None:
                 dt_aware = dt.replace(tzinfo=timezone.utc)

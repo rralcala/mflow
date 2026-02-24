@@ -5,4 +5,4 @@ history.csv
 key.json
 .vscode
 local_storage/!*.md
-lib/config.py
+debug.log

@@ -6,7 +6,7 @@ from dateutil.rrule import MONTHLY, rrule
 
 from asset_classes.asset import Asset
 from data.datasource import DataSource
-from lib.config import DATE_FORMAT_STRING, YEAR
+from lib.config import Config
 
 
 class Property(Asset):
@@ -74,10 +74,11 @@ class Property(Asset):
         Returns the current value and the annualized return of the asset.
         """
         holding_period_days = (
-            datetime.now() - datetime.strptime(self.purchase_date, DATE_FORMAT_STRING)
+            datetime.now()
+            - datetime.strptime(self.purchase_date, Config.DATE_FORMAT_STRING)
         ).days
-        if holding_period_days > YEAR:
-            holding_period_years = holding_period_days / YEAR
+        if holding_period_days > Config.YEAR:
+            holding_period_years = holding_period_days / Config.YEAR
             annualized_return = (
                 (self.latest_price / self.purchase_price) - 1
             ) / holding_period_years

@@ -1,7 +1,12 @@
+import argparse
 import io
 import json
 import logging
+import os
+import socket
+import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from dateutil.relativedelta import relativedelta
 from flask import Flask, make_response, request
@@ -10,32 +15,38 @@ from flask_admin.base import Bootstrap4Theme
 
 from asset_classes.fetcher import fetch_assets
 from asset_classes.instrument import Instrument
-from data.asset_store import load_assets
+from data import asset_store
 from data.coinbase import get_accounts
 from data.internal import exchange_rate
-from lib import config, util
+from lib.config import Config
 from reports.cash_flow import generate_timeline
-from reports.list_assets import list_assets as r_list_assets
+from views import \
+    cash_flow as vcf  # noqa: F401 - import for side-effects to register routes
+from views import investment_performance as vip
+from views import list_assets as vla
+from views import \
+    upcoming_payments as \
+    vup  # noqa: F401 - import for side-effects to register routes
+from views.monthly_pnl import \
+    monthly_pnl as \
+    vmpnl  # noqa: F401 - import for side-effects to register routes
 
 # from views.cash_flow import cash_flow  # noqa: F401 - import for side-effects to register route
 ASSETS = None
-
-
 app = Flask(__name__)
-admin = Admin(app, name="mflow", theme=Bootstrap4Theme(swatch="cerulean"))
 
-with open(config.BASE_PATH + "cdp_api_key.json", "r") as file:
-    content = json.loads(file.read())
-    config.COINBASE_API_KEY = content.get("name", "")
-    config.COINBASE_API_SECRET = content.get("privateKey", "")
-    config.COINBASE_PORTFOLIO_ID = content.get("portfolioId", "")
+
+def load_assets():
+    global ASSETS
+    ASSETS = asset_store.load_assets(fetch_assets, Config.BASE_PATH, "gdrive_key.json")
+    append_cb(ASSETS)
 
 
 def append_cb(assets):
     for position in get_accounts(
-        config.COINBASE_API_KEY,
-        config.COINBASE_API_SECRET,
-        config.COINBASE_PORTFOLIO_ID,
+        Config.COINBASE_API_KEY,
+        Config.COINBASE_API_SECRET,
+        Config.COINBASE_PORTFOLIO_ID,
     ):
         if position["asset"] == "USDC":
             qty = float(position["total_balance_crypto"])
@@ -94,102 +105,11 @@ def append_cb(assets):
             assets["USD"].append(account)
 
 
-@app.route("/monthly-pnl")
-def monthly_pnl():
-    include_income = request.args.get("income", "0") == "1"
-    include_expenses = request.args.get("expenses", "0") == "1"
-    logging.warning(f"Exchange Rate: {exchange_rate('USDPYG')}")
-    global ASSETS
-    if not ASSETS:
-        ASSETS = load_assets(fetch_assets, config.BASE_PATH, "key.json")
-        append_cb(ASSETS)
-    start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    output = io.StringIO()
-
-    grand_totals = {"USD": 0.0, "PYG": 0.0}
-    for _ in range(12):
-        nsums = {}
-        psums = {}
-        expenses_str = io.StringIO()
-        income_str = io.StringIO()
-        for currency, assets in ASSETS.items():
-            nsums[currency] = 0.0
-            psums[currency] = 0.0
-            for asset in assets:
-                income = asset.get_income(start, include_capital=False)
-                if income[0] < 0.0:
-                    expenses_str.write(
-                        asset.identifier + ": " + f"{income[0]:,.2f} {income[1]}\n"
-                    )
-                    nsums[currency] += income[0]
-                elif income[0] > 0.0:
-                    psums[currency] += income[0]
-                    income_str.write(
-                        asset.identifier + ": " + f"{income[0]:,.2f} {income[1]}\n"
-                    )
-        output.write(f"\n== {start.strftime("%Y %B")} ==\n")
-        output.write("\n")
-        if include_income:
-            income_str.seek(0)
-            output.write(income_str.read() + "\n")
-            income_str.close()
-        if include_expenses:
-            expenses_str.seek(0)
-            output.write(expenses_str.read() + "\n")
-            expenses_str.close()
-
-        output.write(
-            f"Income:   {psums['PYG']:>12,.0f} Income:   {psums['USD']:>12,.2f}\n"
-        )
-        output.write(
-            f"Expenses: {nsums['PYG']:>12,.0f} Expenses: {nsums['USD']:>12,.2f}\n"
-        )
-        output.write(
-            f"Total:    {psums['PYG'] + nsums['PYG']:>12,.0f} Total:    {psums['USD'] + nsums['USD']:>12,.2f}\n"
-        )
-        grand_totals["PYG"] += psums["PYG"] + nsums["PYG"]
-        grand_totals["USD"] += psums["USD"] + nsums["USD"]
-        start = start + relativedelta(months=1)
-    output.write(
-        f"\nGrand Totals: PYG {grand_totals['PYG']:12,.0f}\n              USD    {grand_totals['USD']:12,.2f}\n\n"
-    )
-    output.write(
-        f"Net:          PYG {(grand_totals['PYG'] + grand_totals['USD']*exchange_rate("USDPYG")):12,.0f}\n"
-    )
-    response = make_response(output.getvalue(), 200)
-    response.mimetype = "text/plain"
-    return response
-
-
-@app.route("/list-assets")
-def list_assets():
-    global ASSETS
-    if not ASSETS:
-        ASSETS = load_assets(fetch_assets, config.BASE_PATH, "key.json")
-        append_cb(ASSETS)
-    a, b, c = r_list_assets(ASSETS, print_pos=True, print_neg=True)
-
-    sum = 0.0
-    for item in a:
-        sum += item[1] + item[2]
-
-    grand_total = sum
-    ret = 0.0
-    for current_value, current_return, _ in b:
-        tret = (current_value / grand_total) * current_return
-        ret += tret
-    response = make_response(
-        util.PRINTER.pformat(c)
-        + f"\n\nReturn: {(ret*100):,.2f}%\n\nEstimated Monthly: {sum*ret/12:,.2f}$\n\nTotal: {sum:,.2f}$",
-        200,
-    )
-    response.mimetype = "text/plain"
-    return response
-
-
 @app.route("/cash-month-detail")
 def month_flow():
-    assets = load_assets(fetch_assets, config.BASE_PATH, "key.json")
+    global ASSETS
+    if not ASSETS:
+        load_assets()
     end_dt = datetime.now() + timedelta(days=365)
     months = {}
     target_month_date = datetime.now()
@@ -200,7 +120,7 @@ def month_flow():
             "PYG-PY": 0.0,
         }
     payments = []
-    for country, tl in generate_timeline(assets, end_dt):
+    for country, tl in generate_timeline(ASSETS, end_dt):
         for entry in tl:
             d, (amount, currency) = entry
             dt = datetime(d.year, d.month, d.day)
@@ -254,17 +174,26 @@ class AnalyticsView(BaseView):
         return self.render("analytics_index.html")
 
 
-admin.add_view(AnalyticsView(name="Analytics", endpoint="analytics"))
+@app.route("/monthly-pnl")
+def monthly_pnl():
+    include_income = request.args.get("income", "0") == "1"
+    include_expenses = request.args.get("expenses", "0") == "1"
+    logging.warning(f"Exchange Rate: {exchange_rate('USDPYG')}")
+    global ASSETS
+    if not ASSETS:
+        load_assets()
+    output = vmpnl(ASSETS, include_income, include_expenses)
+    response = make_response(output.getvalue(), 200)
+    response.mimetype = "text/plain"
+    output.close()
+    return response
 
-# import views after the app and globals have been defined so that the
-# decorators in the view modules can register themselves without causing
-# circular import errors.  Additional view modules should be imported here.
-from views import \
-    cash_flow as vcf  # noqa: F401 - import for side-effects to register routes
-from views import investment_performance as vip
-from views import \
-    upcoming_payments as \
-    vup  # noqa: F401 - import for side-effects to register routes
+
+@app.route("/reload")
+def reload_assets():
+    global ASSETS
+    load_assets()
+    return make_response("Assets reloaded", 200)
 
 
 @app.route("/investment-performance")
@@ -272,8 +201,7 @@ def investment_performance():
     global ASSETS
     # ensure assets are loaded in the shared cache
     if not ASSETS:
-        ASSETS = load_assets(fetch_assets, config.BASE_PATH, "key.json")
-        append_cb(ASSETS)
+        load_assets()
     return vip.investment_performance(ASSETS)
 
 
@@ -282,8 +210,7 @@ def cash_flow():
     global ASSETS
     # ensure assets are loaded in the shared cache
     if not ASSETS:
-        ASSETS = load_assets(fetch_assets, config.BASE_PATH, "key.json")
-        append_cb(ASSETS)
+        load_assets()
     return vcf.cash_flow(ASSETS)
 
 
@@ -293,10 +220,54 @@ def upcoming_payments():
     global ASSETS
     # ensure assets are loaded in the shared cache
     if not ASSETS:
-        ASSETS = load_assets(fetch_assets, config.BASE_PATH, "key.json")
-        append_cb(ASSETS)
+        load_assets()
     return vup.upcoming_payments(ASSETS, exclude_capital)
 
 
+@app.route("/list-assets")
+def list_assets():
+    global ASSETS
+    if not ASSETS:
+        load_assets()
+    return vla.list_assets(ASSETS)
+
+
 if __name__ == "__main__":
-    app.run()
+    hostname = socket.gethostname()
+    logging.warning(f"Hostname: {hostname}")
+    parser = argparse.ArgumentParser(description="Process a JSON configuration file.")
+
+    parser.add_argument(
+        "--base",
+        type=str,
+        required=True,
+        help="Path to the base directory (e.g., /etc/mflow/)",
+    )
+    # Parse the arguments
+    args = parser.parse_args()
+
+    # Path validation logic
+    if not os.path.exists(args.base + "/config.json"):
+        logging.fatal(f"Error: The file '{args.config}' does not exist.")
+        sys.exit(1)
+
+    Config.BASE_PATH = args.base + "/"
+    # Get the absolute path of the current script
+    script_path = Path(__file__).resolve()
+    # Get the directory where the script is located
+    Config.SCRIPT_DIR = script_path.parent
+
+    try:
+        with open(Config.BASE_PATH + "config.json", "r") as f:
+            config_data = json.load(f)
+            print("Successfully loaded configuration:")
+
+            for key, value in config_data.items():
+                setattr(Config, key, value)
+                print(f"Set constant: {key} = {value}")
+    except json.JSONDecodeError:
+        print(f"Error: '{args.config}' is not a valid JSON file.")
+    admin = Admin(app, name="mflow", theme=Bootstrap4Theme(swatch="cerulean"))
+
+    admin.add_view(AnalyticsView(name="Analytics", endpoint="analytics"))
+    app.run(host='0.0.0.0')

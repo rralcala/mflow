@@ -8,21 +8,22 @@ from asset_classes import property as reprop
 from asset_classes import recurrent
 from asset_classes.asset import Asset
 from data.datasource import DataSource
+from lib.config import Config
 
 
 def fetch_if_not_cached(data_file: DataSource) -> Asset | Sequence[Asset]:
     """
     Fetches data from a sheet if not cached.
     """
-    path = "./cache/" + data_file.name + ".pkl"
+    path = Config.SCRIPT_DIR / "cache" / (data_file.name + ".pkl")
     if os.path.exists(path) and os.path.getmtime(path) >= data_file.mtime:
-        logging.debug("Loading from cache: %s", path)
+        logging.warning("Loading from cache: %s", path)
         with open(path, "rb") as f:
             item = pickle.load(f)
             if isinstance(item, instrument.Instrument):
                 item.need_update = True
     else:
-        logging.debug("%s not found or older, loading from Cloud", path)
+        logging.warning("%s not found or older, loading from Cloud", path)
         item = fetch_from_google(data_file)
         if data_file.source_type == "google":
             with open(path, "wb") as f:

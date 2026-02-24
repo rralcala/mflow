@@ -5,11 +5,9 @@ Command line interface entrypoint for money flow application.
 import argparse
 import os
 import sys
-from datetime import datetime
 
 from commands.asset_summary import handle_asset_summary
 from commands.cash_flow_detail import handle_cash_flow_detail
-from lib.config import DATE_FORMAT_STRING
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.join(script_dir, "..")

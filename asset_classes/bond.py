@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Tuple
 
 from asset_classes.asset import Asset
 from data.datasource import DataSource
-from lib.config import DATE_FORMAT_STRING
+from lib.config import Config
 
 
 class Bond(Asset):
@@ -26,7 +26,9 @@ class Bond(Asset):
         if isinstance(maturity_date, datetime):
             self.maturity_date = maturity_date
         else:
-            self.maturity_date = datetime.strptime(maturity_date, DATE_FORMAT_STRING)
+            self.maturity_date = datetime.strptime(
+                maturity_date, Config.DATE_FORMAT_STRING
+            )
         self.payment_schedule: List[Dict[str, Any]] = []
 
     def calculate_year_performance(self) -> Tuple[float, float, str]:
@@ -97,7 +99,7 @@ class Bond(Asset):
             + ", Interest Rate: "
             + str(self.interest_rate)
             + ", Maturity Date: "
-            + self.maturity_date.strftime(DATE_FORMAT_STRING)
+            + self.maturity_date.strftime(Config.DATE_FORMAT_STRING)
         )
 
 
@@ -133,7 +135,7 @@ def parse_bond(data: Dict[str, Any], sheet: DataSource) -> Bond:
         if first == "seq" or first == "none":
             continue
         if isinstance(row[1], str):
-            pdate = datetime.strptime(row[1], DATE_FORMAT_STRING)
+            pdate = datetime.strptime(row[1], Config.DATE_FORMAT_STRING)
         else:
             pdate = row[1]
         try:

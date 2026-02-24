@@ -5,8 +5,7 @@ from typing import Any, Dict, List, Tuple
 from asset_classes.asset import Asset
 from data.datasource import DataSource
 from lib.util import count_cron_runs, cron_runs
-
-FORMAT = "%m/%d/%Y"
+from lib.config import Config
 
 
 class Recurrent(Asset):
@@ -14,15 +13,15 @@ class Recurrent(Asset):
 
     def __init__(
         self,
-        amount: float,
-        country: str,
-        currency: str,
         identifier: str,
+        parent_asset_id: str,
+        country: str,
+        amount: float,
+        currency: str,
         end: str,
         recurrence: str,
         start: str,
         flow_class: str,
-        parent_asset: str,
         rate: float = 0.0,
     ):
         self.identifier = identifier
@@ -33,14 +32,14 @@ class Recurrent(Asset):
         if isinstance(start, datetime):
             self.start_date = start
         else:
-            self.start_date = datetime.strptime(start, FORMAT)
+            self.start_date = datetime.strptime(start, Config.DATE_FORMAT_STRING)
         if isinstance(end, datetime):
             self.maturity_date = end
         else:
-            self.maturity_date = datetime.strptime(end, FORMAT)
+            self.maturity_date = datetime.strptime(end, Config.DATE_FORMAT_STRING)
         self.recurrence = recurrence
         self.flow_class = flow_class
-        self.parent_asset = parent_asset
+        self.parent_asset_id = parent_asset_id
 
     def calculate_year_performance(self):
         """I suspect that recurrents don't have performance, but let's see."""
@@ -126,7 +125,7 @@ def parse_recurrent(data: Dict[str, Any]) -> Recurrent:
         end=data["end"],
         recurrence=data["recurrence"],
         start=data["start"],
-        parent_asset=data.get("parent_asset", ""),
+        parent_asset_id=data.get("parent_asset", ""),
         rate=data.get("rate", 0.0),
     )
 
