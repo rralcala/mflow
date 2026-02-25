@@ -1,5 +1,7 @@
 import sqlite3
+
 from lib.config import Config
+
 
 def insert_recurrent(
     identifier: str,

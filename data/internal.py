@@ -1,7 +1,7 @@
 """Internal data handling functions."""
 
-from typing import Tuple
 import logging
+from typing import Tuple
 
 import requests
 
@@ -23,7 +23,11 @@ def exchange_rate(currencies: str) -> float:
                 if "pyg" in data["usd"]:
                     QUOTE_CACHE["USDPYG"] = float(data["usd"]["pyg"])
             else:
-                logging.error("Failed to fetch exchange rate for USDPYG: %s: %s", response.status_code, response.text)
+                logging.error(
+                    "Failed to fetch exchange rate for USDPYG: %s: %s",
+                    response.status_code,
+                    response.text,
+                )
         return QUOTE_CACHE["USDPYG"]
     elif currencies == "BTCUSD":
         return _get_crypto_price("BTCUSD")[0]

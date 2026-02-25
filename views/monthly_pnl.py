@@ -6,9 +6,7 @@ from dateutil.relativedelta import relativedelta
 from data.internal import exchange_rate
 
 
-def monthly_pnl(
-    main_assets, include_income: bool, include_expenses: bool
-) -> str:
+def monthly_pnl(main_assets, include_income: bool, include_expenses: bool) -> str:
     start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     output = io.StringIO()
 

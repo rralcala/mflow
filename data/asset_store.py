@@ -1,10 +1,11 @@
 from typing import Callable, Dict, List
 
-from asset_classes.fetcher import fetch_assets
 from asset_classes import recurrent
+from asset_classes.fetcher import fetch_assets
 from data import gdrive, xl
 from data.coinbase import fetch_cb_assets
 from lib.config import Config
+
 
 def load_sheet_assets(
     fetch_assets: Callable[[List], Dict[str, List]],
@@ -22,9 +23,10 @@ def load_sheet_assets(
 
     return assets
 
+
 def load_assets(recurrent_model) -> Dict[str, List]:
     assets = load_sheet_assets(fetch_assets, Config.BASE_PATH, "gdrive_key.json")
-    assets['USD'] += fetch_cb_assets()
+    assets["USD"] += fetch_cb_assets()
 
     for row in recurrent_model.query.all():
         asset = recurrent.Recurrent(

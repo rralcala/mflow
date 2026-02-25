@@ -4,8 +4,8 @@ from typing import Any, Dict, List, Tuple
 
 from asset_classes.asset import Asset
 from data.datasource import DataSource
-from lib.util import count_cron_runs, cron_runs
 from lib.config import Config
+from lib.util import count_cron_runs, cron_runs
 
 
 class Recurrent(Asset):

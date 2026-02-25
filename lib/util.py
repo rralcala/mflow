@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import pprint
 from datetime import datetime, timedelta
@@ -51,3 +52,8 @@ def config_logging(debug: bool):
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("matplotlib").setLevel(logging.WARNING)
+
+
+def sha256_hash(text: str) -> str:
+
+    return hashlib.sha256(text.encode()).hexdigest()

@@ -6,11 +6,13 @@ from coinbase.rest import RESTClient
 from asset_classes.instrument import Instrument
 from lib.config import Config
 
-
 RATES = {
     "USDC": 0.035,
     "SOL": 0.0412,
-    "ETH": 0.0,}
+    "ETH": 0.0,
+}
+
+
 def get_accounts(api_key: str, api_secret: str, portfolio_id: str):
     if api_key == "":
         raise ValueError("Coinbase API Key is not set.")
@@ -31,6 +33,7 @@ def get_portfolios(api_key: str, api_secret: str):
     portfolios = client.get_portfolios()
     return portfolios
 
+
 def fetch_cb_assets() -> List[Instrument]:
     assets = []
     for position in get_accounts(
@@ -46,7 +49,7 @@ def fetch_cb_assets() -> List[Instrument]:
         account = Instrument(
             location="Coinbase",
             symbol=position["asset"],
-            price= fiat_balance / qty,
+            price=fiat_balance / qty,
             factor=1.0,
             qty=qty,
             estimated_dividend=qty * rate / 12,
