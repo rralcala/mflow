@@ -96,10 +96,9 @@ def monthly_pnl():
     global ASSETS
     if not ASSETS:
         ASSETS = load_assets(Recurrent)
-    output = vmpnl(ASSETS, include_income, include_expenses)
-    response = make_response(output.getvalue(), 200)
+    response = make_response(vmpnl(ASSETS, include_income, include_expenses), 200)
     response.mimetype = "text/plain"
-    output.close()
+    
     return response
 
 

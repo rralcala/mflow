@@ -1,12 +1,26 @@
 import json
 
+from coinbase.rest import RESTClient
+
 import data.coinbase
 from lib.config import Config
+from lib.util import PRINTER
 
 if __name__ == "__main__":
-    with open(Config.BASE_PATH + "cdp_api_key.json", "r") as file:
-        content = json.loads(file.read())
-        API_KEY = content.get("name", "")
-        API_SECRET = content.get("privateKey", "")
+    try:
+        with open("/config.json", "r") as f:
+            config_data = json.load(f)
+            
 
-    print(data.coinbase.get_portfolios(API_KEY, API_SECRET))
+            for key, value in config_data.items():
+                setattr(Config, key, value)
+    except json.JSONDecodeError:
+        print(f"Error:  is not a valid JSON file.")
+    portfolios = data.coinbase.get_portfolios(Config.COINBASE_API_KEY, Config.COINBASE_API_SECRET)['portfolios']
+    print(PRINTER.pformat(portfolios))
+    for portfolio in portfolios:
+        print(f"Portfolio: {portfolio['name']} (ID: {portfolio['uuid']})")
+        client = RESTClient(api_key=Config.COINBASE_API_KEY, api_secret=Config.COINBASE_API_SECRET)
+
+        portfolio_d = client.get_portfolio_breakdown(portfolio['uuid'])
+        print(json.dumps(portfolio_d.to_dict()))

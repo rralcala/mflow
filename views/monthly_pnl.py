@@ -8,7 +8,7 @@ from data.internal import exchange_rate
 
 def monthly_pnl(
     main_assets, include_income: bool, include_expenses: bool
-) -> io.StringIO:
+) -> str:
     start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     output = io.StringIO()
 
@@ -62,4 +62,6 @@ def monthly_pnl(
     output.write(
         f"Net:          PYG {(grand_totals['PYG'] + grand_totals['USD']*exchange_rate("USDPYG")):12,.0f}\n"
     )
-    return output
+    ret = output.getvalue()
+    output.close()
+    return ret
