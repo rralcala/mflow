@@ -10,7 +10,7 @@ from flask import (Flask, flash, make_response, redirect, render_template,
                    request, url_for)
 from flask_admin import Admin
 from flask_admin.base import Bootstrap4Theme
-from flask_login import (LoginManager, UserMixin, current_user, login_user,
+from flask_login import (LoginManager, UserMixin, login_user,
                          logout_user)
 from flask_sqlalchemy import SQLAlchemy
 
@@ -68,8 +68,6 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
-
-# 3. Define a Model
 class Recurrent(db.Model):
     identifier = db.Column(db.String(80), primary_key=True)
     parent_asset_id = db.Column(db.String(80), nullable=True)
@@ -96,7 +94,7 @@ class User(db.Model, UserMixin):
         self.password = sha256_hash(password)
 
     def check_password(self, password):
-        print(
+        logging.warning(
             f"Checking password for user {self.username} {self.password} against {sha256_hash(password)}"
         )
         return self.password == sha256_hash(password)

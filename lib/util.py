@@ -55,5 +55,4 @@ def config_logging(debug: bool):
 
 
 def sha256_hash(text: str) -> str:
-
     return hashlib.sha256(text.encode()).hexdigest()
