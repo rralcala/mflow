@@ -20,8 +20,8 @@ from asset_classes.instrument import Instrument
 from asset_classes import recurrent
 from data import asset_store
 from data.coinbase import get_accounts
-from data.internal import exchange_rate
 from lib.config import Config
+from lib.pk_model_view import RecurrentModelView
 from reports.cash_flow import generate_timeline
 from views import \
     cash_flow as vcf  # noqa: F401 - import for side-effects to register routes
@@ -309,5 +309,5 @@ if __name__ == "__main__":
     admin = Admin(app, name="mflow", theme=Bootstrap4Theme(swatch="cerulean"))
 
     admin.add_view(AnalyticsView(name="Analytics", endpoint="analytics"))
-    admin.add_view(ModelView(Recurrent, db.session))
+    admin.add_view(RecurrentModelView(Recurrent, db.session))
     app.run(host='0.0.0.0')
