@@ -176,69 +176,6 @@ def append_cb(assets):
             assets["USD"].append(account)
 
 
-@app.route("/cash-month-detail")
-def month_flow():
-    global ASSETS
-    if not ASSETS:
-        load_assets()
-    end_dt = datetime.now() + timedelta(days=365)
-    months = {}
-    target_month_date = datetime.now()
-    for i in range(13):
-        months[(target_month_date + relativedelta(months=i)).strftime("%Y-%m")] = {
-            "USD-US": 0.0,
-            "USD-PY": 0.0,
-            "PYG-PY": 0.0,
-        }
-    payments = []
-    for country, tl in generate_timeline(ASSETS, end_dt):
-        for entry in tl:
-            d, (amount, currency) = entry
-            dt = datetime(d.year, d.month, d.day)
-            if dt.tzinfo is None:
-                dt_aware = dt.replace(tzinfo=timezone.utc)
-            else:
-                dt_aware = dt.astimezone(timezone.utc)
-            payment = {
-                "country": country,
-                "date": dt_aware.strftime("%Y-%m"),
-                "amount": amount,
-                "currency": currency,
-            }
-            months[payment["date"]][
-                f"{payment['currency']}-{payment['country']}"
-            ] += payment["amount"]
-
-    timeline = {}
-    payments = sorted(payments, key=lambda x: (x["date"], x["country"]))
-    uu = 0.0
-    up = 0.0
-    pp = 0.0
-    for payment in payments:
-        key = payment["date"]
-        timeline.setdefault(key, {"USD-US": uu, "USD-PY": up, "PYG-PY": pp})
-        timeline[key][f"{payment['currency']}-{payment['country']}"] += payment[
-            "amount"
-        ]
-        uu = timeline[key]["USD-US"]
-        up = timeline[key]["USD-PY"]
-        pp = timeline[key]["PYG-PY"]
-
-    output = io.StringIO()
-    output.write(
-        f'<table><tr><th>Date</th><th style="text-align: right;">USD-US</th><th style="text-align: right;">USD-PY</th><th style="text-align: right;">PYG-PY</th></tr>\n'
-    )
-    for date, amounts in months.items():
-
-        output.write(
-            f"<tr><td>{date}</td><td style=\"text-align: right;\">{amounts['USD-US']:,.2f}</td><td style=\"text-align: right;\">{amounts['USD-PY']:,.2f}</td><td style=\"text-align: right;\">{amounts['PYG-PY']:,.2f}</td></tr>\n"
-        )
-    output.write("</table>")
-    response = make_response(output.getvalue(), 200)
-    response.mimetype = "text/html"
-    return response
-
-
 class AnalyticsView(BaseView):
     @expose("/")
     def index(self):
@@ -270,7 +207,6 @@ def reload_assets():
 @app.route("/investment-performance")
 def investment_performance():
     global ASSETS
-    # ensure assets are loaded in the shared cache
     if not ASSETS:
         load_assets()
     return vip.investment_performance(ASSETS)
@@ -279,7 +215,6 @@ def investment_performance():
 @app.route("/cash-flow-detail")
 def cash_flow():
     global ASSETS
-    # ensure assets are loaded in the shared cache
     if not ASSETS:
         load_assets()
     return vcf.cash_flow(ASSETS)
@@ -289,7 +224,6 @@ def cash_flow():
 def upcoming_payments():
     exclude_capital = request.args.get("exclude", "0") == "1"
     global ASSETS
-    # ensure assets are loaded in the shared cache
     if not ASSETS:
         load_assets()
     return vup.upcoming_payments(ASSETS, exclude_capital)
