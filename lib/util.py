@@ -1,5 +1,4 @@
 import hashlib
-import logging
 import pprint
 from datetime import datetime, timedelta
 from typing import List

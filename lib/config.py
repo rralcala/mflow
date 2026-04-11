@@ -6,7 +6,7 @@ from typing import Dict
 
 class Config:
     BASE_PATH: Path
-    DATE_FORMAT_STRING: str  # "%m/%d/%Y"
+    DATE_FORMAT_STRING: str
     DB_SECRET_KEY: str
     SCRIPT_DIR: Path
     YEAR: float = 365.25

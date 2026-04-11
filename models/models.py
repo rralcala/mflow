@@ -1,10 +1,11 @@
-import logging
-
 from flask_login import UserMixin
 
 from init import db
 from lib.config import Config
+from lib.logger import get_logger
 from lib.util import get_formatted_date, sha256_hash
+
+logger = get_logger()
 
 
 class Account(db.Model):
@@ -102,7 +103,7 @@ class User(UserMixin):
 
     def check_password(self, password):
         hashed_password = sha256_hash(password)
-        logging.warning(
+        logger.warning(
             f"Checking password for user {self.username} {self.password} against {hashed_password}"
         )
         return self.password == hashed_password

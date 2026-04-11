@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime
 from typing import Generator, List
 
@@ -6,6 +5,9 @@ from coinbase.rest import RESTClient
 from requests.exceptions import HTTPError
 
 from asset_classes.instrument import Instrument
+from lib.logger import get_logger
+
+logger = get_logger()
 
 
 def get_accounts(api_key: str, api_secret: str, portfolio_id: str) -> Generator:
@@ -15,7 +17,7 @@ def get_accounts(api_key: str, api_secret: str, portfolio_id: str) -> Generator:
     try:
         portfolio = client.get_portfolio_breakdown(portfolio_id)
     except HTTPError as e:
-        logging.error(f"Error fetching portfolio breakdown: {e}")
+        logger.error(f"Error fetching portfolio breakdown: {e}")
         return
     # Get account balances
     spot_positions = portfolio.to_dict()["breakdown"]["spot_positions"]
