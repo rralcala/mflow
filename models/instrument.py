@@ -21,6 +21,12 @@ class Instrument(db.Model):
         return str(self.id)
 
     def to_dict(self):
+        value = (
+            float(self.qty)
+            * float(self.factor)
+            * ExchangeRates.exchange_rate(self.symbol)
+        )
+        monthly_dividend = value * float(self.dividend_rate) / 12
         return {
             "id": self.id,
             "country": self.country,
@@ -28,15 +34,10 @@ class Instrument(db.Model):
             "symbol": self.symbol,
             "factor": float(self.factor),
             "qty": float(self.qty),
-            "value": float(self.qty)
-            * float(self.factor)
-            * ExchangeRates.exchange_rate(self.symbol),
+            "value": value,
             "dividend": self.dividend,
             "dividend_rate": float(self.dividend_rate),
-            "estimated_dividend": float(self.qty)
-            * float(self.factor)
-            * ExchangeRates.exchange_rate(self.symbol)
-            * float(self.dividend_rate),
+            "estimated_dividend": monthly_dividend,
             "currency": self.currency,
             "acquisition_date": self.acquisition_date,
             "acquisition_price": float(self.acquisition_price),
