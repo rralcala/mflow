@@ -20,7 +20,7 @@ FX_REFRESH_INTERVAL = 60 * 60  # 1 hours in seconds
 TRADED_CRYPTO = ["BTC", "ETH", "SOL", "CRO"]
 TRADED_STOCKS = ["VOO", "VTI", "QYLD"]
 CURRENCIES = ["pyg"]
-FETCH_LOCK = Lock()
+FX_FETCH_LOCK = Lock()
 
 
 class ExchangeRates:
@@ -88,7 +88,7 @@ class ExchangeRates:
 
     @staticmethod
     def ensure_currency_data():
-        with FETCH_LOCK:
+        with FX_FETCH_LOCK:
             if len(ExchangeRates.quote_cache) == 0:
                 ExchangeRates.fetch_from_local()
             if len(ExchangeRates.quote_cache) == 0:

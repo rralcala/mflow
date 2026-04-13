@@ -5,7 +5,7 @@ from data.base import Base
 
 
 class Quote(Base):
-    __tablename__ = "quote"
+    __tablename__ = "quotes"
 
     id = mapped_column(Integer, primary_key=True)
     date = mapped_column(String(20), nullable=False)
