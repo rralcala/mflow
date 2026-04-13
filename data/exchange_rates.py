@@ -1,13 +1,15 @@
 import pickle
 from datetime import datetime
-from pprint import pprint
 from threading import Lock
 
 import requests
 import yfinance as yf
+from sqlalchemy import func
 
+from init import Session
 from lib.config import Config
 from lib.logger import get_logger
+from models.quotes import Quote
 
 logger = get_logger()
 
@@ -19,13 +21,13 @@ CURRENCY_DATA = (
 FX_REFRESH_INTERVAL = 60 * 60  # 1 hours in seconds
 TRADED_CRYPTO = ["BTC", "ETH", "SOL", "CRO"]
 TRADED_STOCKS = ["VOO", "VTI", "QYLD"]
-CURRENCIES = ["pyg"]
+CURRENCIES = ["usd", "usdc", "pyg"]
 FX_FETCH_LOCK = Lock()
 
 
 class ExchangeRates:
     quote_cache = {}
-    currencies = set()
+    currencies = set(CURRENCIES)
     last_update = datetime.min
 
     @staticmethod
@@ -47,10 +49,8 @@ class ExchangeRates:
             logger.error(f"Failed to load currency data: {e}")
             raise e
 
-        currencies = set(CURRENCIES)
         quote_cache = {}
-        logger.info(f"Loaded currencies: {', '.join(currencies)}")
-        for currency in currencies:
+        for currency in ExchangeRates.currencies:
             if currency != "usd":
                 key = "USD" + currency.upper()
                 if currency in data["usd"]:
@@ -62,9 +62,6 @@ class ExchangeRates:
                     logger.warning(
                         f"Exchange rate for {key} not found in API response."
                     )
-
-        currencies.add("usd")
-        currencies.add("usdc")
 
         for crypto in TRADED_CRYPTO:
             key = crypto.upper() + "USD"
@@ -78,13 +75,10 @@ class ExchangeRates:
             quote_cache[stock] = ticker.fast_info["last_price"]
             logger.info(f"Loaded stock price for {stock}: {quote_cache[stock]:.2f}")
 
-        ExchangeRates.currencies = currencies
         ExchangeRates.quote_cache = quote_cache
         ExchangeRates.last_update = datetime.now()
         with open(Config.SCRIPT_DIR / "cache" / "quote_cache.pkl", "wb") as file:
             pickle.dump(ExchangeRates.quote_cache, file)
-        with open(Config.SCRIPT_DIR / "cache" / "currencies.pkl", "wb") as file:
-            pickle.dump(ExchangeRates.currencies, file)
 
     @staticmethod
     def ensure_currency_data():
@@ -95,37 +89,13 @@ class ExchangeRates:
                 ExchangeRates._refresh_currency_data()
 
     @staticmethod
-    def load_from_db():
-        """Load exchange rates from the database and store them in the QUOTE_CACHE."""
-        # max_date = Quote.query.with_entities(func.max(Quote.date)).scalar()
-        # logger.warning(f"Loading exchange rates from DB, latest date: {max_date}")
-        return
-
-    @staticmethod
     def fetch_from_local():
-        try:
-            cache_path = Config.SCRIPT_DIR / "cache" / "quote_cache.pkl"
-            currencies_path = Config.SCRIPT_DIR / "cache" / "currencies.pkl"
-            if cache_path.exists() and currencies_path.exists():
-                with open(cache_path, "rb") as file:
-                    ExchangeRates.load_from_db()
-                    # Here we load the quote cache and currencies from the local pickle files. We also update the last_update timestamp based on the file's modification time.
-                    ExchangeRates.quote_cache = pickle.load(file)
-                    ExchangeRates.last_update = datetime.fromtimestamp(
-                        cache_path.stat().st_mtime
-                    )
-
-                with open(currencies_path, "rb") as file:
-                    ExchangeRates.currencies = pickle.load(file)
-                logger.info(
-                    f"Loaded exchange rates from cache: {len(ExchangeRates.quote_cache)} rates from {cache_path}"
-                )
-                return
-        except FileNotFoundError:
-            ExchangeRates.quote_cache = {}
-            ExchangeRates.currencies = set()
-            ExchangeRates.last_update = datetime.min
-            logger.warning("No cache file found, refreshing currency data.")
+        with Session() as session:
+            date = session.query(func.max(Quote.date)).scalar()
+            quotes = session.query(Quote).filter(Quote.date == date).all()
+            for quote in quotes:
+                logger.info(f"Loaded quote from DB: {quote.symbol} = {quote.value}")
+                ExchangeRates.quote_cache[quote.symbol] = float(quote.value)
 
     @staticmethod
     def exchange_rate(currencies: str) -> float:
@@ -147,4 +117,4 @@ class ExchangeRates:
 
 if __name__ == "__main__":
     ticker = yf.Ticker("SOL-USD")
-    pprint(ticker.fast_info["last_price"])
+    print(ticker.fast_info["last_price"])

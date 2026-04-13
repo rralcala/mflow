@@ -25,19 +25,21 @@ def background_task():
 
             if ExchangeRates.is_stale_or_empty():
                 ExchangeRates._refresh_currency_data()
-        with Session() as session:
-            date = session.query(func.max(Quote.date)).scalar()
-            today = datetime.now().strftime(Config.DATE_FORMAT_STRING)
-            if date is None or date < today:
-                for key, value in ExchangeRates.get_all().items():
-                    logger.info(f"Adding quote to DB: {key} = {value:.2f}")
-                    date_str = ExchangeRates.last_update.strftime(
-                        Config.DATE_FORMAT_STRING
-                    )
-                    quote = Quote(date=date_str, symbol=key, value=f"{value:.2f}")
-                    session.add(quote)
-                session.commit()
-                logger.info(f"Added Quotes")
+                with Session() as session:
+                    date = session.query(func.max(Quote.date)).scalar()
+                    today = datetime.now().strftime(Config.DATE_FORMAT_STRING)
+                    if date is None or date < today:
+                        for key, value in ExchangeRates.get_all().items():
+                            logger.info(f"Adding quote to DB: {key} = {value:.2f}")
+                            date_str = ExchangeRates.last_update.strftime(
+                                Config.DATE_FORMAT_STRING
+                            )
+                            quote = Quote(
+                                date=date_str, symbol=key, value=f"{value:.2f}"
+                            )
+                            session.add(quote)
+                        session.commit()
+                        logger.info(f"Added Quotes")
         time.sleep(120)
 
 
