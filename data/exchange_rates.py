@@ -19,15 +19,13 @@ CURRENCY_DATA = (
     + "/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json"
 )
 FX_REFRESH_INTERVAL = 60 * 60  # 1 hours in seconds
-TRADED_CRYPTO = ["BTC", "ETH", "SOL", "CRO"]
-TRADED_STOCKS = ["VOO", "VTI", "QYLD"]
-CURRENCIES = ["usd", "usdc", "pyg"]
+
 FX_FETCH_LOCK = Lock()
 
 
 class ExchangeRates:
     quote_cache = {}
-    currencies = set(CURRENCIES)
+    currencies = set(Config.CURRENCIES)
     last_update = datetime.min
 
     @staticmethod
@@ -63,14 +61,14 @@ class ExchangeRates:
                         f"Exchange rate for {key} not found in API response."
                     )
 
-        for crypto in TRADED_CRYPTO:
+        for crypto in Config.TRADED_CRYPTO:
             key = crypto.upper() + "USD"
             ticker = yf.Ticker(crypto + "-USD")
             ticker.fast_info["last_price"]
             quote_cache[key] = ticker.fast_info["last_price"]
             logger.info(f"Loaded cryto price for {crypto}: {quote_cache[key]:.2f}")
 
-        for stock in TRADED_STOCKS:
+        for stock in Config.TRADED_STOCKS:
             ticker = yf.Ticker(stock)
             quote_cache[stock] = ticker.fast_info["last_price"]
             logger.info(f"Loaded stock price for {stock}: {quote_cache[stock]:.2f}")

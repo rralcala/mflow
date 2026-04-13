@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 
 
 class Config:
@@ -11,7 +11,9 @@ class Config:
     SCRIPT_DIR: Path
     YEAR: float = 365.25
     USERS: Dict
-
+    TRADED_CRYPTO: List[str]
+    TRADED_STOCKS: List[str]
+    CURRENCIES: List[str]
 
 def load_config(config_file: Path, dest) -> bool:
     try:
