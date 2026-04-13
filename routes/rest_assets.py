@@ -385,7 +385,10 @@ def instruments():
             ]
         count = len(results)
         if "_sort" in request.args:
-            sort_key = request.args["_sort"]
+            if request.args["_sort"] == "id":
+                sort_key = "location"
+            else:
+                sort_key = request.args["_sort"]
             reverse = request.args.get("_order", "ASC") == "DESC"
             results.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
         if "_start" in request.args and "_end" in request.args:
