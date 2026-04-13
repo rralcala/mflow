@@ -6,7 +6,7 @@ from flask_login import current_user, login_required
 
 from data.asset_store import get_asset_store, reload_asset_store
 from data.exchange_rates import ExchangeRates
-from init import db
+from init import Session
 from lib.user_config import UserStore
 from views import assets_by_location as vabl
 from views import cash_flow as vcf
@@ -52,7 +52,7 @@ def cash_flow():
 @login_required
 def exchange_rates_refresh():
     try:
-        ExchangeRates.refresh_currency_data()
+        ExchangeRates._refresh_currency_data()
     except Exception as e:
         return (
             jsonify({"message": f"Failed to refresh exchange rates: {str(e)}"}),
@@ -200,7 +200,7 @@ def upload_statement_endpoint():
     in_memory_file = io.BytesIO(file.read())
     try:
         response, summary = upload_statement(
-            db, update_balance, account_id, in_memory_file
+            Session(), update_balance, account_id, in_memory_file
         )
         if update_balance and account_id:
             reload_asset_store(UserStore.get_user_config(current_user.id))

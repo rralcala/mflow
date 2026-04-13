@@ -6,6 +6,7 @@ from flask_login import current_user
 
 from asset_classes.asset import Asset
 from data.exchange_rates import ExchangeRates
+from init import Session
 from lib.user_config import UserStore
 from models.models import Recurrent
 from reports.list_assets import net_worth
@@ -22,7 +23,8 @@ def financial_analysis(main_assets: Dict[str, List[Asset]]) -> Dict[str, Any]:
     runway = float(runway_delta.years) + float(runway_delta.months) / 12
     exchange = ExchangeRates.exchange_rate("USD" + user_config.SECONDARY_CURRENCY)
     pnl = calculate_monthly_pnl_data(main_assets, months=12, skip_one_off=True)
-    current_var = Recurrent.query.get(user_config.DEFAULT_VAR_ID).to_dict()
+    with Session() as session:
+        current_var = session.query(Recurrent).get(user_config.DEFAULT_VAR_ID).to_dict()
     current_var_amount = current_var["amount"] / ExchangeRates.exchange_rate(
         f"USD{current_var['currency']}"
     )

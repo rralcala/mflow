@@ -5,7 +5,8 @@ from pathlib import Path
 from flask import Flask
 from flask_cors import CORS
 from flask_login import LoginManager
-from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from lib.config import Config, load_config
@@ -70,7 +71,9 @@ CORS(
     origins=["http://localhost:5173", "http://mflow-test"],
     expose_headers=["X-Total-Count", "Content-Range"],
 )
-db = SQLAlchemy(app)
+engine = create_engine(f"sqlite:///{db_path.as_posix()}")
+db = engine.connect()
+Session = sessionmaker(bind=engine)
 login_manager = LoginManager(app)
 login_manager.login_view = "auth.login"
 logger.info(f"Application initialized successfully.")

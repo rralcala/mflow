@@ -10,6 +10,7 @@ logger = get_logger()
 
 
 def background_task():
+
     while True:
         logger.info("Running...")
 

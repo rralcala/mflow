@@ -7,7 +7,7 @@ from flask_login import current_user
 
 from asset_classes.asset import Asset
 from data.exchange_rates import ExchangeRates
-from init import db
+from init import Session
 from models.history import History
 from reports.list_assets import NEGATIVES, POSITIVES, net_worth
 
@@ -31,13 +31,9 @@ def list_income(assets: Dict[str, List[Asset]]) -> Dict[str, float]:
                 income, currency = asset.get_budgeted_income(
                     datetime.now() + relativedelta(months=month)
                 )
-                if asset.identifier == "AlquilerPY-Duplex-1":
-                    logging.warning(
-                        f"Asset {asset.identifier} Month : {month} Income {income} {currency}"
-                    )
                 income_avg += income
             income_avg = income_avg / 12
-            logging.warning(f"Asset {asset.identifier} Income {income_avg} {currency}")
+
             if currency != "USD":
                 usd_value = asset.get_current_value()[0] / ExchangeRates.exchange_rate(
                     f"USD{currency}"
@@ -174,21 +170,24 @@ def list_assets(assets: Dict[str, List[Asset]]) -> Dict[str, float]:
         pct = value / grand_total
         if pct < 0.0 or pct > (0.04 / 100):
             tot_per_location_pct.append((key, value, pct))
-    result = History.query.filter_by(
-        user_id=int(current_user.id), date=date.today().replace(day=1)
-    ).first()
-    if not result:
-        result = History(
-            user_id=int(current_user.id),
-            date=date.today().replace(day=1),
-            value=round(grand_total, 2),
-            fixed=round(total_fixed, 2),
+    with Session() as session:
+        result = (
+            session.query(History)
+            .filter_by(user_id=int(current_user.id), date=date.today().replace(day=1))
+            .first()
         )
-        db.session.add(result)
-        db.session.commit()
-        logging.warning(
-            f"Created new history record for user {current_user.id} with value {grand_total} and fixed {total_fixed}"
-        )
+        if not result:
+            result = History(
+                user_id=int(current_user.id),
+                date=date.today().replace(day=1),
+                value=round(grand_total, 2),
+                fixed=round(total_fixed, 2),
+            )
+            session.add(result)
+            session.commit()
+            logging.warning(
+                f"Created new history record for user {current_user.id} with value {grand_total} and fixed {total_fixed}"
+            )
     resp_dict = {
         "net_worth": grand_total,
         "fixed_income": total_fixed,

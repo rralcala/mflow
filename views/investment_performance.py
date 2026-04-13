@@ -1,15 +1,6 @@
 from reports.list_assets import list_asset_performance
 
 
-def render_details(items):
-    ret = "<table>"
-    ret += '<tr><th>Asset</th><th style="text-align: right;">Amount</th><th>Currency</th><th style="text-align: right;">Rate</th></tr>'
-    for item in items:
-        ret += f'<tr><td>{item[0]}</td><td style="text-align: right;">{item[1]:,.0f}</td><td>{item[2]}</td><td style="text-align: right;">{item[3]:.2f}%</td></tr>'
-    ret += "</table>"
-    return ret
-
-
 def investment_performance(assets):
     performance = list_asset_performance(assets)
     sum_value = 0.0

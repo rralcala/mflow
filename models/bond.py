@@ -1,17 +1,22 @@
-from init import db
+from sqlalchemy import Integer, String
+from sqlalchemy.orm import mapped_column
+
+from data.base import Base
 
 
-class Bond(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, nullable=False)
-    name = db.Column(db.String(80), nullable=False)
+class Bond(Base):
+    __tablename__ = "bond"
 
-    capital = db.Column(db.String(20), nullable=False)
-    currency = db.Column(db.String(3), nullable=False)
-    maturity_date = db.Column(db.String(35), nullable=False)
-    rate = db.Column(db.String(10), nullable=False)
-    entity = db.Column(db.String(20), nullable=False)
-    country = db.Column(db.String(2), nullable=False)
+    id = mapped_column(Integer, primary_key=True)
+    user_id = mapped_column(Integer, nullable=False)
+    name = mapped_column(String(80), nullable=False)
+
+    capital = mapped_column(String(20), nullable=False)
+    currency = mapped_column(String(3), nullable=False)
+    maturity_date = mapped_column(String(35), nullable=False)
+    rate = mapped_column(String(10), nullable=False)
+    entity = mapped_column(String(20), nullable=False)
+    country = mapped_column(String(2), nullable=False)
 
     def __str__(self):
         return str(self.id)
@@ -29,14 +34,16 @@ class Bond(db.Model):
         }
 
 
-class BondSchedule(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    bond_id = db.Column(db.Integer, nullable=False)
-    user_id = db.Column(db.Integer, nullable=False)
+class BondSchedule(Base):
+    __tablename__ = "bond_schedule"
 
-    date = db.Column(db.String(35), nullable=False)
-    amount = db.Column(db.String(20), nullable=False)
-    paid = db.Column(db.Integer, nullable=False)
+    id = mapped_column(Integer, primary_key=True)
+    bond_id = mapped_column(Integer, nullable=False)
+    user_id = mapped_column(Integer, nullable=False)
+
+    date = mapped_column(String(35), nullable=False)
+    amount = mapped_column(String(20), nullable=False)
+    paid = mapped_column(Integer, nullable=False)
 
     def to_dict(self):
         return {

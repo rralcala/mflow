@@ -95,12 +95,21 @@ class ExchangeRates:
                 ExchangeRates._refresh_currency_data()
 
     @staticmethod
+    def load_from_db():
+        """Load exchange rates from the database and store them in the QUOTE_CACHE."""
+        # max_date = Quote.query.with_entities(func.max(Quote.date)).scalar()
+        # logger.warning(f"Loading exchange rates from DB, latest date: {max_date}")
+        return
+
+    @staticmethod
     def fetch_from_local():
         try:
             cache_path = Config.SCRIPT_DIR / "cache" / "quote_cache.pkl"
             currencies_path = Config.SCRIPT_DIR / "cache" / "currencies.pkl"
             if cache_path.exists() and currencies_path.exists():
                 with open(cache_path, "rb") as file:
+                    ExchangeRates.load_from_db()
+                    # Here we load the quote cache and currencies from the local pickle files. We also update the last_update timestamp based on the file's modification time.
                     ExchangeRates.quote_cache = pickle.load(file)
                     ExchangeRates.last_update = datetime.fromtimestamp(
                         cache_path.stat().st_mtime

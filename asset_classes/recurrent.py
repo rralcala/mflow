@@ -2,9 +2,12 @@ import calendar
 from datetime import date, datetime
 from typing import Any, Dict, List, Tuple
 
+from sqlalchemy import select
+
 from asset_classes.asset import Asset
 from data.constants import RecurrentTypes
 from data.datasource import DataSource
+from init import Session
 from lib.util import count_cron_runs, cron_runs
 from models import models
 
@@ -81,11 +84,22 @@ class Recurrent(Asset):
                 count_cron_runs(self.recurrence, self.start_date, self.maturity_date)
                 * self.amount
             )
-            for row in models.RecurrentTransaction.query.filter_by(
-                parent_id=self.identifier
-            ).all():
+            with Session() as session:
+                transactions = (
+                    session.query(models.RecurrentTransaction)
+                    .filter_by(parent_id=self.identifier)
+                    .all()
+                )
+            for row in transactions:
                 paid_amount -= float(row.amount)
         return paid_amount, self.currency
+
+    def fetch_transactions(self, date):
+        with Session() as session:
+            select_stmt = session.query(models.RecurrentTransaction).filter_by(
+                parent_id=self.identifier, year_month=date.strftime("%Y-%m")
+            )
+            return session.execute(select_stmt).scalars().all()
 
     def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str, bool]]]:
         timeline = []
@@ -93,9 +107,8 @@ class Recurrent(Asset):
         for date in cron_runs(self.recurrence, datetime.today(), end):
             if date >= self.start_date:
                 cash_flow = self.amount
-                for row in models.RecurrentTransaction.query.filter_by(
-                    parent_id=self.identifier, year_month=date.strftime("%Y-%m")
-                ).all():
+
+                for row in self.fetch_transactions(date):
                     cash_flow -= float(row.amount)
                 if self.flow_class == RecurrentTypes.Expense and cash_flow > 0.0:
                     continue
@@ -144,9 +157,7 @@ class Recurrent(Asset):
             runs = cron_runs(self.recurrence, start, end)
 
             for date in runs:
-                for row in models.RecurrentTransaction.query.filter_by(
-                    parent_id=self.identifier, year_month=date.strftime("%Y-%m")
-                ).all():
+                for row in self.fetch_transactions(date):
                     cash_flow -= float(row.amount)
 
         return cash_flow, self.currency

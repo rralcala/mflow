@@ -4,22 +4,18 @@ from sqlalchemy.orm import mapped_column
 from data.base import Base
 
 
-class History(Base):
-    __tablename__ = "history"
+class Quote(Base):
+    __tablename__ = "quote"
 
     id = mapped_column(Integer, primary_key=True)
-    user_id = mapped_column(Integer, nullable=False)
     date = mapped_column(String(20), nullable=False)
+    symbol = mapped_column(String(80), nullable=False)
     value = mapped_column(String(80), nullable=False)
-    fixed = mapped_column(String(80), nullable=False)
-
-    def __str__(self):
-        return str(self.date) + " - " + str(self.value)
 
     def to_dict(self):
         return {
             "id": self.id,
             "date": self.date,
+            "symbol": self.symbol,
             "value": float(self.value),
-            "fixed": float(self.fixed),
         }

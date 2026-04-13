@@ -5,7 +5,7 @@ from flask import Blueprint, Response, jsonify, request
 from flask_login import current_user, login_required
 
 from data.asset_store import get_asset_store, reload_asset_store
-from init import db
+from init import Session
 from lib.user_config import UserStore
 from models.bond import Bond, BondSchedule
 from models.deposit_certificate import DepositCertificate, DepositCertificateSchedule
@@ -23,26 +23,30 @@ assets_bp = Blueprint("assets", __name__)
 @login_required
 def accounts():
     if request.method == "POST":
-        data = request.json
-        new_transaction = Account(
-            id=data.get("id"),
-            country=data.get("country"),
-            institution=data.get("institution"),
-            currency=data.get("currency"),
-            balance=data.get("balance"),
-            factor=data.get("factor"),
-            account_type=data.get("accountType"),
-            liquid=1 if data.get("liquid") else 0,
-            user_id=int(current_user.id),
-        )
-        db.session.add(new_transaction)
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-        return jsonify(new_transaction.to_dict()), 201
+        with Session() as session:
+            data = request.json
+            new_transaction = Account(
+                id=data.get("id"),
+                country=data.get("country"),
+                institution=data.get("institution"),
+                currency=data.get("currency"),
+                balance=data.get("balance"),
+                factor=data.get("factor"),
+                account_type=data.get("accountType"),
+                liquid=1 if data.get("liquid") else 0,
+                user_id=int(current_user.id),
+            )
+            session.add(new_transaction)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+            return jsonify(new_transaction.to_dict()), 201
     else:
         results = [
             post.to_dict()
-            for post in Account.query.filter_by(user_id=int(current_user.id)).all()
+            for post in Session()
+            .query(Account)
+            .filter_by(user_id=int(current_user.id))
+            .all()
         ]
         count = len(results)
         if "_sort" in request.args:
@@ -115,12 +119,15 @@ def bond_schedules_all():
             amount=data.get("amount"),
             paid=1 if data.get("paid", False) else 0,
         )
-        db.session.add(new_item)
-        db.session.commit()
+        with Session() as session:
+            session.add(new_item)
+            session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
         return jsonify(new_item.to_dict()), 201
     else:
-        base_query = BondSchedule.query.filter_by(user_id=int(current_user.id))
+        base_query = (
+            Session().query(BondSchedule).filter_by(user_id=int(current_user.id))
+        )
         if "bondId" in request.args:
             base_query = base_query.filter(
                 BondSchedule.bond_id == request.args["bondId"],
@@ -140,17 +147,22 @@ def bond_schedules_all():
 @assets_bp.route("/bondSchedules/<id>", methods=["GET", "PUT"])
 @login_required
 def bond_schedules_get(id):
-    result = BondSchedule.query.filter_by(user_id=int(current_user.id), id=id).first()
-    if result is None:
-        return jsonify({"message": "Bond Schedule not found"}), HTTPStatus.NOT_FOUND
-    if request.method == "PUT":
-        data = request.json
-        result.date = data.get("transactionDate", result.date)
-        result.amount = data.get("amount", result.amount)
-        result.paid = 1 if data.get("paid", result.paid == 1) else 0
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-    return jsonify(result.to_dict()), HTTPStatus.OK
+    with Session() as session:
+        result = (
+            session.query(BondSchedule)
+            .filter_by(user_id=int(current_user.id), id=id)
+            .first()
+        )
+        if result is None:
+            return jsonify({"message": "Bond Schedule not found"}), HTTPStatus.NOT_FOUND
+        if request.method == "PUT":
+            data = request.json
+            result.date = data.get("transactionDate", result.date)
+            result.amount = data.get("amount", result.amount)
+            result.paid = 1 if data.get("paid", result.paid == 1) else 0
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+        return jsonify(result.to_dict()), HTTPStatus.OK
 
 
 @assets_bp.route("/bonds", methods=["GET", "POST"])
@@ -168,12 +180,13 @@ def bonds_all():
             country=data.get("country"),
             user_id=int(current_user.id),
         )
-        db.session.add(new_item)
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-        return jsonify(new_item.to_dict()), 201
+        with Session() as session:
+            session.add(new_item)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+            return jsonify(new_item.to_dict()), 201
     else:
-        rows = Bond.query.filter_by(user_id=int(current_user.id)).all()
+        rows = Session().query(Bond).filter_by(user_id=int(current_user.id)).all()
 
         results = sorted(
             [post.to_dict() for post in rows], key=lambda x: x.get("id", "")
@@ -186,7 +199,9 @@ def bonds_all():
 @assets_bp.route("/bonds/<id>", methods=["GET"])
 @login_required
 def bonds_get(id):
-    result = Bond.query.filter_by(user_id=int(current_user.id), id=id).first()
+    result = (
+        Session().query(Bond).filter_by(user_id=int(current_user.id), id=id).first()
+    )
     if result is None:
         return jsonify({"message": "Bond not found"}), HTTPStatus.NOT_FOUND
 
@@ -205,13 +220,16 @@ def deposit_certificate_schedules_all():
             amount=data.get("amount"),
             paid=1 if data.get("paid", False) else 0,
         )
-        db.session.add(new_item)
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-        return jsonify(new_item.to_dict()), 201
+        with Session() as session:
+            session.add(new_item)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+            return jsonify(new_item.to_dict()), 201
     else:
-        base_query = DepositCertificateSchedule.query.filter_by(
-            user_id=int(current_user.id)
+        base_query = (
+            Session()
+            .query(DepositCertificateSchedule)
+            .filter_by(user_id=int(current_user.id))
         )
         if "depositCertificateId" in request.args:
             base_query = base_query.filter(
@@ -233,22 +251,25 @@ def deposit_certificate_schedules_all():
 @assets_bp.route("/depositCertificateSchedules/<id>", methods=["GET", "PUT"])
 @login_required
 def deposit_certificate_schedules_get(id):
-    result = DepositCertificateSchedule.query.filter_by(
-        user_id=int(current_user.id), id=id
-    ).first()
-    if result is None:
-        return (
-            jsonify({"message": "Deposit Certificate Schedule not found"}),
-            HTTPStatus.NOT_FOUND,
+    with Session() as session:
+        result = (
+            session.query(DepositCertificateSchedule)
+            .filter_by(user_id=int(current_user.id), id=id)
+            .first()
         )
-    if request.method == "PUT":
-        data = request.json
-        result.date = data.get("transactionDate", result.date)
-        result.amount = data.get("amount", result.amount)
-        result.paid = 1 if data.get("paid", result.paid == 1) else 0
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-    return jsonify(result.to_dict()), HTTPStatus.OK
+        if result is None:
+            return (
+                jsonify({"message": "Deposit Certificate Schedule not found"}),
+                HTTPStatus.NOT_FOUND,
+            )
+        if request.method == "PUT":
+            data = request.json
+            result.date = data.get("transactionDate", result.date)
+            result.amount = data.get("amount", result.amount)
+            result.paid = 1 if data.get("paid", result.paid == 1) else 0
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+        return jsonify(result.to_dict()), HTTPStatus.OK
 
 
 @assets_bp.route("/depositCertificates", methods=["GET", "POST"])
@@ -266,12 +287,18 @@ def deposit_certificates_all():
             country=data.get("country"),
             user_id=int(current_user.id),
         )
-        db.session.add(new_item)
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-        return jsonify(new_item.to_dict()), 201
+        with Session() as session:
+            session.add(new_item)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+            return jsonify(new_item.to_dict()), 201
     else:
-        rows = DepositCertificate.query.filter_by(user_id=int(current_user.id)).all()
+        with Session() as session:
+            rows = (
+                session.query(DepositCertificate)
+                .filter_by(user_id=int(current_user.id))
+                .all()
+            )
 
         results = sorted(
             [post.to_dict() for post in rows], key=lambda x: x.get("id", "")
@@ -284,36 +311,44 @@ def deposit_certificates_all():
 @assets_bp.route("/depositCertificates/<id>", methods=["GET"])
 @login_required
 def deposit_certificates_get(id):
-    result = DepositCertificate.query.filter_by(
-        user_id=int(current_user.id), id=id
-    ).first()
-    if result is None:
-        return (
-            jsonify({"message": "Deposit Certificate not found"}),
-            HTTPStatus.NOT_FOUND,
+    with Session() as session:
+        result = (
+            session.query(DepositCertificate)
+            .filter_by(user_id=int(current_user.id), id=id)
+            .first()
         )
+        if result is None:
+            return (
+                jsonify({"message": "Deposit Certificate not found"}),
+                HTTPStatus.NOT_FOUND,
+            )
 
-    return jsonify(result.to_dict()), HTTPStatus.OK
+        return jsonify(result.to_dict()), HTTPStatus.OK
 
 
 @assets_bp.route("/accounts/<name>", methods=["GET", "PUT"])
 @login_required
 def get_account(name):
-    result = Account.query.filter_by(user_id=int(current_user.id), id=name).first()
-    if result is None:
-        return jsonify({"message": "Account not found"}), HTTPStatus.NOT_FOUND
-    if request.method == "PUT":
-        data = request.json
-        result.country = data.get("country", result.country)
-        result.institution = data.get("institution", result.institution)
-        result.currency = data.get("currency", result.currency)
-        result.balance = data.get("balance", result.balance)
-        result.factor = data.get("factor", result.factor)
-        result.account_type = data.get("accountType", result.account_type)
-        result.liquid = 1 if data.get("liquid", result.liquid) else 0
-        db.session.commit()
+    with Session() as session:
+        result = (
+            session.query(Account)
+            .filter_by(user_id=int(current_user.id), id=name)
+            .first()
+        )
+        if result is None:
+            return jsonify({"message": "Account not found"}), HTTPStatus.NOT_FOUND
+        if request.method == "PUT":
+            data = request.json
+            result.country = data.get("country", result.country)
+            result.institution = data.get("institution", result.institution)
+            result.currency = data.get("currency", result.currency)
+            result.balance = data.get("balance", result.balance)
+            result.factor = data.get("factor", result.factor)
+            result.account_type = data.get("accountType", result.account_type)
+            result.liquid = 1 if data.get("liquid", result.liquid) else 0
+            session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
-    return jsonify(result.to_dict()), HTTPStatus.OK
+        return jsonify(result.to_dict()), HTTPStatus.OK
 
 
 @assets_bp.route("/instruments", methods=["GET", "POST"])
@@ -335,15 +370,19 @@ def instruments():
             acquisition_price=data.get("acquisition_price"),
             liquid=1 if data.get("liquid") else 0,
         )
-        db.session.add(new_transaction)
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-        return jsonify(new_transaction.to_dict()), 201
+        with Session() as session:
+            session.add(new_transaction)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+            return jsonify(new_transaction.to_dict()), 201
     else:
-        results = [
-            post.to_dict()
-            for post in Instrument.query.filter_by(user_id=int(current_user.id)).all()
-        ]
+        with Session() as session:
+            results = [
+                post.to_dict()
+                for post in session.query(Instrument)
+                .filter_by(user_id=int(current_user.id))
+                .all()
+            ]
         count = len(results)
         if "_sort" in request.args:
             sort_key = request.args["_sort"]
@@ -362,30 +401,37 @@ def instruments():
 @assets_bp.route("/instruments/<int:id>", methods=["GET", "PUT"])
 @login_required
 def instruments_get(id):
-    result = Instrument.query.filter_by(user_id=int(current_user.id), id=id).first()
-    if result is None:
-        return jsonify({"message": "Instrument not found"}), HTTPStatus.NOT_FOUND
-    if request.method == "PUT":
-        data = request.json
-        result.id = data.get("id", result.id)
-        result.user_id = data.get("user_id", result.user_id)
-        result.country = data.get("country", result.country)
-        result.location = data.get("location", result.location)
-        result.symbol = data.get("symbol", result.symbol)
-        result.factor = data.get("factor", result.factor)
-        result.qty = data.get("qty", result.qty)
-        result.dividend = data.get("dividend", result.dividend)
-        result.dividend_rate = data.get("dividend_rate", result.dividend_rate)
-        result.currency = data.get("currency", result.currency)
-        result.acquisition_date = data.get("acquisition_date", result.acquisition_date)
-        result.acquisition_price = data.get(
-            "acquisition_price", result.acquisition_price
+    with Session() as session:
+        result = (
+            session.query(Instrument)
+            .filter_by(user_id=int(current_user.id), id=id)
+            .first()
         )
-        result.liquid = 1 if data.get("liquid", result.liquid) else 0
+        if result is None:
+            return jsonify({"message": "Instrument not found"}), HTTPStatus.NOT_FOUND
+        if request.method == "PUT":
+            data = request.json
+            result.id = data.get("id", result.id)
+            result.user_id = data.get("user_id", result.user_id)
+            result.country = data.get("country", result.country)
+            result.location = data.get("location", result.location)
+            result.symbol = data.get("symbol", result.symbol)
+            result.factor = data.get("factor", result.factor)
+            result.qty = data.get("qty", result.qty)
+            result.dividend = data.get("dividend", result.dividend)
+            result.dividend_rate = data.get("dividend_rate", result.dividend_rate)
+            result.currency = data.get("currency", result.currency)
+            result.acquisition_date = data.get(
+                "acquisition_date", result.acquisition_date
+            )
+            result.acquisition_price = data.get(
+                "acquisition_price", result.acquisition_price
+            )
+            result.liquid = 1 if data.get("liquid", result.liquid) else 0
 
-        db.session.commit()
+            session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
-    return jsonify(result.to_dict()), HTTPStatus.OK
+        return jsonify(result.to_dict()), HTTPStatus.OK
 
 
 def load_tx() -> List[Dict[str, Any]]:
@@ -453,16 +499,18 @@ def payables():
             one_off=1 if data.get("oneOff") else 0,
             flow_class=data.get("flowClass"),
         )
-        db.session.add(new_transaction)
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-        return jsonify(new_transaction.to_dict()), 201
+        with Session() as session:
+            session.add(new_transaction)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+            return jsonify(new_transaction.to_dict()), 201
     else:
-        base_query = Payable.query.filter_by(user_id=int(current_user.id))
-        if "flowClass" in request.args:
-            base_query = base_query.filter_by(flow_class=request.args["flowClass"])
+        with Session() as session:
+            base_query = session.query(Payable).filter_by(user_id=int(current_user.id))
+            if "flowClass" in request.args:
+                base_query = base_query.filter_by(flow_class=request.args["flowClass"])
 
-        results = [post.to_dict() for post in base_query.all()]
+            results = [post.to_dict() for post in base_query.all()]
         count = len(results)
         if "_sort" in request.args and request.args["_sort"] != "id":
             sort_key = request.args["_sort"]
@@ -484,27 +532,32 @@ def payables():
 @assets_bp.route("/payables/<int:id>", methods=["GET", "PUT", "DELETE"])
 @login_required
 def payables_get(id):
-    result = Payable.query.filter_by(user_id=int(current_user.id), id=id).first()
-    if result is None:
-        return jsonify({"message": "Payable not found"}), HTTPStatus.NOT_FOUND
-    if request.method == "PUT":
-        data = request.json
-        result.country = data.get("country", result.country)
-        result.currency = data.get("currency", result.currency)
-        result.amount = data.get("amount", result.amount)
-        result.balance = data.get("balance", result.balance)
-        result.due_date = data.get("dueDate", result.due_date)
-        result.description = data.get("description", result.description)
-        result.commited = 1 if data.get("commited", result.commited) else 0
-        result.one_off = 1 if data.get("oneOff", result.one_off) else 0
-        result.flow_class = data.get("flowClass", result.flow_class)
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-    elif request.method == "DELETE":
-        db.session.delete(result)
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-    return jsonify(result.to_dict()), HTTPStatus.OK
+    with Session() as session:
+        result = (
+            session.query(Payable)
+            .filter_by(user_id=int(current_user.id), id=id)
+            .first()
+        )
+        if result is None:
+            return jsonify({"message": "Payable not found"}), HTTPStatus.NOT_FOUND
+        if request.method == "PUT":
+            data = request.json
+            result.country = data.get("country", result.country)
+            result.currency = data.get("currency", result.currency)
+            result.amount = data.get("amount", result.amount)
+            result.balance = data.get("balance", result.balance)
+            result.due_date = data.get("dueDate", result.due_date)
+            result.description = data.get("description", result.description)
+            result.commited = 1 if data.get("commited", result.commited) else 0
+            result.one_off = 1 if data.get("oneOff", result.one_off) else 0
+            result.flow_class = data.get("flowClass", result.flow_class)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+        elif request.method == "DELETE":
+            session.delete(result)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+        return jsonify(result.to_dict()), HTTPStatus.OK
 
 
 @assets_bp.route("/properties", methods=["GET", "POST"])
@@ -525,14 +578,16 @@ def properties():
             additional_data=data.get("additionalData"),
             rent_currency=data.get("rentCurrency"),
         )
-        db.session.add(new_transaction)
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-        return jsonify(new_transaction.to_dict()), 201
+        with Session() as session:
+            session.add(new_transaction)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+            return jsonify(new_transaction.to_dict()), 201
     else:
-        base_query = Property.query.filter_by(user_id=int(current_user.id))
+        with Session() as session:
+            base_query = session.query(Property).filter_by(user_id=int(current_user.id))
 
-        results = [post.to_dict() for post in base_query.all()]
+            results = [post.to_dict() for post in base_query.all()]
         count = len(results)
         if "_sort" in request.args:
             sort_key = request.args["_sort"]
@@ -554,29 +609,34 @@ def properties():
 @assets_bp.route("/properties/<int:id>", methods=["GET", "PUT", "DELETE"])
 @login_required
 def properties_get(id):
-    result = Property.query.filter_by(user_id=int(current_user.id), id=id).first()
-    if result is None:
-        return jsonify({"message": "Property not found"}), HTTPStatus.NOT_FOUND
-    if request.method == "PUT":
-        data = request.json
-        result.country = data.get("country", result.country)
-        result.currency = data.get("currency", result.currency)
-        result.property_name = data.get("propertyName", result.property_name)
-        result.purchase_price = data.get("purchasePrice", result.purchase_price)
-        result.purchase_date = data.get("purchaseDate", result.purchase_date)
-        result.current_price = data.get("currentPrice", result.current_price)
-        result.rent_price = data.get("rentPrice", result.rent_price)
-        result.depreciation = data.get("depreciation", result.depreciation)
-        result.additional_data = data.get("additionalData", result.additional_data)
-        result.rent_currency = data.get("rentCurrency", result.rent_currency)
+    with Session() as session:
+        result = (
+            session.query(Property)
+            .filter_by(user_id=int(current_user.id), id=id)
+            .first()
+        )
+        if result is None:
+            return jsonify({"message": "Property not found"}), HTTPStatus.NOT_FOUND
+        if request.method == "PUT":
+            data = request.json
+            result.country = data.get("country", result.country)
+            result.currency = data.get("currency", result.currency)
+            result.property_name = data.get("propertyName", result.property_name)
+            result.purchase_price = data.get("purchasePrice", result.purchase_price)
+            result.purchase_date = data.get("purchaseDate", result.purchase_date)
+            result.current_price = data.get("currentPrice", result.current_price)
+            result.rent_price = data.get("rentPrice", result.rent_price)
+            result.depreciation = data.get("depreciation", result.depreciation)
+            result.additional_data = data.get("additionalData", result.additional_data)
+            result.rent_currency = data.get("rentCurrency", result.rent_currency)
 
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-    elif request.method == "DELETE":
-        db.session.delete(result)
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-    return jsonify(result.to_dict()), HTTPStatus.OK
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+        elif request.method == "DELETE":
+            session.delete(result)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+        return jsonify(result.to_dict()), HTTPStatus.OK
 
 
 @assets_bp.route("/recurrentTransactions", methods=["GET", "POST"])
@@ -593,29 +653,33 @@ def recurrent_transactions():
             paid_with=data.get("paidWithAssetId"),
             user_id=int(current_user.id),
         )
-        db.session.add(new_transaction)
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-        return jsonify(new_transaction.to_dict()), 201
+        with Session() as session:
+            session.add(new_transaction)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+            return jsonify(new_transaction.to_dict()), 201
     else:
-        base_query = RecurrentTransaction.query.filter_by(
-            user_id=int(current_user.id)
-        ).order_by(RecurrentTransaction.transaction_date.desc())
-        if "recurrentId" in request.args:
-            results = [
-                post.to_dict()
-                for post in base_query.filter(
-                    RecurrentTransaction.parent_id == request.args["recurrentId"],
-                    RecurrentTransaction.user_id == int(current_user.id),
-                ).all()
-            ]
-        else:
-            results = [
-                post.to_dict()
-                for post in base_query.filter(
-                    RecurrentTransaction.user_id == int(current_user.id)
-                ).all()
-            ]
+        with Session() as session:
+            base_query = (
+                session.query(RecurrentTransaction)
+                .filter_by(user_id=int(current_user.id))
+                .order_by(RecurrentTransaction.transaction_date.desc())
+            )
+            if "recurrentId" in request.args:
+                results = [
+                    post.to_dict()
+                    for post in base_query.filter(
+                        RecurrentTransaction.parent_id == request.args["recurrentId"],
+                        RecurrentTransaction.user_id == int(current_user.id),
+                    ).all()
+                ]
+            else:
+                results = [
+                    post.to_dict()
+                    for post in base_query.filter(
+                        RecurrentTransaction.user_id == int(current_user.id)
+                    ).all()
+                ]
 
         response = jsonify(results)
         response.headers["X-Total-Count"] = len(results)
@@ -625,29 +689,34 @@ def recurrent_transactions():
 @assets_bp.route("/recurrentTransactions/<name>", methods=["GET", "PUT", "DELETE"])
 @login_required
 def recurrent_transactions_get(name):
-    result = RecurrentTransaction.query.filter_by(
-        user_id=int(current_user.id), transaction_id=name
-    ).first()
-    if result is None:
-        return (
-            jsonify({"message": "Recurrent Transaction not found"}),
-            HTTPStatus.NOT_FOUND,
+    with Session() as session:
+        result = (
+            session.query(RecurrentTransaction)
+            .filter_by(user_id=int(current_user.id), transaction_id=name)
+            .first()
         )
-    if request.method == "PUT":
-        data = request.json
-        result.year_month = data.get("yearMonth", result.year_month)
-        result.paid_with = data.get("paidWithAssetId", result.paid_with)
-        result.transaction_date = data.get("transactionDate", result.transaction_date)
-        result.parent_id = data.get("recurrentId", result.parent_id)
-        result.amount = data.get("amount", result.amount)
-        result.description = data.get("description", result.description)
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-    elif request.method == "DELETE":
-        db.session.delete(result)
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-    return jsonify(result.to_dict()), HTTPStatus.OK
+        if result is None:
+            return (
+                jsonify({"message": "Recurrent Transaction not found"}),
+                HTTPStatus.NOT_FOUND,
+            )
+        if request.method == "PUT":
+            data = request.json
+            result.year_month = data.get("yearMonth", result.year_month)
+            result.paid_with = data.get("paidWithAssetId", result.paid_with)
+            result.transaction_date = data.get(
+                "transactionDate", result.transaction_date
+            )
+            result.parent_id = data.get("recurrentId", result.parent_id)
+            result.amount = data.get("amount", result.amount)
+            result.description = data.get("description", result.description)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+        elif request.method == "DELETE":
+            session.delete(result)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+        return jsonify(result.to_dict()), HTTPStatus.OK
 
 
 @assets_bp.route("/recurrents", methods=["GET", "POST"])
@@ -668,16 +737,20 @@ def recurrents_all():
             rate=data.get("rate"),
             user_id=int(current_user.id),
         )
-        db.session.add(new_transaction)
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-        return jsonify(new_transaction.to_dict()), 201
+        with Session() as session:
+            session.add(new_transaction)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+            return jsonify(new_transaction.to_dict()), 201
     else:
-        base_query = Recurrent.query.filter_by(user_id=int(current_user.id))
-        if "flowClass" in request.args:
-            base_query = base_query.filter_by(flow_class=request.args["flowClass"])
+        with Session() as session:
+            base_query = session.query(Recurrent).filter_by(
+                user_id=int(current_user.id)
+            )
+            if "flowClass" in request.args:
+                base_query = base_query.filter_by(flow_class=request.args["flowClass"])
 
-        rows = base_query.all()
+            rows = base_query.all()
 
         results = sorted(
             [post.to_dict() for post in rows], key=lambda x: x.get("id", "")
@@ -690,25 +763,28 @@ def recurrents_all():
 @assets_bp.route("/recurrents/<name>", methods=["GET", "PUT"])
 @login_required
 def recurrents_get(name):
-    result = Recurrent.query.filter_by(
-        user_id=int(current_user.id), identifier=name
-    ).first()
-    if result is None:
-        return jsonify({"message": "Recurrent not found"}), HTTPStatus.NOT_FOUND
-    if request.method == "PUT":
-        data = request.json
-        result.parent_asset_id = data.get("assetId", result.parent_asset_id)
-        result.country = data.get("country", result.country)
-        result.amount = data.get("amount", result.amount)
-        result.currency = data.get("currency", result.currency)
-        result.recurrence = data.get("recurrence", result.recurrence)
-        result.start = data.get("start", result.start)
-        result.end = data.get("end", result.end)
-        result.flow_class = data.get("flowClass", result.flow_class)
-        result.rate = data.get("rate", result.rate)
-        db.session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-    return jsonify(result.to_dict()), HTTPStatus.OK
+    with Session() as session:
+        result = (
+            session.query(Recurrent)
+            .filter_by(user_id=int(current_user.id), identifier=name)
+            .first()
+        )
+        if result is None:
+            return jsonify({"message": "Recurrent not found"}), HTTPStatus.NOT_FOUND
+        if request.method == "PUT":
+            data = request.json
+            result.parent_asset_id = data.get("assetId", result.parent_asset_id)
+            result.country = data.get("country", result.country)
+            result.amount = data.get("amount", result.amount)
+            result.currency = data.get("currency", result.currency)
+            result.recurrence = data.get("recurrence", result.recurrence)
+            result.start = data.get("start", result.start)
+            result.end = data.get("end", result.end)
+            result.flow_class = data.get("flowClass", result.flow_class)
+            result.rate = data.get("rate", result.rate)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+        return jsonify(result.to_dict()), HTTPStatus.OK
 
 
 @assets_bp.route("/reload")

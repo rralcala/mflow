@@ -1,21 +1,26 @@
+from sqlalchemy import Integer, String
+from sqlalchemy.orm import DeclarativeBase, mapped_column
+
+from data.base import Base
 from data.exchange_rates import ExchangeRates
-from init import db
 
 
-class Instrument(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, nullable=False)
-    country = db.Column(db.String(2), nullable=False)
-    location = db.Column(db.String(80), nullable=False)
-    symbol = db.Column(db.String(80), nullable=False)
-    factor = db.Column(db.String(80), nullable=False)
-    qty = db.Column(db.String(80), nullable=False)
-    dividend = db.Column(db.String(80), nullable=False)
-    dividend_rate = db.Column(db.String(80), nullable=False)
-    currency = db.Column(db.String(3), nullable=False)
-    acquisition_date = db.Column(db.String(35), nullable=False)
-    acquisition_price = db.Column(db.String(80), nullable=False)
-    liquid = db.Column(db.Integer, nullable=False)
+class Instrument(Base):
+    __tablename__ = "instrument"
+
+    id = mapped_column(Integer, primary_key=True)
+    user_id = mapped_column(Integer, nullable=False)
+    country = mapped_column(String(2), nullable=False)
+    location = mapped_column(String(80), nullable=False)
+    symbol = mapped_column(String(80), nullable=False)
+    factor = mapped_column(String(80), nullable=False)
+    qty = mapped_column(String(80), nullable=False)
+    dividend = mapped_column(String(80), nullable=False)
+    dividend_rate = mapped_column(String(80), nullable=False)
+    currency = mapped_column(String(3), nullable=False)
+    acquisition_date = mapped_column(String(35), nullable=False)
+    acquisition_price = mapped_column(String(80), nullable=False)
+    liquid = mapped_column(Integer, nullable=False)
 
     def __str__(self):
         return str(self.id)

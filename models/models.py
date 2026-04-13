@@ -1,6 +1,8 @@
 from flask_login import UserMixin
+from sqlalchemy import Integer, String
+from sqlalchemy.orm import mapped_column
 
-from init import db
+from data.base import Base
 from lib.config import Config
 from lib.logger import get_logger
 from lib.util import get_formatted_date, sha256_hash
@@ -8,16 +10,18 @@ from lib.util import get_formatted_date, sha256_hash
 logger = get_logger()
 
 
-class Account(db.Model):
-    id = db.Column(db.String(80), primary_key=True)
-    country = db.Column(db.String(2), nullable=True)
-    institution = db.Column(db.String(80), nullable=False)
-    currency = db.Column(db.String(3), nullable=False)
-    balance = db.Column(db.String(20), nullable=False)
-    factor = db.Column(db.String(20), nullable=False)
-    account_type = db.Column(db.String(35), nullable=False)
-    liquid = db.Column(db.Integer(), nullable=False)
-    user_id = db.Column(db.Integer, nullable=False)
+class Account(Base):
+    __tablename__ = "account"
+
+    id = mapped_column(String(80), primary_key=True)
+    country = mapped_column(String(2), nullable=True)
+    institution = mapped_column(String(80), nullable=False)
+    currency = mapped_column(String(3), nullable=False)
+    balance = mapped_column(String(20), nullable=False)
+    factor = mapped_column(String(20), nullable=False)
+    account_type = mapped_column(String(35), nullable=False)
+    liquid = mapped_column(Integer(), nullable=False)
+    user_id = mapped_column(Integer, nullable=False)
 
     def __str__(self):
         return self.id
@@ -35,18 +39,20 @@ class Account(db.Model):
         }
 
 
-class Recurrent(db.Model):
-    identifier = db.Column(db.String(80), primary_key=True)
-    parent_asset_id = db.Column(db.String(80), nullable=True)
-    country = db.Column(db.String(2), nullable=False)
-    amount = db.Column(db.String(20), nullable=False)
-    currency = db.Column(db.String(3), nullable=False)
-    recurrence = db.Column(db.String(20), nullable=False)
-    start = db.Column(db.String(35), nullable=False)
-    end = db.Column(db.String(35), nullable=False)
-    flow_class = db.Column(db.String(20), nullable=False)
-    rate = db.Column(db.String(20), nullable=False)
-    user_id = db.Column(db.Integer, nullable=False)
+class Recurrent(Base):
+    __tablename__ = "recurrent"
+
+    identifier = mapped_column(String(80), primary_key=True)
+    parent_asset_id = mapped_column(String(80), nullable=True)
+    country = mapped_column(String(2), nullable=False)
+    amount = mapped_column(String(20), nullable=False)
+    currency = mapped_column(String(3), nullable=False)
+    recurrence = mapped_column(String(20), nullable=False)
+    start = mapped_column(String(35), nullable=False)
+    end = mapped_column(String(35), nullable=False)
+    flow_class = mapped_column(String(20), nullable=False)
+    rate = mapped_column(String(20), nullable=False)
+    user_id = mapped_column(Integer, nullable=False)
 
     def __str__(self):
         return self.identifier
@@ -66,16 +72,18 @@ class Recurrent(db.Model):
         }
 
 
-class RecurrentTransaction(db.Model):
-    transaction_id = db.Column(db.Integer, primary_key=True)
-    parent_id = db.Column(db.String(80), nullable=False)
-    year_month = db.Column(db.String(7), nullable=False)
-    description = db.Column(db.String(200), nullable=False)
-    amount = db.Column(db.String(20), nullable=False)
-    transaction_date = db.Column(db.String(35), nullable=False)
-    paid_with = db.Column(db.String(80), nullable=False)
-    create_date = db.Column(db.String(35), nullable=False, default=get_formatted_date)
-    user_id = db.Column(db.Integer, nullable=False)
+class RecurrentTransaction(Base):
+    __tablename__ = "recurrent_transaction"
+
+    transaction_id = mapped_column(Integer, primary_key=True)
+    parent_id = mapped_column(String(80), nullable=False)
+    year_month = mapped_column(String(7), nullable=False)
+    description = mapped_column(String(200), nullable=False)
+    amount = mapped_column(String(20), nullable=False)
+    transaction_date = mapped_column(String(35), nullable=False)
+    paid_with = mapped_column(String(80), nullable=False)
+    create_date = mapped_column(String(35), nullable=False, default=get_formatted_date)
+    user_id = mapped_column(Integer, nullable=False)
 
     def to_dict(self):
         return {

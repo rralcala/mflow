@@ -1,10 +1,10 @@
 from io import BytesIO
+from typing import Tuple
 
 from flask_login import current_user
-from flask_sqlalchemy import SQLAlchemy
 from openpyxl import load_workbook
+from sqlalchemy.orm import Session
 
-from lib.user_config import UserStore
 from models.models import Account
 
 ROW_FIELD = set(
@@ -29,8 +29,8 @@ ROW_FIELD = set(
 
 
 def upload_statement(
-    db: SQLAlchemy, update_balance: bool, account_id: str, in_memory_file: BytesIO
-) -> str:
+    db: Session, update_balance: bool, account_id: str, in_memory_file: BytesIO
+) -> Tuple[str, str]:
 
     summary = '<table><tr><th>Date</th><th>Description</th><th style="text-align: right;">Debit</th><th style="text-align: right;">Credit</th><th style="text-align: right;">Balance</th><th>ID</th></tr>\n'
     # Process the uploaded file
@@ -69,14 +69,16 @@ def upload_statement(
 
     response = f"<p>Account ID: {account_id}<br/>Last balance: {balance:,.0f}</p>"
     if update_balance:
-        result = Account.query.filter_by(
-            id=account_id, user_id=int(current_user.id)
-        ).first()
+        result = (
+            db.query(Account)
+            .filter_by(id=account_id, user_id=int(current_user.id))
+            .first()
+        )
         if result is None:
             response += f"<p>Account {account_id} not found in database.</p>"
         else:
             result.balance = str(balance)
-            db.session.commit()
+            db.commit()
             response += (
                 f"<p>Account {account_id} updated with new balance: {balance:,.0f}</p>"
             )
