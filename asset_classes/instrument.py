@@ -123,9 +123,11 @@ class Instrument(Asset):
                 (self.price / self.acquisition_price) - 1
             ) / holding_period_years
         else:
-            annualized_return = (self.price / self.acquisition_price) - 1
-        # if annualized_return < 0:
-        #    annualized_return = 0.0
+            if self.acquisition_price == 0:
+                annualized_return = 0.0
+            else:
+                annualized_return = (self.price / self.acquisition_price) - 1
+
         return self.get_current_value()[0], annualized_return + self.rate
 
     def __repr__(self):
