@@ -2,14 +2,15 @@ import calendar
 from datetime import date, datetime
 from typing import Any, Dict, List, Tuple
 
-from sqlalchemy import select
-
 from asset_classes.asset import Asset
 from data.constants import RecurrentTypes
 from data.datasource import DataSource
 from init import Session
+from lib.logger import get_logger
 from lib.util import count_cron_runs, cron_runs
 from models import models
+
+Logger = get_logger()
 
 
 class RecurrentTransaction:
@@ -103,8 +104,11 @@ class Recurrent(Asset):
 
     def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str, bool]]]:
         timeline = []
-
-        for date in cron_runs(self.recurrence, datetime.today(), end):
+        start_of_month = datetime.now().replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        # Switch to items with balance instead of current month
+        for date in cron_runs(self.recurrence, start_of_month, end):
             if date >= self.start_date:
                 cash_flow = self.amount
 

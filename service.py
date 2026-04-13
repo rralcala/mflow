@@ -2,7 +2,7 @@ import threading
 import time
 
 from data.exchange_rates import FETCH_LOCK, ExchangeRates
-from init import app
+from init import app, debug_mode
 from lib.logger import get_logger
 from routes import register_api_routes
 
@@ -21,11 +21,11 @@ def background_task():
             if ExchangeRates.is_stale_or_empty():
                 ExchangeRates._refresh_currency_data()
 
-        time.sleep(60)
+        time.sleep(120)
 
 
 if __name__ == "__main__":
     t = threading.Thread(target=background_task, daemon=True)
     t.start()
     register_api_routes(app)
-    app.run(host="0.0.0.0")
+    app.run(host="0.0.0.0", debug=debug_mode)

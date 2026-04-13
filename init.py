@@ -28,8 +28,8 @@ parser.add_argument(
 
 # Parse the arguments
 args = parser.parse_args()
-
-logger = config_logging(debug=args.debug)
+debug_mode = args.debug
+logger = config_logging(debug=debug_mode)
 
 Config.BASE_PATH = Path(args.base)
 db_path = Config.BASE_PATH / "mydatabase.db"
