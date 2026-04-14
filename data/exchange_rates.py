@@ -80,6 +80,8 @@ class ExchangeRates:
 
     @staticmethod
     def ensure_currency_data():
+        if FX_FETCH_LOCK.locked():
+            return
         with FX_FETCH_LOCK:
             if len(ExchangeRates.quote_cache) == 0:
                 ExchangeRates.fetch_from_local()
