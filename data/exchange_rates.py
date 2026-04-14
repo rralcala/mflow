@@ -1,6 +1,6 @@
-import pickle
 from datetime import datetime
 from threading import Lock
+from typing import List, Tuple
 
 import requests
 import yfinance as yf
@@ -75,8 +75,26 @@ class ExchangeRates:
 
         ExchangeRates.quote_cache = quote_cache
         ExchangeRates.last_update = datetime.now()
-        with open(Config.SCRIPT_DIR / "cache" / "quote_cache.pkl", "wb") as file:
-            pickle.dump(ExchangeRates.quote_cache, file)
+ 
+    @staticmethod
+    def latest_in_db() -> datetime:
+        with Session() as session:
+            date = session.query(func.max(Quote.date)).scalar()
+        if date is None:
+            date = datetime.min
+        else:
+            date = datetime.strptime(date, Config.DATE_FORMAT_STRING)
+        return date
+
+    @staticmethod
+    def local_quotes_on(date: str) -> List[Tuple[str, float]]:
+        with Session() as session:
+            quotes = session.query(Quote).filter(Quote.date == date).all()
+            results = []
+            for quote in quotes:
+                logger.info(f"Loaded quote from DB: {quote.symbol} = {quote.value}")
+                results.append((quote.symbol, float(quote.value)))
+        return results
 
     @staticmethod
     def ensure_currency_data():
@@ -90,12 +108,11 @@ class ExchangeRates:
 
     @staticmethod
     def fetch_from_local():
-        with Session() as session:
-            date = session.query(func.max(Quote.date)).scalar()
-            quotes = session.query(Quote).filter(Quote.date == date).all()
-            for quote in quotes:
-                logger.info(f"Loaded quote from DB: {quote.symbol} = {quote.value}")
-                ExchangeRates.quote_cache[quote.symbol] = float(quote.value)
+        date = ExchangeRates.latest_in_db().strftime(Config.DATE_FORMAT_STRING)
+
+        for symbol, value in ExchangeRates.local_quotes_on(date):
+            logger.info(f"Loaded quote from DB: {symbol} = {value}")
+            ExchangeRates.quote_cache[symbol] = value
 
     @staticmethod
     def exchange_rate(currencies: str) -> float:

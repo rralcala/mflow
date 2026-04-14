@@ -34,7 +34,9 @@ def background_task():
             if ExchangeRates.is_stale_or_empty():
                 ExchangeRates._refresh_currency_data()
                 with Session() as session:
-                    date = session.query(func.max(Quote.date)).scalar()
+                    date = ExchangeRates.latest_in_db().strftime(
+                        Config.DATE_FORMAT_STRING
+                    )
                     today = datetime.now().strftime(Config.DATE_FORMAT_STRING)
                     if date is None or date < today:
                         for key, value in ExchangeRates.get_all().items():
