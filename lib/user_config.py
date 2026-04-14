@@ -9,6 +9,7 @@ class UserConfig:
     def __init__(self, user_id: str):
         self.USER_ID = user_id
         self.SECONDARY_CURRENCY = ""
+        self.SECONDARY_COUNTRY = "PY"
         self.TRADED_STOCKS = []
         self.TRADED_CRYPTO = []
         self.LAST_UNTIL = "2075-01-01"

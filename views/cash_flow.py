@@ -9,8 +9,9 @@ from reports.cash_flow import generate_timeline
 
 def cash_flow(assets):
     secondary_currency = UserStore.get_user_config(current_user.id).SECONDARY_CURRENCY
-    sec_currency_contry = f"{secondary_currency}-PY"
-
+    secondary_country = UserStore.get_user_config(current_user.id).SECONDARY_COUNTRY
+    sec_currency_contry = f"{secondary_currency}-{secondary_country}"
+    pri_currency_sec_contry = "USD-" + secondary_country
     end_dt = datetime.now() + timedelta(days=365)
     today_str = datetime.now().strftime("%Y-%m-%d")
     payments = []
@@ -38,33 +39,35 @@ def cash_flow(assets):
 
     for payment in payments:
         key = payment["date"]
-        timeline.setdefault(key, {"USD-US": uu, "USD-PY": up, sec_currency_contry: pp})
+        timeline.setdefault(
+            key, {"USD-US": uu, pri_currency_sec_contry: up, sec_currency_contry: pp}
+        )
         timeline[key][f"{payment['currency']}-{payment['country']}"] += payment[
             "amount"
         ]
         uu = timeline[key]["USD-US"]
-        up = timeline[key]["USD-PY"]
+        up = timeline[key][pri_currency_sec_contry]
         pp = timeline[key][sec_currency_contry]
     tl_list = []
     tl_dates = sorted(timeline.keys())
     for date in tl_dates:
         tl_list.append((date, timeline[date]))
     min_val = {
-        "USD-US": 200000000.0,
-        "USD-PY": 200000000.0,
-        sec_currency_contry: 200000000.0,
+        "USD-US": tl_list[0][1]["USD-US"],
+        pri_currency_sec_contry: tl_list[0][1][pri_currency_sec_contry],
+        sec_currency_contry: tl_list[0][1][sec_currency_contry],
     }
 
     min_date = {
         "USD-US": today_str,
-        "USD-PY": today_str,
+        pri_currency_sec_contry: today_str,
         sec_currency_contry: today_str,
     }
     result = []
     for date, amounts in tl_list:
         tl = (
             amounts["USD-US"]
-            + amounts["USD-PY"]
+            + amounts[pri_currency_sec_contry]
             + amounts[sec_currency_contry]
             / ExchangeRates.exchange_rate("USD" + secondary_currency)
         )
@@ -74,33 +77,16 @@ def cash_flow(assets):
             if amount < min_val[key] and date >= today_str:
                 min_val[key] = amount
                 min_date[key] = date
+        if tl == 0.0:
+            continue
         result.append(
             {
                 "date": date,
                 "USD-US": amounts["USD-US"],
-                "USD-PY": amounts["USD-PY"],
+                pri_currency_sec_contry: amounts[pri_currency_sec_contry],
                 sec_currency_contry: amounts[sec_currency_contry],
                 "Total": tl,
             }
         )
-        # output.write(
-        #    f"<tr><td>{date}</td><td style=\"text-align: right;\">{amounts['USD-US']:,.0f}</td><td style=\"text-align: right;\">{amounts['USD-PY']:,.0f}</td><td style=\"text-align: right;\">{sec_currency_contry_amount}</td><td style=\"text-align: right;\">{tl:,.0f}</td></tr>\n"
-        # )
-    # output.write("</table>")
-    # delta = relativedelta(
-    #    datetime.strptime(min_date[sec_currency_contry], "%Y-%m-%d"), datetime.today()
-    # )
-    # months_till = delta.months + delta.years * 12
-    # if months_till <= 0:
-    #    months_till = 1
-    # response = ""
-    # for key, amount in min_val.items():
-    #    response += f"<p><b>{key}</b><br/>Min: {amount:,.0f} on {min_date[key]}"
-    #    if key == sec_currency_contry and months_till > 0:
-    #        response += f" in {months_till} months. Could spend: {amount/months_till:,.0f}/Mo<br/>"
-    #    else:
-    #        response += "<br/>"
-    #    if len(tl_list) > 1:
-    #        response += f"Last: {tl_list[-1][1][key]:,.0f} Delta: {(tl_list[-1][1][key] - tl_list[0][1][key]):,.0f}</p>"
 
     return result
