@@ -1,3 +1,7 @@
+import faulthandler
+import os
+import signal
+import sys
 import threading
 import time
 from datetime import datetime
@@ -10,6 +14,10 @@ from lib.config import Config
 from lib.logger import get_logger
 from models.quotes import Quote
 from routes import register_api_routes
+
+if sys.platform == "linux" or sys.platform == "linux2":
+    print("Running on Linux")
+    faulthandler.register(signal.SIGUSR1)
 
 logger = get_logger()
 

@@ -15,6 +15,7 @@ class Config:
     TRADED_STOCKS: List[str]
     CURRENCIES: List[str]
 
+
 def load_config(config_file: Path, dest) -> bool:
     try:
         with config_file.open() as f:
