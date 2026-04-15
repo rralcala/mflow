@@ -75,7 +75,7 @@ class ExchangeRates:
 
         ExchangeRates.quote_cache = quote_cache
         ExchangeRates.last_update = datetime.now()
- 
+
     @staticmethod
     def latest_in_db() -> datetime:
         with Session() as session:
@@ -93,7 +93,7 @@ class ExchangeRates:
             results = []
             for quote in quotes:
                 logger.info(f"Loaded quote from DB: {quote.symbol} = {quote.value}")
-                results.append((quote.symbol, float(quote.value)))
+                results.append((quote.symbol, round(float(quote.value), 4)))
         return results
 
     @staticmethod

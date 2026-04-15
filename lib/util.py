@@ -1,7 +1,7 @@
 import hashlib
 import pprint
-from datetime import datetime, timedelta
-from typing import List
+from datetime import date, datetime, timedelta
+from typing import List, Optional, Union
 
 from croniter import croniter
 
@@ -51,3 +51,28 @@ def sha256_hash(text: str) -> str:
 
 def get_formatted_date():
     return datetime.now().strftime(Config.DATE_FORMAT_STRING)
+
+
+def business_days_ago(
+    days: int, from_date: Optional[Union[date, datetime]] = None
+) -> date:
+    if days < 0:
+        raise ValueError("days must be greater than or equal to 0")
+
+    current_date = from_date.date() if isinstance(from_date, datetime) else from_date
+    if current_date is None:
+        current_date = datetime.now().date()
+
+    remaining_days = days
+    while remaining_days > 0:
+        current_date -= timedelta(days=1)
+        if current_date.weekday() < 5:
+            remaining_days -= 1
+
+    return current_date
+
+
+def get_date_4_business_days_ago(
+    from_date: Optional[Union[date, datetime]] = None,
+) -> date:
+    return business_days_ago(4, from_date)

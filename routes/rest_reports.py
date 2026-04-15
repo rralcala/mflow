@@ -1,4 +1,5 @@
 import io
+from datetime import date
 from http import HTTPStatus
 
 from flask import Blueprint, jsonify, request
@@ -7,7 +8,9 @@ from flask_login import current_user, login_required
 from data.asset_store import get_asset_store, reload_asset_store
 from data.exchange_rates import ExchangeRates
 from init import Session
+from lib.logger import get_logger
 from lib.user_config import UserStore
+from lib.util import business_days_ago
 from views import assets_by_location as vabl
 from views import cash_flow as vcf
 from views import history as vnh
@@ -20,6 +23,8 @@ from views import upcoming_payments as vup
 from views.upload_statement import upload_statement
 
 reports_bp = Blueprint("reports", __name__)
+
+Logger = get_logger()
 
 
 @reports_bp.route("/assets_by_location", methods=["GET"])
@@ -73,7 +78,15 @@ def exchange_rates():
         selected_exchanges += f" {currency}"
     for key, value in ExchangeRates.get_all().items():
         if key in selected_exchanges.split():
-            result.append({"id": key, "rate": value})
+            result.append({"id": key, "rate": value, "weekChange": value})
+    previous = ExchangeRates.local_quotes_on(
+        business_days_ago(5, date.today()).strftime("%Y-%m-%d")
+    )
+    previous_dict = {symbol: rate for symbol, rate in previous}
+    for item in result:
+        item["weekChange"] = previous_dict.get(item["id"], item["rate"])
+        item["weekChange"] = (item["rate"] / item["weekChange"]) - 1
+
     result = sorted(result, key=lambda x: x["id"])
     response = jsonify(result)
     response.headers["X-Total-Count"] = len(result)
