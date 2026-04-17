@@ -665,24 +665,23 @@ def recurrent_transactions():
         with Session() as session:
             base_query = (
                 session.query(RecurrentTransaction)
-                .filter_by(user_id=int(current_user.id))
-                .order_by(RecurrentTransaction.transaction_date.desc())
+                .filter(RecurrentTransaction.user_id == int(current_user.id)
+                )
             )
             if "recurrentId" in request.args:
-                results = [
-                    post.to_dict()
-                    for post in base_query.filter(
+                base_query = base_query.filter(
                         RecurrentTransaction.parent_id == request.args["recurrentId"],
-                        RecurrentTransaction.user_id == int(current_user.id),
-                    ).all()
-                ]
-            else:
-                results = [
-                    post.to_dict()
-                    for post in base_query.filter(
-                        RecurrentTransaction.user_id == int(current_user.id)
-                    ).all()
-                ]
+                    )
+            if "yearMonth" in request.args:
+                base_query = base_query.filter(
+                        RecurrentTransaction.year_month == request.args["yearMonth"],
+                    )  
+            
+            
+            results = [
+                post.to_dict()
+                for post in base_query.order_by(RecurrentTransaction.transaction_date.desc()).all()
+            ]
 
         response = jsonify(results)
         response.headers["X-Total-Count"] = len(results)
