@@ -6,7 +6,10 @@ from flask_login import current_user
 
 from asset_classes.asset import Asset
 from data.exchange_rates import ExchangeRates
+from lib.logger import get_logger
 from lib.user_config import UserStore
+
+Logger = get_logger()
 
 
 class IncomeField:
@@ -25,7 +28,8 @@ def monthly_transactions(
         for assets in main_assets.values():
 
             for asset in assets:
-                if skip_one_off and hasattr(asset, "one_off") and asset.one_off:
+                # If skip one offs and asset has one_off set to True, skip it
+                if skip_one_off and getattr(asset, "one_off", False):
                     continue
                 if balance:
                     income = asset.get_income_balance(start)

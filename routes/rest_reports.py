@@ -132,7 +132,10 @@ def investment_performance():
 @reports_bp.route("/monthly_pnl", methods=["GET"])
 @login_required
 def monthly_pnl():
-    skip_one_off = request.args.get("oneOff", "1") == "0"
+    skip_one_off = request.args.get("oneOff", "0") == "0"
+    Logger.info(
+        f"Calculating monthly P&L with skip_one_off={skip_one_off} {request.args.get('oneOff', '1')}"
+    )
     assets = get_asset_store(UserStore.get_user_config(current_user.id))
     year_months, summary = vmpnl.monthly_pnl(assets, skip_one_off=skip_one_off)
     response = jsonify({"year_months": year_months, "summary": summary})
