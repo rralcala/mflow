@@ -100,7 +100,10 @@ def exchange_rates_get(name):
     if result is None:
         return jsonify({"message": "Exchange not found"}), HTTPStatus.NOT_FOUND
 
-    return jsonify({"id": name, "rate": result}), HTTPStatus.OK
+    return (
+        jsonify({"id": name, "rate": round(result, 2), "weekChange": round(result, 2)}),
+        HTTPStatus.OK,
+    )
 
 
 @reports_bp.route("/income_per_location", methods=["GET"])
