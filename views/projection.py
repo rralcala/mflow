@@ -28,8 +28,8 @@ def financial_analysis(main_assets: Dict[str, List[Asset]]) -> Dict[str, Any]:
     current_var_amount = current_var["amount"] / ExchangeRates.exchange_rate(
         f"USD{current_var['currency']}"
     )
-
-    runway_cost = pnl["net"] * runway
+    net = sum(pnl["p_totals"].values()) + sum(pnl["n_totals"].values())
+    runway_cost = net * runway
     addtitional_monthly_var = (
         (net_worth_value + runway_cost - desired_estate) / runway / 12
     )
@@ -38,7 +38,7 @@ def financial_analysis(main_assets: Dict[str, List[Asset]]) -> Dict[str, Any]:
         "net_worth_value": net_worth_value,
         "desired_estate": desired_estate,
         "runway_years": runway,
-        "current_year_net": pnl["net"],
+        "current_year_net": net,
         "estimated_max_var_usd": max_var,
         "estimated_max_var_sec_cur": max_var * exchange,
         "secondary_currency": user_config.SECONDARY_CURRENCY,

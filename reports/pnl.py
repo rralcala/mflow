@@ -97,14 +97,8 @@ def calculate_monthly_pnl_data(
             }
         )
 
-    income = p_totals["USD"] + p_totals[secondary_currency] / usd_secondary
-    expenses = n_totals["USD"] + n_totals[secondary_currency] / usd_secondary
-    net = income + expenses
-
     return {
         "monthly_data": monthly_data,
         "p_totals": p_totals,
         "n_totals": n_totals,
-        "income": income,
-        "net": net,
     }

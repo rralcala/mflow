@@ -662,26 +662,37 @@ def recurrent_transactions():
             reload_asset_store(UserStore.get_user_config(current_user.id))
             return jsonify(new_transaction.to_dict()), 201
     else:
+
         with Session() as session:
-            base_query = (
-                session.query(RecurrentTransaction)
-                .filter(RecurrentTransaction.user_id == int(current_user.id)
-                )
+            base_query = session.query(Recurrent).filter_by(
+                user_id=int(current_user.id)
+            )
+            rows = base_query.all()
+            recurrents = {}
+            for post in rows:
+                recurrents[post.identifier] = post.to_dict()
+
+            base_query = session.query(RecurrentTransaction).filter(
+                RecurrentTransaction.user_id == int(current_user.id)
             )
             if "recurrentId" in request.args:
                 base_query = base_query.filter(
-                        RecurrentTransaction.parent_id == request.args["recurrentId"],
-                    )
+                    RecurrentTransaction.parent_id == request.args["recurrentId"],
+                )
             if "yearMonth" in request.args:
                 base_query = base_query.filter(
-                        RecurrentTransaction.year_month == request.args["yearMonth"],
-                    )  
-            
-            
-            results = [
-                post.to_dict()
-                for post in base_query.order_by(RecurrentTransaction.transaction_date.desc()).all()
-            ]
+                    RecurrentTransaction.year_month == request.args["yearMonth"],
+                )
+
+            results = []
+            for post in base_query.order_by(
+                RecurrentTransaction.transaction_date.desc()
+            ).all():
+                record = post.to_dict()
+                record["currency"] = recurrents.get(post.parent_id, {}).get(
+                    "currency", ""
+                )
+                results.append(record)
 
         response = jsonify(results)
         response.headers["X-Total-Count"] = len(results)

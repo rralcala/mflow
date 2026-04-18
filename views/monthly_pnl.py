@@ -47,16 +47,14 @@ def monthly_pnl(
 
     p_totals = calculation["p_totals"]
     n_totals = calculation["n_totals"]
-    income = calculation["income"]
-    net = calculation["net"]
 
     summary = {
-        "grand_total": [
-            p_totals[secondary_currency] + n_totals[secondary_currency],
+        "net": [
             p_totals["USD"] + n_totals["USD"],
+            p_totals[secondary_currency] + n_totals[secondary_currency],
         ],
-        "income": [income * usd_secondary, income],
+        "income": [p_totals["USD"], p_totals[secondary_currency]],
+        "expenses": [n_totals["USD"], n_totals[secondary_currency]],
         "secondary_currency": secondary_currency,
-        "year_net": [net * usd_secondary, net],
     }
     return year_months, summary
