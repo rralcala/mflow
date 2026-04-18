@@ -52,10 +52,8 @@ class ExchangeRates:
             if currency != "usd":
                 key = "USD" + currency.upper()
                 if currency in data["usd"]:
-                    quote_cache[key] = float(data["usd"][currency])
-                    logger.info(
-                        f"Loaded exchange rate for {key}: {quote_cache[key]:.8f}"
-                    )
+                    quote_cache[key] = round(float(data["usd"][currency]), 2)
+                    logger.info(f"Loaded exchange rate for {key}: {quote_cache[key]}")
                 else:
                     logger.warning(
                         f"Exchange rate for {key} not found in API response."
@@ -65,13 +63,13 @@ class ExchangeRates:
             key = crypto.upper() + "USD"
             ticker = yf.Ticker(crypto + "-USD")
             ticker.fast_info["last_price"]
-            quote_cache[key] = ticker.fast_info["last_price"]
-            logger.info(f"Loaded cryto price for {crypto}: {quote_cache[key]:.2f}")
+            quote_cache[key] = round(ticker.fast_info["last_price"], 4)
+            logger.info(f"Loaded cryto price for {crypto}: {quote_cache[key]}")
 
         for stock in Config.TRADED_STOCKS:
             ticker = yf.Ticker(stock)
-            quote_cache[stock] = ticker.fast_info["last_price"]
-            logger.info(f"Loaded stock price for {stock}: {quote_cache[stock]:.2f}")
+            quote_cache[stock] = round(ticker.fast_info["last_price"], 2)
+            logger.info(f"Loaded stock price for {stock}: {quote_cache[stock]}")
 
         ExchangeRates.quote_cache = quote_cache
         ExchangeRates.last_update = datetime.now()
