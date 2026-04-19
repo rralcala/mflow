@@ -1,9 +1,7 @@
-import logging
 from datetime import date, datetime
 from typing import Any, Dict, List, Tuple
 
 from asset_classes.asset import Asset
-from data.datasource import DataSource
 from lib.config import Config
 
 
@@ -147,65 +145,3 @@ class Bond(Asset):
             + self.maturity_date.strftime(Config.DATE_FORMAT_STRING)
             + ")"
         )
-
-
-def parse_bond(data: Dict[str, Any], sheet: DataSource) -> Bond:
-    """
-    Function to parse account data from the provided data.
-
-    :param data: List of lists containing the account data.
-    :return: List of dictionaries with account information.
-    """
-    try:
-        rate_str = data["rate"]
-        if isinstance(rate_str, float):
-            interest_rate = rate_str
-        else:
-            interest_rate = float(rate_str.replace("%", "")) / 100
-        new_bond = Bond(
-            identifier=data["name"],
-            currency=data["currency"],
-            interest_rate=interest_rate,
-            capital=float(str(data["capital"]).replace(",", "")),
-            maturity_date=data["maturity_date"],
-            entity=data["entity"],
-            country=data["country"],
-        )
-    except ValueError as e:
-        logging.error(
-            f"Error parsing bond data: {data['capital']} or {data['interest']}"
-        )
-        raise e
-    payment_data = sheet.get_table(data["payment_schedule"])
-    new_bond.payment_schedule = []
-    for row in payment_data:
-        first = str(row[0]).lower()
-        if first == "seq" or first == "none":
-            continue
-        if isinstance(row[1], str):
-            pdate = datetime.strptime(row[1], Config.DATE_FORMAT_STRING)
-        else:
-            pdate = row[1]
-        try:
-            payment = {
-                "seq": first,
-                "date": pdate,
-                "amount": float(str(row[2]).replace(",", "")),
-                "paid": int(row[3]) == 1,
-            }
-        except ValueError as e:
-            logging.error(f"Error parsing bond payment data: {first} {row}")
-            raise e
-        new_bond.payment_schedule.append(payment)
-
-    return new_bond
-
-
-def fetch(sheet: DataSource) -> Bond:
-    data = sheet.get_sheet_settings()
-    if "itype" not in data or data["itype"].lower() != "bond":
-        raise ValueError("The first cell of the Summary sheet must be 'Type' and the")
-
-    bond = parse_bond(data, sheet)
-
-    return bond
