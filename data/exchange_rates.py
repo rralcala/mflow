@@ -10,7 +10,7 @@ from lib.config import Config
 from lib.logger import get_logger
 from models.quotes import Quote
 
-logger = get_logger()
+Logger = get_logger()
 
 
 CURRENCY_DATA = (
@@ -43,7 +43,7 @@ class ExchangeRates:
             response.raise_for_status()
             data = response.json()
         except requests.RequestException as e:
-            logger.error(f"Failed to load currency data: {e}")
+            Logger.error(f"Failed to load currency data: {e}")
             raise e
 
         quote_cache = {}
@@ -52,9 +52,9 @@ class ExchangeRates:
                 key = "USD" + currency.upper()
                 if currency in data["usd"]:
                     quote_cache[key] = round(float(data["usd"][currency]), 2)
-                    logger.info(f"Loaded exchange rate for {key}: {quote_cache[key]}")
+                    Logger.info(f"Loaded exchange rate for {key}: {quote_cache[key]}")
                 else:
-                    logger.warning(
+                    Logger.warning(
                         f"Exchange rate for {key} not found in API response."
                     )
 
@@ -63,13 +63,14 @@ class ExchangeRates:
             ticker = yf.Ticker(crypto + "-USD")
             ticker.fast_info["last_price"]
             quote_cache[key] = round(ticker.fast_info["last_price"], 4)
-            logger.info(f"Loaded cryto price for {crypto}: {quote_cache[key]}")
+            Logger.info(f"Loaded cryto price for {crypto}: {quote_cache[key]}")
 
         for stock in Config.TRADED_STOCKS:
             ticker = yf.Ticker(stock)
             quote_cache[stock] = round(ticker.fast_info["last_price"], 2)
-            logger.info(f"Loaded stock price for {stock}: {quote_cache[stock]}")
+            Logger.info(f"Loaded stock price for {stock}: {quote_cache[stock]}")
 
+        ExchangeRates.currencies = set(Config.CURRENCIES)
         ExchangeRates.quote_cache = quote_cache
         ExchangeRates.last_update = datetime.now()
 
@@ -89,7 +90,7 @@ class ExchangeRates:
             quotes = session.query(Quote).filter(Quote.date == date).all()
             results = []
             for quote in quotes:
-                logger.info(f"Loaded quote from DB: {quote.symbol} = {quote.value}")
+                Logger.info(f"Loaded quote from DB: {quote.symbol} = {quote.value}")
                 results.append((quote.symbol, round(float(quote.value), 4)))
         return results
 
@@ -108,8 +109,9 @@ class ExchangeRates:
         date = ExchangeRates.latest_in_db().strftime(Config.DATE_FORMAT_STRING)
 
         for symbol, value in ExchangeRates.local_quotes_on(date):
-            logger.info(f"Loaded quote from DB: {symbol} = {value}")
+            Logger.info(f"Loaded quote from DB: {symbol} = {value}")
             ExchangeRates.quote_cache[symbol] = value
+        ExchangeRates.currencies = set(Config.CURRENCIES)
 
     @staticmethod
     def exchange_rate(currencies: str) -> float:

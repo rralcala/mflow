@@ -66,7 +66,7 @@ def initialize_app():
     app.config["SESSION_COOKIE_SECURE"] = False  # Set to True only if using HTTPS
     app.config["SESSION_COOKIE_HTTPONLY"] = True  # Recommended for security
     app.config["SESSION_COOKIE_DOMAIN"] = False  # Recommended for security
-
+    app.secret_key = Config.DB_SECRET_KEY
     CORS(
         app,
         supports_credentials=True,

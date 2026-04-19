@@ -1,5 +1,4 @@
 import faulthandler
-import os
 import signal
 import sys
 import threading
