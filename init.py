@@ -17,7 +17,7 @@ app = Flask(__name__)
 logger = logging.getLogger()
 
 
-def initialize_app():
+def initialize_app() -> bool:
     global logger, app
     parser = argparse.ArgumentParser(description="Process a JSON configuration file.")
 
@@ -77,6 +77,7 @@ def initialize_app():
     engine = create_engine(f"sqlite:///{db_path.as_posix()}")
     db = engine.connect()
     Config.DB_SESSION = sessionmaker(bind=engine)
+    return debug_mode
 
 
 login_manager = LoginManager(app)

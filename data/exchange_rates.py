@@ -1,10 +1,12 @@
+import os
+import pickle
 from datetime import datetime
 from threading import Lock
 from typing import List, Tuple
 
 import requests
 import yfinance as yf
-from sqlalchemy import func
+from sqlalchemy import func, select
 
 from lib.config import Config
 from lib.logger import get_logger
@@ -18,7 +20,7 @@ CURRENCY_DATA = (
     + "/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json"
 )
 FX_REFRESH_INTERVAL = 60 * 60  # 1 hours in seconds
-
+FX_LAST_UPDATE_FILE = "cache/last_fx_refresh.pkl"
 FX_FETCH_LOCK = Lock()
 
 
@@ -106,12 +108,21 @@ class ExchangeRates:
 
     @staticmethod
     def fetch_from_local():
-        date = ExchangeRates.latest_in_db().strftime(Config.DATE_FORMAT_STRING)
+        date = ExchangeRates.latest_in_db()
+        date_str = date.strftime(Config.DATE_FORMAT_STRING)
+        for symbol, value in ExchangeRates.local_quotes_on(date_str):
 
-        for symbol, value in ExchangeRates.local_quotes_on(date):
-            Logger.info(f"Loaded quote from DB: {symbol} = {value}")
             ExchangeRates.quote_cache[symbol] = value
+        if os.path.exists(FX_LAST_UPDATE_FILE):
+            last_run = pickle.load(open(FX_LAST_UPDATE_FILE, "rb"))
+            if last_run.date() == date.date():
+                ExchangeRates.last_update = last_run
+            else:
+                ExchangeRates.last_update = date
+        else:
+            ExchangeRates.last_update = date
         ExchangeRates.currencies = set(Config.CURRENCIES)
+        Logger.info(f"Loaded quotes: {date_str} freshness {ExchangeRates.last_update}")
 
     @staticmethod
     def exchange_rate(currencies: str) -> float:
@@ -126,11 +137,38 @@ class ExchangeRates:
             raise ValueError(f"Exchange rate for {currencies} not found.")
 
     @staticmethod
+    def background_refresh():
+        with FX_FETCH_LOCK:
+            if len(ExchangeRates.quote_cache) == 0:
+                ExchangeRates.fetch_from_local()
+
+            if ExchangeRates.is_stale_or_empty():
+                Logger.info("Refreshing exchange rates...")
+                ExchangeRates._refresh_currency_data()
+                with Config.DB_SESSION() as session:
+                    date = ExchangeRates.latest_in_db().strftime(
+                        Config.DATE_FORMAT_STRING
+                    )
+                    today = datetime.now().strftime(Config.DATE_FORMAT_STRING)
+                    if True:  # date is None or date < today:
+                        for key, value in ExchangeRates.get_all().items():
+                            Logger.info(f"Adding quote to DB: {key} = {value:.2f}")
+                            date_str = ExchangeRates.last_update.strftime(
+                                Config.DATE_FORMAT_STRING
+                            )
+                            quote = session.scalars(
+                                select(Quote).filter_by(date=date_str, symbol=key)
+                            ).one_or_none()
+                            if quote is None:
+                                quote = Quote(
+                                    date=date_str, symbol=key, value=f"{value:.2f}"
+                                )
+                            session.merge(quote)
+                        session.commit()
+                        pickle.dump(datetime.now(), open(FX_LAST_UPDATE_FILE, "wb"))
+                        Logger.info(f"Added Quotes")
+
+    @staticmethod
     def get_all() -> dict:
         ExchangeRates.ensure_currency_data()
         return ExchangeRates.quote_cache
-
-
-if __name__ == "__main__":
-    ticker = yf.Ticker("SOL-USD")
-    print(ticker.fast_info["last_price"])

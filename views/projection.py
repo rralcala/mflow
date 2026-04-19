@@ -18,7 +18,9 @@ def financial_analysis(main_assets: Dict[str, List[Asset]]) -> Dict[str, Any]:
     user_config = UserStore.get_user_config(current_user.id)
     desired_estate = user_config.DESIRED_ESTATE
     net_worth_value, _, _ = net_worth(main_assets)
-    last_until_date = datetime.strptime(user_config.LAST_UNTIL, "%Y-%m-%d")
+    last_until_date = datetime.strptime(
+        user_config.LAST_UNTIL, Config.DATE_FORMAT_STRING
+    )
     runway_delta = relativedelta(last_until_date, datetime.now())
     runway = float(runway_delta.years) + float(runway_delta.months) / 12
     exchange = ExchangeRates.exchange_rate("USD" + user_config.SECONDARY_CURRENCY)
