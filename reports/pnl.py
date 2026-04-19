@@ -56,7 +56,8 @@ def monthly_transactions(
 def calculate_monthly_pnl_data(
     main_assets: Dict[str, List[Asset]],
     months: int = 12,
-    skip_one_off: bool = False, summary_only: bool = False,
+    skip_one_off: bool = False,
+    summary_only: bool = False,
 ) -> Dict[str, Any]:
     secondary_currency = UserStore.get_user_config(current_user.id).SECONDARY_CURRENCY
     usd_secondary = ExchangeRates.exchange_rate("USD" + secondary_currency)
@@ -95,7 +96,7 @@ def calculate_monthly_pnl_data(
                     "income_sums": psums,
                     "expense_sums": nsums,
                 }
-        )
+            )
 
     return {
         "monthly_data": monthly_data,

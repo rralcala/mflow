@@ -5,7 +5,9 @@ from unittest.mock import patch
 from flask import Flask
 
 import routes.rest_assets as rest_assets
+import routes.rest_recurrents as rest_recurrents
 from lib.config import Config
+from models.models import Recurrent, RecurrentTransaction
 
 
 def row(data):
@@ -429,31 +431,29 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ]
         session = SessionStub(
             {
-                rest_assets.Recurrent: QueryStub(all_items=recurrent_rows),
-                rest_assets.RecurrentTransaction: QueryStub(all_items=transaction_rows),
+                Recurrent: QueryStub(all_items=recurrent_rows),
+                RecurrentTransaction: QueryStub(all_items=transaction_rows),
             }
         )
 
         with self.app.test_request_context(
             "/recurrentTransactions", method="GET"
-        ), patch("routes.rest_assets.current_user", self.user), patch.object(
+        ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.recurrent_transactions.__wrapped__()
+            response, status = rest_recurrents.recurrent_transactions.__wrapped__()
 
         self.assertEqual(status, 200)
         self.assertEqual(response.get_json()[0]["currency"], "USD")
 
     def test_recurrent_transactions_get_not_found(self):
-        session = SessionStub(
-            {rest_assets.RecurrentTransaction: QueryStub(first_item=None)}
-        )
+        session = SessionStub({RecurrentTransaction: QueryStub(first_item=None)})
         with self.app.test_request_context(
             "/recurrentTransactions/missing", method="GET"
-        ), patch("routes.rest_assets.current_user", self.user), patch.object(
+        ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.recurrent_transactions_get.__wrapped__(
+            response, status = rest_recurrents.recurrent_transactions_get.__wrapped__(
                 "missing"
             )
 
@@ -461,26 +461,22 @@ class TestRestAssetsRoutes(unittest.TestCase):
 
     def test_recurrents_all_get(self):
         session = SessionStub(
-            {
-                rest_assets.Recurrent: QueryStub(
-                    all_items=[row({"id": "b"}), row({"id": "a"})]
-                )
-            }
+            {Recurrent: QueryStub(all_items=[row({"id": "b"}), row({"id": "a"})])}
         )
         with self.app.test_request_context("/recurrents", method="GET"), patch(
-            "routes.rest_assets.current_user", self.user
+            "routes.rest_recurrents.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_assets.recurrents_all.__wrapped__()
+            response, status = rest_recurrents.recurrents_all.__wrapped__()
 
         self.assertEqual(status, 200)
         self.assertEqual(response.get_json(), [{"id": "a"}, {"id": "b"}])
 
     def test_recurrents_get_not_found(self):
-        session = SessionStub({rest_assets.Recurrent: QueryStub(first_item=None)})
+        session = SessionStub({Recurrent: QueryStub(first_item=None)})
         with self.app.test_request_context("/recurrents/r", method="GET"), patch(
-            "routes.rest_assets.current_user", self.user
+            "routes.rest_recurrents.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_assets.recurrents_get.__wrapped__("r")
+            response, status = rest_recurrents.recurrents_get.__wrapped__("r")
 
         self.assertEqual(status, 404)
 

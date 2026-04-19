@@ -3,13 +3,11 @@ import signal
 import sys
 import threading
 import time
-from datetime import datetime
 
 from data.exchange_rates import ExchangeRates
 from init import app, initialize_app
 from lib.config import Config
 from lib.logger import get_logger
-from models.quotes import Quote
 from routes import register_api_routes
 
 debug = initialize_app()

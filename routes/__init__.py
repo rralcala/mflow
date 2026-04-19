@@ -1,5 +1,6 @@
+from . import rest_assets, rest_recurrents
 from .auth import auth_bp
-from .rest_assets import assets_bp
+from .blueprints import assets_bp
 from .rest_reports import reports_bp
 
 

@@ -15,10 +15,15 @@ from reports.pnl import calculate_monthly_pnl_data
 
 Logger = get_logger()
 
+
 def financial_analysis(main_assets: Dict[str, List[Asset]]) -> Dict[str, Any]:
-    
+
     user_config = UserStore.get_user_config(current_user.id)
-    exchange_for = { user_config.SECONDARY_CURRENCY: ExchangeRates.exchange_rate("USD" + user_config.SECONDARY_CURRENCY) }
+    exchange_for = {
+        user_config.SECONDARY_CURRENCY: ExchangeRates.exchange_rate(
+            "USD" + user_config.SECONDARY_CURRENCY
+        )
+    }
     desired_estate = user_config.DESIRED_ESTATE
     net_worth_value, _, _ = net_worth(main_assets)
     last_until_date = datetime.strptime(
@@ -27,7 +32,9 @@ def financial_analysis(main_assets: Dict[str, List[Asset]]) -> Dict[str, Any]:
     runway_delta = relativedelta(last_until_date, datetime.now())
     runway = float(runway_delta.years) + float(runway_delta.months) / 12
     exchange = ExchangeRates.exchange_rate("USD" + user_config.SECONDARY_CURRENCY)
-    pnl = calculate_monthly_pnl_data(main_assets, months=12, skip_one_off=True, summary_only=True)
+    pnl = calculate_monthly_pnl_data(
+        main_assets, months=12, skip_one_off=True, summary_only=True
+    )
     with Config.DB_SESSION() as session:
         current_var = session.query(Recurrent).get(user_config.DEFAULT_VAR_ID).to_dict()
     current_var_amount = current_var["amount"] / exchange_for[current_var["currency"]]
@@ -35,10 +42,14 @@ def financial_analysis(main_assets: Dict[str, List[Asset]]) -> Dict[str, Any]:
     for currency in currencies:
         if currency != "USD":
             if currency in pnl["p_totals"]:
-                pnl["p_totals"][currency] = pnl["p_totals"][currency] / exchange_for[currency]
+                pnl["p_totals"][currency] = (
+                    pnl["p_totals"][currency] / exchange_for[currency]
+                )
             if currency in pnl["n_totals"]:
-                pnl["n_totals"][currency] = pnl["n_totals"][currency] / exchange_for[currency]
-                
+                pnl["n_totals"][currency] = (
+                    pnl["n_totals"][currency] / exchange_for[currency]
+                )
+
     net = sum(pnl["p_totals"].values()) + sum(pnl["n_totals"].values())
     runway_cost = net * runway
     addtitional_monthly_var = (
