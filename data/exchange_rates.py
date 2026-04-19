@@ -6,7 +6,6 @@ import requests
 import yfinance as yf
 from sqlalchemy import func
 
-from init import Session
 from lib.config import Config
 from lib.logger import get_logger
 from models.quotes import Quote
@@ -76,7 +75,7 @@ class ExchangeRates:
 
     @staticmethod
     def latest_in_db() -> datetime:
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             date = session.query(func.max(Quote.date)).scalar()
         if date is None:
             date = datetime.min
@@ -86,7 +85,7 @@ class ExchangeRates:
 
     @staticmethod
     def local_quotes_on(date: str) -> List[Tuple[str, float]]:
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             quotes = session.query(Quote).filter(Quote.date == date).all()
             results = []
             for quote in quotes:

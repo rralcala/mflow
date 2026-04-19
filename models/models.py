@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask_login import UserMixin
 from sqlalchemy import Integer, String
 from sqlalchemy.orm import mapped_column
@@ -5,7 +7,7 @@ from sqlalchemy.orm import mapped_column
 from data.base import Base
 from lib.config import Config
 from lib.logger import get_logger
-from lib.util import get_formatted_date, sha256_hash
+from lib.util import sha256_hash
 
 logger = get_logger()
 
@@ -82,7 +84,11 @@ class RecurrentTransaction(Base):
     amount = mapped_column(String(20), nullable=False)
     transaction_date = mapped_column(String(35), nullable=False)
     paid_with = mapped_column(String(80), nullable=False)
-    create_date = mapped_column(String(35), nullable=False, default=get_formatted_date)
+    create_date = mapped_column(
+        String(35),
+        nullable=False,
+        default=datetime.now().strftime(Config.DATE_FORMAT_STRING),
+    )
     user_id = mapped_column(Integer, nullable=False)
 
     def to_dict(self):

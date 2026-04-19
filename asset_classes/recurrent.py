@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Tuple
 from asset_classes.asset import Asset
 from data.constants import RecurrentTypes
 from data.datasource import DataSource
-from init import Session
+from lib.config import Config
 from lib.logger import get_logger
 from lib.util import count_cron_runs, cron_runs
 from models import models
@@ -85,7 +85,7 @@ class Recurrent(Asset):
                 count_cron_runs(self.recurrence, self.start_date, self.maturity_date)
                 * self.amount
             )
-            with Session() as session:
+            with Config.DB_SESSION() as session:
                 transactions = (
                     session.query(models.RecurrentTransaction)
                     .filter_by(parent_id=self.identifier)
@@ -96,7 +96,7 @@ class Recurrent(Asset):
         return paid_amount, self.currency
 
     def fetch_transactions(self, date):
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             select_stmt = session.query(models.RecurrentTransaction).filter_by(
                 parent_id=self.identifier, year_month=date.strftime("%Y-%m")
             )

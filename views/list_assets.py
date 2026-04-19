@@ -7,7 +7,7 @@ from flask_login import current_user
 
 from asset_classes.asset import Asset
 from data.exchange_rates import ExchangeRates
-from init import Session
+from lib.config import Config
 from models.history import History
 from reports.list_assets import NEGATIVES, POSITIVES, net_worth
 
@@ -170,7 +170,7 @@ def list_assets(assets: Dict[str, List[Asset]]) -> Dict[str, float]:
         pct = value / grand_total
         if pct < 0.0 or pct > (0.04 / 100):
             tot_per_location_pct.append((key, value, pct))
-    with Session() as session:
+    with Config.DB_SESSION() as session:
         result = (
             session.query(History)
             .filter_by(user_id=int(current_user.id), date=date.today().replace(day=1))

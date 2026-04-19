@@ -7,7 +7,7 @@ from requests.exceptions import HTTPError
 from asset_classes.instrument import Instrument
 from lib.logger import get_logger
 
-logger = get_logger()
+Logger = get_logger()
 
 
 def get_accounts(api_key: str, api_secret: str, portfolio_id: str) -> Generator:
@@ -17,7 +17,7 @@ def get_accounts(api_key: str, api_secret: str, portfolio_id: str) -> Generator:
     try:
         portfolio = client.get_portfolio_breakdown(portfolio_id)
     except HTTPError as e:
-        logger.error(f"Error fetching portfolio breakdown: {e}")
+        Logger.error(f"Error fetching portfolio breakdown: {e}")
         return
     # Get account balances
     spot_positions = portfolio.to_dict()["breakdown"]["spot_positions"]

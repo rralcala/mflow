@@ -12,7 +12,6 @@ from asset_classes.payable import Payable
 from asset_classes.property import Property
 from data.coinbase import fetch_cb_assets
 from data.exchange_rates import ExchangeRates
-from init import Session
 from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserConfig
@@ -42,7 +41,7 @@ def get_asset_store(user_config: UserConfig) -> Dict[str, List[Asset]]:
 
 # Add a loader lock.
 def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
-    with Session() as session:
+    with Config.DB_SESSION() as session:
         logger.info("Loading assets from sheets and database")
         assets = {"USD": [], user_config.SECONDARY_CURRENCY: []}
         if user_config.COINBASE_API_KEY and len(user_config.COINBASE_API_KEY) > 0:

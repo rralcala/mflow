@@ -3,17 +3,20 @@ import logging
 from pathlib import Path
 from typing import Dict, List
 
+from sqlalchemy.orm import sessionmaker
+
 
 class Config:
     BASE_PATH: Path
-    DATE_FORMAT_STRING: str
+    DATE_FORMAT_STRING = "%Y-%m-%d"
     DB_SECRET_KEY: str
     SCRIPT_DIR: Path
     YEAR: float = 365.25
     USERS: Dict
     TRADED_CRYPTO: List[str]
     TRADED_STOCKS: List[str]
-    CURRENCIES: List[str]
+    CURRENCIES = ["USD"]
+    DB_SESSION: sessionmaker
 
 
 def load_config(config_file: Path, dest) -> bool:

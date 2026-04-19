@@ -7,7 +7,7 @@ from flask_login import current_user, login_required
 
 from data.asset_store import get_asset_store, reload_asset_store
 from data.exchange_rates import ExchangeRates
-from init import Session
+from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserStore
 from lib.util import business_days_ago
@@ -219,7 +219,7 @@ def upload_statement_endpoint():
     in_memory_file = io.BytesIO(file.read())
     try:
         response, summary = upload_statement(
-            Session(), update_balance, account_id, in_memory_file
+            Config.DB_SESSION(), update_balance, account_id, in_memory_file
         )
         if update_balance and account_id:
             reload_asset_store(UserStore.get_user_config(current_user.id))

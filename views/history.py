@@ -2,12 +2,12 @@ from typing import Any, List
 
 from flask_login import current_user
 
-from init import Session
+from lib.config import Config
 from models.history import History
 
 
 def nw_history(assets) -> List[List[Any]]:
-    with Session() as session:
+    with Config.DB_SESSION() as session:
         history = session.query(History).filter_by(user_id=current_user.id).all()
     items = len(history)
     report = []

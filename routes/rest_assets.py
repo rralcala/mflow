@@ -5,7 +5,7 @@ from flask import Blueprint, Response, jsonify, request
 from flask_login import current_user, login_required
 
 from data.asset_store import get_asset_store, reload_asset_store
-from init import Session
+from lib.config import Config
 from lib.user_config import UserStore
 from models.bond import Bond, BondSchedule
 from models.deposit_certificate import DepositCertificate, DepositCertificateSchedule
@@ -23,7 +23,7 @@ assets_bp = Blueprint("assets", __name__)
 @login_required
 def accounts():
     if request.method == "POST":
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             data = request.json
             new_transaction = Account(
                 id=data.get("id"),
@@ -43,7 +43,7 @@ def accounts():
     else:
         results = [
             post.to_dict()
-            for post in Session()
+            for post in Config.DB_SESSION()
             .query(Account)
             .filter_by(user_id=int(current_user.id))
             .all()
@@ -119,14 +119,16 @@ def bond_schedules_all():
             amount=data.get("amount"),
             paid=1 if data.get("paid", False) else 0,
         )
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             session.add(new_item)
             session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
         return jsonify(new_item.to_dict()), 201
     else:
         base_query = (
-            Session().query(BondSchedule).filter_by(user_id=int(current_user.id))
+            Config.DB_SESSION()
+            .query(BondSchedule)
+            .filter_by(user_id=int(current_user.id))
         )
         if "bondId" in request.args:
             base_query = base_query.filter(
@@ -147,7 +149,7 @@ def bond_schedules_all():
 @assets_bp.route("/bondSchedules/<id>", methods=["GET", "PUT"])
 @login_required
 def bond_schedules_get(id):
-    with Session() as session:
+    with Config.DB_SESSION() as session:
         result = (
             session.query(BondSchedule)
             .filter_by(user_id=int(current_user.id), id=id)
@@ -180,13 +182,18 @@ def bonds_all():
             country=data.get("country"),
             user_id=int(current_user.id),
         )
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             session.add(new_item)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
             return jsonify(new_item.to_dict()), 201
     else:
-        rows = Session().query(Bond).filter_by(user_id=int(current_user.id)).all()
+        rows = (
+            Config.DB_SESSION()
+            .query(Bond)
+            .filter_by(user_id=int(current_user.id))
+            .all()
+        )
 
         results = sorted(
             [post.to_dict() for post in rows], key=lambda x: x.get("id", "")
@@ -200,7 +207,10 @@ def bonds_all():
 @login_required
 def bonds_get(id):
     result = (
-        Session().query(Bond).filter_by(user_id=int(current_user.id), id=id).first()
+        Config.DB_SESSION()
+        .query(Bond)
+        .filter_by(user_id=int(current_user.id), id=id)
+        .first()
     )
     if result is None:
         return jsonify({"message": "Bond not found"}), HTTPStatus.NOT_FOUND
@@ -220,14 +230,14 @@ def deposit_certificate_schedules_all():
             amount=data.get("amount"),
             paid=1 if data.get("paid", False) else 0,
         )
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             session.add(new_item)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
             return jsonify(new_item.to_dict()), 201
     else:
         base_query = (
-            Session()
+            Config.DB_SESSION()
             .query(DepositCertificateSchedule)
             .filter_by(user_id=int(current_user.id))
         )
@@ -251,7 +261,7 @@ def deposit_certificate_schedules_all():
 @assets_bp.route("/depositCertificateSchedules/<id>", methods=["GET", "PUT"])
 @login_required
 def deposit_certificate_schedules_get(id):
-    with Session() as session:
+    with Config.DB_SESSION() as session:
         result = (
             session.query(DepositCertificateSchedule)
             .filter_by(user_id=int(current_user.id), id=id)
@@ -287,13 +297,13 @@ def deposit_certificates_all():
             country=data.get("country"),
             user_id=int(current_user.id),
         )
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             session.add(new_item)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
             return jsonify(new_item.to_dict()), 201
     else:
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             rows = (
                 session.query(DepositCertificate)
                 .filter_by(user_id=int(current_user.id))
@@ -311,7 +321,7 @@ def deposit_certificates_all():
 @assets_bp.route("/depositCertificates/<id>", methods=["GET"])
 @login_required
 def deposit_certificates_get(id):
-    with Session() as session:
+    with Config.DB_SESSION() as session:
         result = (
             session.query(DepositCertificate)
             .filter_by(user_id=int(current_user.id), id=id)
@@ -329,7 +339,7 @@ def deposit_certificates_get(id):
 @assets_bp.route("/accounts/<name>", methods=["GET", "PUT"])
 @login_required
 def get_account(name):
-    with Session() as session:
+    with Config.DB_SESSION() as session:
         result = (
             session.query(Account)
             .filter_by(user_id=int(current_user.id), id=name)
@@ -370,13 +380,13 @@ def instruments():
             acquisition_price=data.get("acquisition_price"),
             liquid=1 if data.get("liquid") else 0,
         )
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             session.add(new_transaction)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
             return jsonify(new_transaction.to_dict()), 201
     else:
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             results = [
                 post.to_dict()
                 for post in session.query(Instrument)
@@ -404,7 +414,7 @@ def instruments():
 @assets_bp.route("/instruments/<int:id>", methods=["GET", "PUT"])
 @login_required
 def instruments_get(id):
-    with Session() as session:
+    with Config.DB_SESSION() as session:
         result = (
             session.query(Instrument)
             .filter_by(user_id=int(current_user.id), id=id)
@@ -502,13 +512,13 @@ def payables():
             one_off=1 if data.get("oneOff") else 0,
             flow_class=data.get("flowClass"),
         )
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             session.add(new_transaction)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
             return jsonify(new_transaction.to_dict()), 201
     else:
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             base_query = session.query(Payable).filter_by(user_id=int(current_user.id))
             if "flowClass" in request.args:
                 base_query = base_query.filter_by(flow_class=request.args["flowClass"])
@@ -535,7 +545,7 @@ def payables():
 @assets_bp.route("/payables/<int:id>", methods=["GET", "PUT", "DELETE"])
 @login_required
 def payables_get(id):
-    with Session() as session:
+    with Config.DB_SESSION() as session:
         result = (
             session.query(Payable)
             .filter_by(user_id=int(current_user.id), id=id)
@@ -581,13 +591,13 @@ def properties():
             additional_data=data.get("additionalData"),
             rent_currency=data.get("rentCurrency"),
         )
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             session.add(new_transaction)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
             return jsonify(new_transaction.to_dict()), 201
     else:
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             base_query = session.query(Property).filter_by(user_id=int(current_user.id))
 
             results = [post.to_dict() for post in base_query.all()]
@@ -612,7 +622,7 @@ def properties():
 @assets_bp.route("/properties/<int:id>", methods=["GET", "PUT", "DELETE"])
 @login_required
 def properties_get(id):
-    with Session() as session:
+    with Config.DB_SESSION() as session:
         result = (
             session.query(Property)
             .filter_by(user_id=int(current_user.id), id=id)
@@ -656,14 +666,14 @@ def recurrent_transactions():
             paid_with=data.get("paidWithAssetId"),
             user_id=int(current_user.id),
         )
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             session.add(new_transaction)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
             return jsonify(new_transaction.to_dict()), 201
     else:
 
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             base_query = session.query(Recurrent).filter_by(
                 user_id=int(current_user.id)
             )
@@ -702,7 +712,7 @@ def recurrent_transactions():
 @assets_bp.route("/recurrentTransactions/<name>", methods=["GET", "PUT", "DELETE"])
 @login_required
 def recurrent_transactions_get(name):
-    with Session() as session:
+    with Config.DB_SESSION() as session:
         result = (
             session.query(RecurrentTransaction)
             .filter_by(user_id=int(current_user.id), transaction_id=name)
@@ -750,13 +760,13 @@ def recurrents_all():
             rate=data.get("rate"),
             user_id=int(current_user.id),
         )
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             session.add(new_transaction)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
             return jsonify(new_transaction.to_dict()), 201
     else:
-        with Session() as session:
+        with Config.DB_SESSION() as session:
             base_query = session.query(Recurrent).filter_by(
                 user_id=int(current_user.id)
             )
@@ -776,7 +786,7 @@ def recurrents_all():
 @assets_bp.route("/recurrents/<name>", methods=["GET", "PUT"])
 @login_required
 def recurrents_get(name):
-    with Session() as session:
+    with Config.DB_SESSION() as session:
         result = (
             session.query(Recurrent)
             .filter_by(user_id=int(current_user.id), identifier=name)
