@@ -26,7 +26,7 @@ FX_FETCH_LOCK = Lock()
 
 class ExchangeRates:
     quote_cache = {}
-    currencies = set(Config.CURRENCIES)
+    currencies = set()
     last_update = datetime.min
 
     @staticmethod
@@ -35,6 +35,7 @@ class ExchangeRates:
         if len(ExchangeRates.quote_cache) == 0:
             return True
         freshness = datetime.now() - ExchangeRates.last_update
+
         return freshness.total_seconds() > FX_REFRESH_INTERVAL
 
     @staticmethod
@@ -101,6 +102,9 @@ class ExchangeRates:
         if FX_FETCH_LOCK.locked():
             return
         with FX_FETCH_LOCK:
+            if len(ExchangeRates.currencies) == 0:
+                Logger.warning("Currency set is empty, loading from config...")
+                ExchangeRates.currencies = set(Config.CURRENCIES)
             if len(ExchangeRates.quote_cache) == 0:
                 ExchangeRates.fetch_from_local()
             if len(ExchangeRates.quote_cache) == 0:
@@ -114,7 +118,8 @@ class ExchangeRates:
 
             ExchangeRates.quote_cache[symbol] = value
         if os.path.exists(FX_LAST_UPDATE_FILE):
-            last_run = pickle.load(open(FX_LAST_UPDATE_FILE, "rb"))
+            with open(FX_LAST_UPDATE_FILE, "rb") as f:
+                last_run = pickle.load(f)
             if last_run.date() == date.date():
                 ExchangeRates.last_update = last_run
             else:
@@ -165,7 +170,8 @@ class ExchangeRates:
                                 )
                             session.merge(quote)
                         session.commit()
-                        pickle.dump(datetime.now(), open(FX_LAST_UPDATE_FILE, "wb"))
+                        with open(FX_LAST_UPDATE_FILE, "wb") as f:
+                            pickle.dump(datetime.now(), f)
                         Logger.info(f"Added Quotes")
 
     @staticmethod

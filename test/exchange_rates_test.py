@@ -199,7 +199,7 @@ class TestExchangeRates(unittest.TestCase):
 
     def test_fetch_from_local_loads_quotes_into_cache(self):
         ExchangeRates.quote_cache = {}
-
+        Config.CURRENCIES = ["usd"]
         with patch.object(
             ExchangeRates, "latest_in_db", return_value=datetime(2026, 4, 19, 0, 0, 0)
         ), patch.object(

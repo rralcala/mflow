@@ -9,13 +9,13 @@ from sqlalchemy.orm import sessionmaker
 class Config:
     BASE_PATH: Path
     DATE_FORMAT_STRING = "%Y-%m-%d"
-    DB_SECRET_KEY: str
+    SECRET_KEY: str
     SCRIPT_DIR: Path
     YEAR: float = 365.25
     USERS: Dict
     TRADED_CRYPTO: List[str]
     TRADED_STOCKS: List[str]
-    CURRENCIES = ["USD"]
+    CURRENCIES: List[str]
     DB_SESSION: sessionmaker
 
 
