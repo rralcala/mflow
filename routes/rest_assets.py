@@ -6,6 +6,7 @@ from flask_login import current_user, login_required
 
 from data.asset_store import get_asset_store, reload_asset_store
 from lib.config import Config
+from lib.logger import get_logger
 from lib.user_config import UserStore
 from models.bond import Bond, BondSchedule
 from models.deposit_certificate import DepositCertificate, DepositCertificateSchedule
@@ -17,6 +18,8 @@ from reports.list_assets import asset_data_from_asset, get_assets
 from reports.pnl import monthly_transactions as upcoming_monthly_transactions
 
 from .blueprints import assets_bp
+
+Logger = get_logger()
 
 
 @assets_bp.route("/accounts", methods=["GET", "POST"])
@@ -188,16 +191,26 @@ def bonds_all():
             reload_asset_store(UserStore.get_user_config(current_user.id))
             return jsonify(new_item.to_dict()), 201
     else:
-        rows = (
-            Config.DB_SESSION()
-            .query(Bond)
-            .filter_by(user_id=int(current_user.id))
-            .all()
-        )
+        # _order=DESC&_sort=maturityDate
+        rows = Config.DB_SESSION().query(Bond).filter_by(user_id=int(current_user.id))
 
-        results = sorted(
-            [post.to_dict() for post in rows], key=lambda x: x.get("id", "")
-        )
+        sort_key = "name"
+        if "_sort" in request.args:
+            if request.args["_sort"] != "id":
+                sort_key = request.args["_sort"]
+
+        if sort_key == "maturityDate":
+            if request.args.get("_order", "ASC") == "DESC":
+                rows = rows.order_by(Bond.maturity_date.desc())
+            else:
+                rows = rows.order_by(Bond.maturity_date.asc())
+        if sort_key == "name":
+            if request.args.get("_order", "ASC") == "DESC":
+                rows = rows.order_by(Bond.name.desc())
+            else:
+                rows = rows.order_by(Bond.name.asc())
+        results = [post.to_dict() for post in rows.all()]
+
         response = jsonify(results)
         response.headers["X-Total-Count"] = len(results)
         return response, HTTPStatus.OK
@@ -304,15 +317,25 @@ def deposit_certificates_all():
             return jsonify(new_item.to_dict()), 201
     else:
         with Config.DB_SESSION() as session:
-            rows = (
-                session.query(DepositCertificate)
-                .filter_by(user_id=int(current_user.id))
-                .all()
+            rows = session.query(DepositCertificate).filter_by(
+                user_id=int(current_user.id)
             )
+        sort_key = "name"
+        if "_sort" in request.args:
+            if request.args["_sort"] != "id":
+                sort_key = request.args["_sort"]
+        if sort_key == "maturityDate":
+            if request.args.get("_order", "ASC") == "DESC":
+                rows = rows.order_by(DepositCertificate.maturity_date.desc())
+            else:
+                rows = rows.order_by(DepositCertificate.maturity_date.asc())
+        if sort_key == "name":
+            if request.args.get("_order", "ASC") == "DESC":
+                rows = rows.order_by(DepositCertificate.name.desc())
+            else:
+                rows = rows.order_by(DepositCertificate.name.asc())
+        results = [post.to_dict() for post in rows.all()]
 
-        results = sorted(
-            [post.to_dict() for post in rows], key=lambda x: x.get("id", "")
-        )
         response = jsonify(results)
         response.headers["X-Total-Count"] = len(results)
         return response, HTTPStatus.OK
