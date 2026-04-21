@@ -434,7 +434,7 @@ def instruments():
     return response, HTTPStatus.OK
 
 
-@assets_bp.route("/instruments/<int:id>", methods=["GET", "PUT"])
+@assets_bp.route("/instruments/<int:id>", methods=["GET", "PUT", "DELETE"])
 @login_required
 def instruments_get(id):
     with Config.DB_SESSION() as session:
@@ -466,7 +466,12 @@ def instruments_get(id):
             result.liquid = 1 if data.get("liquid", result.liquid) else 0
 
             session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+        elif request.method == "DELETE":
+            session.delete(result)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+
         return jsonify(result.to_dict()), HTTPStatus.OK
 
 
