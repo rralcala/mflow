@@ -162,7 +162,10 @@ class TestRestAssetsRoutes(unittest.TestCase):
         session = SessionStub(
             {
                 rest_assets.Bond: QueryStub(
-                    all_items=[row({"id": "b"}), row({"id": "a"})]
+                    all_items=[
+                        row({"id": "a", "name": "a"}),
+                        row({"id": "b", "name": "b"}),
+                    ]
                 )
             }
         )
@@ -172,7 +175,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
             response, status = rest_assets.bonds_all.__wrapped__()
 
         self.assertEqual(status, 200)
-        self.assertEqual(response.get_json(), [{"id": "a"}, {"id": "b"}])
+        self.assertEqual(
+            response.get_json(), [{"id": "a", "name": "a"}, {"id": "b", "name": "b"}]
+        )
 
     def test_bonds_get_not_found(self):
         session = SessionStub({rest_assets.Bond: QueryStub(first_item=None)})
@@ -223,7 +228,10 @@ class TestRestAssetsRoutes(unittest.TestCase):
         session = SessionStub(
             {
                 rest_assets.DepositCertificate: QueryStub(
-                    all_items=[row({"id": "2"}), row({"id": "1"})]
+                    all_items=[
+                        row({"id": "2", "name": "a"}),
+                        row({"id": "1", "name": "b"}),
+                    ]
                 )
             }
         )
@@ -233,7 +241,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
             response, status = rest_assets.deposit_certificates_all.__wrapped__()
 
         self.assertEqual(status, 200)
-        self.assertEqual(response.get_json(), [{"id": "1"}, {"id": "2"}])
+        self.assertEqual(
+            response.get_json(), [{"id": "2", "name": "a"}, {"id": "1", "name": "b"}]
+        )
 
     def test_deposit_certificates_get_not_found(self):
         session = SessionStub(

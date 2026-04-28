@@ -189,29 +189,30 @@ def bonds_all():
             session.add(new_item)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
-            return jsonify(new_item.to_dict()), 201
+            response = jsonify(new_item.to_dict()), 201
+        return response
     else:
-        # _order=DESC&_sort=maturityDate
-        rows = Config.DB_SESSION().query(Bond).filter_by(user_id=int(current_user.id))
+        with Config.DB_SESSION() as session:
+            rows = session.query(Bond).filter_by(user_id=int(current_user.id))
 
-        sort_key = "name"
-        if "_sort" in request.args:
-            if request.args["_sort"] != "id":
-                sort_key = request.args["_sort"]
+            sort_key = "name"
+            if "_sort" in request.args:
+                if request.args["_sort"] != "id":
+                    sort_key = request.args["_sort"]
 
-        if sort_key == "maturityDate":
-            if request.args.get("_order", "ASC") == "DESC":
-                rows = rows.order_by(Bond.maturity_date.desc())
-            else:
-                rows = rows.order_by(Bond.maturity_date.asc())
-        if sort_key == "name":
-            if request.args.get("_order", "ASC") == "DESC":
-                rows = rows.order_by(Bond.name.desc())
-            else:
-                rows = rows.order_by(Bond.name.asc())
-        results = [post.to_dict() for post in rows.all()]
+            if sort_key == "maturityDate":
+                if request.args.get("_order", "ASC") == "DESC":
+                    rows = rows.order_by(Bond.maturity_date.desc())
+                else:
+                    rows = rows.order_by(Bond.maturity_date.asc())
+            if sort_key == "name":
+                if request.args.get("_order", "ASC") == "DESC":
+                    rows = rows.order_by(Bond.name.desc())
+                else:
+                    rows = rows.order_by(Bond.name.asc())
+            results = [post.to_dict() for post in rows.all()]
 
-        response = jsonify(results)
+            response = jsonify(results)
         response.headers["X-Total-Count"] = len(results)
         return response, HTTPStatus.OK
 
@@ -219,16 +220,15 @@ def bonds_all():
 @assets_bp.route("/bonds/<id>", methods=["GET"])
 @login_required
 def bonds_get(id):
-    result = (
-        Config.DB_SESSION()
-        .query(Bond)
-        .filter_by(user_id=int(current_user.id), id=id)
-        .first()
-    )
-    if result is None:
-        return jsonify({"message": "Bond not found"}), HTTPStatus.NOT_FOUND
-
-    return jsonify(result.to_dict()), HTTPStatus.OK
+    with Config.DB_SESSION() as session:
+        result = (
+            session.query(Bond).filter_by(user_id=int(current_user.id), id=id).first()
+        )
+        if result is None:
+            response = jsonify({"message": "Bond not found"}), HTTPStatus.NOT_FOUND
+        else:
+            response = jsonify(result.to_dict()), HTTPStatus.OK
+    return response
 
 
 @assets_bp.route("/depositCertificateSchedules", methods=["GET", "POST"])
@@ -314,29 +314,30 @@ def deposit_certificates_all():
             session.add(new_item)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
-            return jsonify(new_item.to_dict()), 201
+            response = jsonify(new_item.to_dict()), 201
+        return response
     else:
         with Config.DB_SESSION() as session:
             rows = session.query(DepositCertificate).filter_by(
                 user_id=int(current_user.id)
             )
-        sort_key = "name"
-        if "_sort" in request.args:
-            if request.args["_sort"] != "id":
-                sort_key = request.args["_sort"]
-        if sort_key == "maturityDate":
-            if request.args.get("_order", "ASC") == "DESC":
-                rows = rows.order_by(DepositCertificate.maturity_date.desc())
-            else:
-                rows = rows.order_by(DepositCertificate.maturity_date.asc())
-        if sort_key == "name":
-            if request.args.get("_order", "ASC") == "DESC":
-                rows = rows.order_by(DepositCertificate.name.desc())
-            else:
-                rows = rows.order_by(DepositCertificate.name.asc())
-        results = [post.to_dict() for post in rows.all()]
+            sort_key = "name"
+            if "_sort" in request.args:
+                if request.args["_sort"] != "id":
+                    sort_key = request.args["_sort"]
+            if sort_key == "maturityDate":
+                if request.args.get("_order", "ASC") == "DESC":
+                    rows = rows.order_by(DepositCertificate.maturity_date.desc())
+                else:
+                    rows = rows.order_by(DepositCertificate.maturity_date.asc())
+            if sort_key == "name":
+                if request.args.get("_order", "ASC") == "DESC":
+                    rows = rows.order_by(DepositCertificate.name.desc())
+                else:
+                    rows = rows.order_by(DepositCertificate.name.asc())
+            results = [post.to_dict() for post in rows.all()]
+            response = jsonify(results)
 
-        response = jsonify(results)
         response.headers["X-Total-Count"] = len(results)
         return response, HTTPStatus.OK
 
@@ -369,19 +370,21 @@ def get_account(name):
             .first()
         )
         if result is None:
-            return jsonify({"message": "Account not found"}), HTTPStatus.NOT_FOUND
-        if request.method == "PUT":
-            data = request.json
-            result.country = data.get("country", result.country)
-            result.institution = data.get("institution", result.institution)
-            result.currency = data.get("currency", result.currency)
-            result.balance = data.get("balance", result.balance)
-            result.factor = data.get("factor", result.factor)
-            result.account_type = data.get("accountType", result.account_type)
-            result.liquid = 1 if data.get("liquid", result.liquid) else 0
-            session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-        return jsonify(result.to_dict()), HTTPStatus.OK
+            response = jsonify({"message": "Account not found"}), HTTPStatus.NOT_FOUND
+        else:
+            if request.method == "PUT":
+                data = request.json
+                result.country = data.get("country", result.country)
+                result.institution = data.get("institution", result.institution)
+                result.currency = data.get("currency", result.currency)
+                result.balance = data.get("balance", result.balance)
+                result.factor = data.get("factor", result.factor)
+                result.account_type = data.get("accountType", result.account_type)
+                result.liquid = 1 if data.get("liquid", result.liquid) else 0
+                session.commit()
+                reload_asset_store(UserStore.get_user_config(current_user.id))
+            response = jsonify(result.to_dict()), HTTPStatus.OK
+    return response
 
 
 @assets_bp.route("/instruments", methods=["GET", "POST"])
