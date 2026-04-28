@@ -349,7 +349,7 @@ def deposit_certificates_all():
         return response, HTTPStatus.OK
 
 
-@assets_bp.route("/depositCertificates/<id:int>", methods=["GET"])
+@assets_bp.route("/depositCertificates/<int:id>", methods=["GET"])
 @login_required
 def deposit_certificates_get(id):
     with Config.DB_SESSION() as session:
