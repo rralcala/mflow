@@ -44,23 +44,23 @@ def accounts():
             reload_asset_store(UserStore.get_user_config(current_user.id))
             return jsonify(new_transaction.to_dict()), 201
     else:
-        results = [
-            post.to_dict()
-            for post in Config.DB_SESSION()
-            .query(Account)
-            .filter_by(user_id=int(current_user.id))
-            .all()
-        ]
-        count = len(results)
-        if "_sort" in request.args:
-            sort_key = request.args["_sort"]
-            reverse = request.args.get("_order", "ASC") == "DESC"
-            results.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
-        if "_start" in request.args and "_end" in request.args:
-            start = int(request.args["_start"])
-            end = int(request.args["_end"])
-            results = results[start:end]
-        response = jsonify(results)
+        with Config.DB_SESSION() as session:
+            results = [
+                post.to_dict()
+                for post in session.query(Account)
+                .filter_by(user_id=int(current_user.id))
+                .all()
+            ]
+            count = len(results)
+            if "_sort" in request.args:
+                sort_key = request.args["_sort"]
+                reverse = request.args.get("_order", "ASC") == "DESC"
+                results.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
+            if "_start" in request.args and "_end" in request.args:
+                start = int(request.args["_start"])
+                end = int(request.args["_end"])
+                results = results[start:end]
+            response = jsonify(results)
         response.headers["X-Total-Count"] = count
 
         return response, HTTPStatus.OK
@@ -125,29 +125,29 @@ def bond_schedules_all():
         with Config.DB_SESSION() as session:
             session.add(new_item)
             session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-        return jsonify(new_item.to_dict()), 201
+            response = jsonify(new_item.to_dict()), 201
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+        return response
     else:
-        base_query = (
-            Config.DB_SESSION()
-            .query(BondSchedule)
-            .filter(BondSchedule.user_id == int(current_user.id))
-        )
-        if "bondId" in request.args:
-            base_query = base_query.filter(
-                BondSchedule.bond_id == request.args["bondId"]
+        with Config.DB_SESSION() as session:
+            base_query = session.query(BondSchedule).filter(
+                BondSchedule.user_id == int(current_user.id)
             )
-        if "paid" in request.args:
-            paid_value = request.args["paid"].lower() == "true"
-            base_query = base_query.filter(
-                BondSchedule.paid == (1 if paid_value else 0)
-            )
-        results = [
-            post.to_dict()
-            for post in base_query.order_by(BondSchedule.date.asc()).all()
-        ]
+            if "bondId" in request.args:
+                base_query = base_query.filter(
+                    BondSchedule.bond_id == request.args["bondId"]
+                )
+            if "paid" in request.args:
+                paid_value = request.args["paid"].lower() == "true"
+                base_query = base_query.filter(
+                    BondSchedule.paid == (1 if paid_value else 0)
+                )
+            results = [
+                post.to_dict()
+                for post in base_query.order_by(BondSchedule.date.asc()).all()
+            ]
+            response = jsonify(results)
 
-        response = jsonify(results)
         response.headers["X-Total-Count"] = len(results)
         return response, HTTPStatus.OK
 
@@ -252,26 +252,28 @@ def deposit_certificate_schedules_all():
             reload_asset_store(UserStore.get_user_config(current_user.id))
             return jsonify(new_item.to_dict()), 201
     else:
-        base_query = (
-            Config.DB_SESSION()
-            .query(DepositCertificateSchedule)
-            .filter(DepositCertificateSchedule.user_id == int(current_user.id))
-        )
-        if "depositCertificateId" in request.args:
-            base_query = base_query.filter(
-                DepositCertificateSchedule.cd_id == request.args["depositCertificateId"]
+        with Config.DB_SESSION() as session:
+            base_query = session.query(DepositCertificateSchedule).filter(
+                DepositCertificateSchedule.user_id == int(current_user.id)
             )
-        if "paid" in request.args:
-            paid_value = request.args["paid"].lower() == "true"
-            base_query = base_query.filter(
-                DepositCertificateSchedule.paid == (1 if paid_value else 0)
-            )
-        results = [
-            post.to_dict()
-            for post in base_query.order_by(DepositCertificateSchedule.date.asc()).all()
-        ]
+            if "depositCertificateId" in request.args:
+                base_query = base_query.filter(
+                    DepositCertificateSchedule.cd_id
+                    == request.args["depositCertificateId"]
+                )
+            if "paid" in request.args:
+                paid_value = request.args["paid"].lower() == "true"
+                base_query = base_query.filter(
+                    DepositCertificateSchedule.paid == (1 if paid_value else 0)
+                )
+            results = [
+                post.to_dict()
+                for post in base_query.order_by(
+                    DepositCertificateSchedule.date.asc()
+                ).all()
+            ]
 
-        response = jsonify(results)
+            response = jsonify(results)
         response.headers["X-Total-Count"] = len(results)
         return response, HTTPStatus.OK
 
@@ -347,7 +349,7 @@ def deposit_certificates_all():
         return response, HTTPStatus.OK
 
 
-@assets_bp.route("/depositCertificates/<id>", methods=["GET"])
+@assets_bp.route("/depositCertificates/<id:int>", methods=["GET"])
 @login_required
 def deposit_certificates_get(id):
     with Config.DB_SESSION() as session:
@@ -361,8 +363,8 @@ def deposit_certificates_get(id):
                 jsonify({"message": "Deposit Certificate not found"}),
                 HTTPStatus.NOT_FOUND,
             )
-
-        return jsonify(result.to_dict()), HTTPStatus.OK
+        response = jsonify(result.to_dict()), HTTPStatus.OK
+    return response
 
 
 @assets_bp.route("/accounts/<name>", methods=["GET", "PUT"])
