@@ -131,14 +131,17 @@ def bond_schedules_all():
         base_query = (
             Config.DB_SESSION()
             .query(BondSchedule)
-            .filter_by(user_id=int(current_user.id))
+            .filter(BondSchedule.user_id == int(current_user.id))
         )
         if "bondId" in request.args:
             base_query = base_query.filter(
-                BondSchedule.bond_id == request.args["bondId"],
-                BondSchedule.user_id == int(current_user.id),
+                BondSchedule.bond_id == request.args["bondId"]
             )
-
+        if "paid" in request.args:
+            paid_value = request.args["paid"].lower() == "true"
+            base_query = base_query.filter(
+                BondSchedule.paid == (1 if paid_value else 0)
+            )
         results = [
             post.to_dict()
             for post in base_query.order_by(BondSchedule.date.asc()).all()
@@ -252,15 +255,17 @@ def deposit_certificate_schedules_all():
         base_query = (
             Config.DB_SESSION()
             .query(DepositCertificateSchedule)
-            .filter_by(user_id=int(current_user.id))
+            .filter(DepositCertificateSchedule.user_id == int(current_user.id))
         )
         if "depositCertificateId" in request.args:
             base_query = base_query.filter(
-                DepositCertificateSchedule.cd_id
-                == request.args["depositCertificateId"],
-                DepositCertificateSchedule.user_id == int(current_user.id),
+                DepositCertificateSchedule.cd_id == request.args["depositCertificateId"]
             )
-
+        if "paid" in request.args:
+            paid_value = request.args["paid"].lower() == "true"
+            base_query = base_query.filter(
+                DepositCertificateSchedule.paid == (1 if paid_value else 0)
+            )
         results = [
             post.to_dict()
             for post in base_query.order_by(DepositCertificateSchedule.date.asc()).all()
