@@ -13,6 +13,14 @@ from lib.config import Config
 from lib.logger import get_logger
 from routes import register_api_routes
 
+debug = initialize_app()
+
+if sys.platform == "linux" or sys.platform == "linux2":
+    print("Running on Linux")
+    faulthandler.register(signal.SIGUSR1)
+
+logger = get_logger()
+
 
 class IdentifierConverter(BaseConverter):
 
@@ -26,6 +34,7 @@ class IdentifierConverter(BaseConverter):
                 or ("0" <= char <= "9")
                 or char in "-_"
             ):
+                logger.warning(f"Invalid identifier: {value}")
                 raise ValidationError()
         return value
 
@@ -44,14 +53,6 @@ class IdentifierConverter(BaseConverter):
 
 
 app.url_map.converters["identifier"] = IdentifierConverter
-
-debug = initialize_app()
-
-if sys.platform == "linux" or sys.platform == "linux2":
-    print("Running on Linux")
-    faulthandler.register(signal.SIGUSR1)
-
-logger = get_logger()
 
 
 def background_task():

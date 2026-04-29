@@ -1,8 +1,6 @@
 from datetime import datetime
 from typing import Dict, List
 
-from flask_login import current_user
-
 from asset_classes import account, recurrent
 from asset_classes.asset import Asset
 from asset_classes.bond import Bond
@@ -25,7 +23,7 @@ from models.models import Account, Recurrent
 from models.payable import Payable as PayableModel
 from models.property import Property as PropertyModel
 
-logger = get_logger()
+Logger = get_logger()
 
 
 def reload_asset_store(user_config: UserConfig) -> Dict[str, List[Asset]]:
@@ -42,7 +40,6 @@ def get_asset_store(user_config: UserConfig) -> Dict[str, List[Asset]]:
 # Add a loader lock.
 def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
     with Config.DB_SESSION() as session:
-        logger.info("Loading assets from sheets and database")
         assets = {"USD": [], user_config.SECONDARY_CURRENCY: []}
         if user_config.COINBASE_API_KEY and len(user_config.COINBASE_API_KEY) > 0:
             assets["USD"] += fetch_cb_assets(
@@ -79,7 +76,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                     asset.payment_schedule.append(payment)
                 assets[asset.currency].append(asset)
         except KeyError as e:
-            logger.error(f"Present Keys {assets.keys()} - Error loading bonds: {e}")
+            Logger.error(f"Present Keys {assets.keys()} - Error loading bonds: {e}")
             raise e
 
         for row in (

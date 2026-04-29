@@ -368,7 +368,7 @@ def deposit_certificates_get(id):
     return response
 
 
-@assets_bp.route("/accounts/<name>", methods=["GET", "PUT"])
+@assets_bp.route("/accounts/<identifier:name>", methods=["GET", "PUT", "DELETE"])
 @login_required
 def get_account(name):
     with Config.DB_SESSION() as session:
@@ -390,7 +390,10 @@ def get_account(name):
                 result.account_type = data.get("accountType", result.account_type)
                 result.liquid = 1 if data.get("liquid", result.liquid) else 0
                 session.commit()
-                reload_asset_store(UserStore.get_user_config(current_user.id))
+            elif request.method == "DELETE":
+                session.delete(result)
+                session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
             response = jsonify(result.to_dict()), HTTPStatus.OK
     return response
 
