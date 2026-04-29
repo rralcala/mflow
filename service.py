@@ -4,11 +4,46 @@ import sys
 import threading
 import time
 
+from flask import request
+from werkzeug.routing import BaseConverter, ValidationError
+
 from data.exchange_rates import ExchangeRates
 from init import app, initialize_app
 from lib.config import Config
 from lib.logger import get_logger
 from routes import register_api_routes
+
+
+class IdentifierConverter(BaseConverter):
+
+    def to_python(self, value):
+        value = str(value)
+        for char in value:
+            # Checks if character is between 'a'-'z', 'A'-'Z', or '0'-'9'
+            if not (
+                ("a" <= char <= "z")
+                or ("A" <= char <= "Z")
+                or ("0" <= char <= "9")
+                or char in "-_"
+            ):
+                raise ValidationError()
+        return value
+
+    def to_url(self, value):
+        value = str(value)
+        for char in value:
+            # Checks if character is between 'a'-'z', 'A'-'Z', or '0'-'9'
+            if not (
+                ("a" <= char <= "z")
+                or ("A" <= char <= "Z")
+                or ("0" <= char <= "9")
+                or char in "-_"
+            ):
+                raise ValidationError()
+        return value
+
+
+app.url_map.converters["identifier"] = IdentifierConverter
 
 debug = initialize_app()
 

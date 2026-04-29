@@ -66,9 +66,10 @@ def accounts():
         return response, HTTPStatus.OK
 
 
-@assets_bp.route("/assets/<string:id>", methods=["GET"])
+@assets_bp.route("/assets/<identifier:id>", methods=["GET"])
 @login_required
 def asset_get(id):
+    Logger.info(f"Fetching asset with id: {id} for user: {current_user.id}")
     assets = get_asset_store(UserStore.get_user_config(current_user.id))
 
     for sub in assets.values():

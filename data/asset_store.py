@@ -53,7 +53,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
             )
         try:
             for row in (
-                session.query(BondModel).filter_by(user_id=int(current_user.id)).all()
+                session.query(BondModel).filter_by(user_id=user_config.USER_ID).all()
             ):
                 asset = Bond(
                     identifier=str(row.name),
@@ -68,7 +68,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 )
                 for irow in (
                     session.query(BondScheduleModel)
-                    .filter_by(user_id=int(current_user.id), bond_id=row.id)
+                    .filter_by(user_id=user_config.USER_ID, bond_id=row.id)
                     .all()
                 ):
                     payment = {
@@ -84,7 +84,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
 
         for row in (
             session.query(DepositCertificateModel)
-            .filter_by(user_id=int(current_user.id))
+            .filter_by(user_id=user_config.USER_ID)
             .all()
         ):
             asset = DepositCertificate(
@@ -100,7 +100,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
             )
             for irow in (
                 session.query(DepositCertificateSchedule)
-                .filter_by(user_id=int(current_user.id), cd_id=row.id)
+                .filter_by(user_id=user_config.USER_ID, cd_id=row.id)
                 .all()
             ):
                 payment = {
@@ -112,7 +112,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
             assets[asset.currency].append(asset)
 
         for row in (
-            session.query(Recurrent).filter_by(user_id=int(current_user.id)).all()
+            session.query(Recurrent).filter_by(user_id=user_config.USER_ID).all()
         ):
             asset = recurrent.Recurrent(
                 identifier=str(row.identifier),
@@ -130,7 +130,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
             assets[asset.currency].append(asset)
 
         for row in (
-            session.query(InstrumentModel).filter_by(user_id=int(current_user.id)).all()
+            session.query(InstrumentModel).filter_by(user_id=user_config.USER_ID).all()
         ):
             qty = float(row.qty)
             price = ExchangeRates.exchange_rate(row.symbol)
@@ -162,7 +162,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 liquid=row.liquid == 1,
             )
             assets[asset.currency].append(asset)
-        for row in session.query(Account).filter_by(user_id=int(current_user.id)).all():
+        for row in session.query(Account).filter_by(user_id=user_config.USER_ID).all():
             asset = account.Account(
                 identifier=str(row.id),
                 country=row.country,
@@ -175,7 +175,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
             )
             assets[asset.currency].append(asset)
         for row in (
-            session.query(PayableModel).filter_by(user_id=int(current_user.id)).all()
+            session.query(PayableModel).filter_by(user_id=user_config.USER_ID).all()
         ):
             asset = Payable(
                 identifier=row.description,
@@ -190,7 +190,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
             )
             assets[asset.currency].append(asset)
         for row in (
-            session.query(PropertyModel).filter_by(user_id=int(current_user.id)).all()
+            session.query(PropertyModel).filter_by(user_id=user_config.USER_ID).all()
         ):
             asset = Property(
                 identifier=row.property_name,
