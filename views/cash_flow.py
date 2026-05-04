@@ -3,11 +3,15 @@ from datetime import datetime, timedelta, timezone
 from flask_login import current_user
 
 from data.exchange_rates import ExchangeRates
+from lib.logger import get_logger
 from lib.user_config import UserStore
 from reports.cash_flow import generate_timeline
 
+Logger = get_logger()
+
 
 def cash_flow(assets):
+
     secondary_currency = UserStore.get_user_config(current_user.id).SECONDARY_CURRENCY
     secondary_country = UserStore.get_user_config(current_user.id).SECONDARY_COUNTRY
     sec_currency_contry = f"{secondary_currency}-{secondary_country}"
@@ -24,6 +28,7 @@ def cash_flow(assets):
             else:
                 dt_aware = dt.astimezone(timezone.utc)
             payment = {
+                "id": id,
                 "country": country,
                 "date": dt_aware.strftime("%Y-%m-%d"),
                 "amount": amount,
@@ -36,15 +41,16 @@ def cash_flow(assets):
     uu = 0.0
     up = 0.0
     pp = 0.0
-
+    report_for = set(["USD-US", pri_currency_sec_contry, sec_currency_contry])
     for payment in payments:
+        currency_country = f"{payment['currency']}-{payment['country']}"
+        if currency_country not in report_for:
+            continue
         key = payment["date"]
         timeline.setdefault(
             key, {"USD-US": uu, pri_currency_sec_contry: up, sec_currency_contry: pp}
         )
-        timeline[key][f"{payment['currency']}-{payment['country']}"] += payment[
-            "amount"
-        ]
+        timeline[key][currency_country] += payment["amount"]
         uu = timeline[key]["USD-US"]
         up = timeline[key][pri_currency_sec_contry]
         pp = timeline[key][sec_currency_contry]
