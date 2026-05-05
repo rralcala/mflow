@@ -72,7 +72,7 @@ class ExchangeRates:
             ticker = yf.Ticker(stock)
             quote_cache[stock] = round(ticker.fast_info["last_price"], 2)
             Logger.info(f"Loaded stock price for {stock}: {quote_cache[stock]}")
-
+        quote_cache["UYAM"] = 1.0
         ExchangeRates.currencies = set(Config.CURRENCIES)
         ExchangeRates.quote_cache = quote_cache
         ExchangeRates.last_update = datetime.now()
