@@ -145,7 +145,7 @@ def recurrents_all():
         return response, HTTPStatus.OK
 
 
-@assets_bp.route("/recurrents/<name>", methods=["GET", "PUT"])
+@assets_bp.route("/recurrents/<name>", methods=["GET", "PUT", "DELETE"])
 @login_required
 def recurrents_get(name):
     with Config.DB_SESSION() as session:
@@ -167,6 +167,10 @@ def recurrents_get(name):
             result.end = data.get("end", result.end)
             result.flow_class = data.get("flowClass", result.flow_class)
             result.rate = data.get("rate", result.rate)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+        elif request.method == "DELETE":
+            session.delete(result)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
         return jsonify(result.to_dict()), HTTPStatus.OK
