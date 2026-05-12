@@ -70,4 +70,4 @@ if __name__ == "__main__":
     t = threading.Thread(target=background_task, daemon=True)
     t.start()
     register_api_routes(app)
-    app.run(host="0.0.0.0", debug=debug)
+    app.run(host="0.0.0.0", port=5001, debug=debug)
