@@ -111,9 +111,10 @@ class Recurrent(Asset):
         for date in cron_runs(self.recurrence, start_of_month, end):
             if date >= self.start_date:
                 cash_flow = self.amount
-
+                Logger.debug(f"Start with {cash_flow}")
                 for row in self.fetch_transactions(date):
-                    cash_flow -= float(row.amount)
+                    amount = float(row.amount)
+                    cash_flow = round(cash_flow - amount, 2)
                 if self.flow_class == RecurrentTypes.Expense and cash_flow > 0.0:
                     continue
                 timeline.append((date.date(), (cash_flow, self.currency, False)))
