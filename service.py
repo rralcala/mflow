@@ -18,7 +18,7 @@ debug = initialize_app()
 Logger = get_logger()
 
 if sys.platform in ("linux", "linux2", "darwin"):
-    Logger.info("Running on Linux")
+    Logger.info("Running on Unix-like")
     faulthandler.register(signal.SIGUSR1)
 
 
