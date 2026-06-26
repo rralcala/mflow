@@ -15,11 +15,11 @@ from routes import register_api_routes
 
 debug = initialize_app()
 
-if sys.platform == "linux" or sys.platform == "linux2":
-    print("Running on Linux")
-    faulthandler.register(signal.SIGUSR1)
+Logger = get_logger()
 
-logger = get_logger()
+if sys.platform in ("linux", "linux2", "darwin"):
+    Logger.info("Running on Linux")
+    faulthandler.register(signal.SIGUSR1)
 
 
 class IdentifierConverter(BaseConverter):
@@ -34,7 +34,7 @@ class IdentifierConverter(BaseConverter):
                 or ("0" <= char <= "9")
                 or char in "-_"
             ):
-                logger.warning(f"Invalid identifier: {value}")
+                Logger.warning(f"Invalid identifier: {value}")
                 raise ValidationError()
         return value
 
@@ -57,7 +57,7 @@ app.url_map.converters["identifier"] = IdentifierConverter
 
 def background_task():
     while True:
-        logger.info("Running...")
+        Logger.info("Running...")
         if Config.DB_SESSION is None:
             time.sleep(1)
             continue
@@ -70,4 +70,4 @@ if __name__ == "__main__":
     t = threading.Thread(target=background_task, daemon=True)
     t.start()
     register_api_routes(app)
-    app.run(host="0.0.0.0", port=5001, debug=debug)
+    app.run(host="0.0.0.0", port=5001)
