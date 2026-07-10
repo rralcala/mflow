@@ -26,6 +26,7 @@ class Instrument(Asset):
         acquisition_date: datetime,
         acquisition_price: float,
         liquid: bool,
+        capital_rate: float
     ):
         self.symbol = symbol
         self.identifier = f"{location}_{symbol}"
@@ -41,6 +42,7 @@ class Instrument(Asset):
         self.acquisition_date = acquisition_date
         self.acquisition_price = acquisition_price
         self.liquid = liquid
+        self.capital_rate = capital_rate
 
     def is_liquid(self) -> bool:
         return self.liquid
@@ -190,7 +192,7 @@ def parse_portfolio(data: List[List[Any]]) -> List[Instrument]:
                 row[7], datetime(year, 1, 1), datetime(year, 12, 31)
             )
             estimated_dividend = qty * price * rate / payouts
-
+        raise Exception("Deprecated")
         asset = Instrument(
             country=row[0],
             location=row[1],

@@ -416,6 +416,7 @@ def instruments():
             acquisition_date=data.get("acquisition_date"),
             acquisition_price=data.get("acquisition_price"),
             liquid=1 if data.get("liquid") else 0,
+            capital_rate=data.get("capital_rate", 0.0),
         )
         with Config.DB_SESSION() as session:
             session.add(new_transaction)
@@ -478,7 +479,7 @@ def instruments_get(id):
                 "acquisition_price", result.acquisition_price
             )
             result.liquid = 1 if data.get("liquid", result.liquid) else 0
-
+            result.capital_rate = data.get("capital_rate", result.capital_rate)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
         elif request.method == "DELETE":
