@@ -1,14 +1,21 @@
+import builtins
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+from asset_classes.asset import Asset
+from asset_classes.bond import Bond
+from asset_classes.cd import DepositCertificate
 from data.exchange_rates import ExchangeRates
 from reports.cash_flow import generate_timeline
-
+from dateutil.relativedelta import relativedelta
+from asset_classes.instrument import Instrument
+from asset_classes.recurrent import Recurrent
+from asset_classes.payable import Payable
 
 def _to_date(value: Optional[date | datetime]) -> date:
     if value is None:
         return date.today()
-    if isinstance(value, datetime):
+    if builtins.isinstance(value, datetime):
         return value.date()
     return value
 
@@ -134,8 +141,117 @@ def _resolve_end_date(
 
     return _safe_add_years(start_date, fallback_years)
 
+def inflation_matrix(start: int, years: int) -> dict[int, dict[str, float]]:
+    inflation = {}
+    inflation[start] = {"USD": 1, "PYG": 1}
+
+    for i in range(start+1, start+years+1):
+        inflation[i] = {
+            "USD": builtins.round(inflation[i-1]["USD"] * 1.025,4),
+            "PYG": builtins.round(inflation[i-1]["PYG"] * 1.045, 4),
+            }
+    return inflation
+
 
 def future_timeline(
+    assets: Dict[str, List[Any]],
+    mode: str = "aggregated",
+    granularity: str = "monthly",
+    start_date: Optional[date | datetime] = None,
+    end_date: Optional[date | datetime] = None,
+    include_non_expiring_value: bool = True,
+    include_expirations: bool = True,
+    include_yield: bool = True,
+    fallback_years: int = 5,
+) -> List[Dict[str, Any]]:
+    inflation = {}
+    sink_assets = {"USD-US": "Citi_B5894_USD", "USD-PY": "Puente_USD", "Puente_USD": "Puente_PYG",}
+    # PY INF 5.09% US INF 2.5%
+    sink = {}
+    find = sink_assets.values()
+    for asset in assets.get("USD", []):
+        if asset.identifier in find:
+           # print(f"Asset {asset.identifier} {asset.get_currency()} {asset.get_location()} found in sink assets, skipping future timeline generation.")
+            sink[asset.get_currency()+ "-"+asset.get_location()[0]] = asset
+            sink[asset.get_currency()+ "-UY"] = asset
+    
+    for asset in assets.get("PYG", []):
+        if asset.identifier in find:
+           # print(f"Asset {asset.identifier} {asset.get_currency()} {asset.get_location()} found in sink assets, skipping future timeline generation.")
+            sink[asset.get_currency()+ "-"+asset.get_location()[0]] = asset
+    for k, v in sink.items():
+        print(f"Sink asset {v.identifier} found for {k}, skipping future timeline generation.")
+    
+    start_date = datetime.today().replace(day=1)
+    total_months = 49 * 12
+    ret = ""
+    month_list = []
+    c = 0
+    for i in range(total_months):
+        # Add 'i' months to the start date
+        current_month = start_date + relativedelta(months=i)
+        month_list.append(current_month)
+        print(current_month)
+        line = {}
+        if not print_sinks(sink):
+            break
+        ych = False
+        if c == 12:
+            c = 0
+            ych = True
+        c += 1
+        for k, v in assets.items():
+            for asset in v:
+                if builtins.isinstance(asset, Instrument):
+                    income = round(asset.get_actual_income(current_month)[0],2)
+                    # Some instruments have their own sink.
+                    if income > 0.0:
+                        sink_dest = asset.get_currency()+ "-"+asset.get_location()[0]
+                        print(f"{asset.identifier} {asset.qty}: {income} + {round(sink[sink_dest].qty,2):,.2f} -> {sink_dest}")
+                        sink[sink_dest].qty += income
+                if builtins.isinstance(asset, Recurrent):
+                    income = round(asset.get_budgeted_income(current_month)[0],2)
+                    if income != 0.0:
+                        Currency = asset.get_currency()
+                        if ych and asset.flow_class in ["income", "expense"] and not asset.identifier.startswith("Gastos"):
+                            if Currency == "USD":
+                                asset.amount *= 1.025
+                            if Currency == "PYG":
+                                asset.amount *= 1.04
+                        sink_dest = Currency+ "-"+asset.get_location()[0]
+                        print(f"{asset.identifier}: {income} -> {sink_dest}")
+                        sink[sink_dest].qty += income
+                if builtins.isinstance(asset, Payable):
+                    income = round(asset.get_budgeted_income(current_month)[0],2)
+                    if income != 0.0:
+                        Currency = asset.get_currency()
+                        #if ych and asset.flow_class in ["income", "expense"] and not asset.identifier.startswith("Gastos"):
+                            #if Currency == "USD":
+                            #    asset.amount *= 1.025
+                            #if Currency == "PYG":
+                            #    asset.amount *= 1.04
+                        sink_dest = Currency+ "-"+asset.get_location()[0]
+                        print(f"{asset.identifier}: {income} -> {sink_dest}")
+                        sink[sink_dest].qty += income
+                if builtins.isinstance(asset, Bond) or builtins.isinstance(asset, DepositCertificate):
+                    income = round(asset.get_income_balance(current_month)[0],2)
+                    if income != 0.0:
+                        sink_dest = asset.get_currency()+ "-"+asset.get_location()[0]
+                        #print(f"{asset.identifier}: {income} -> {sink_dest}")
+                        sink[sink_dest].qty += income
+    for k, v in sink.items():
+        print(f"Sink asset {v.identifier} final qty: {round(v.qty, 2):,.2f}")
+    #print(ret)
+    return ret
+
+def print_sinks(sinks: Dict[str, Asset]) -> bool:
+    for k, v in sinks.items():
+        print(f"{k} {round(v.qty, 2):,.2f}")
+        if v.qty < 0.0:
+            return False
+    return True
+
+def future_timeline2(
     assets: Dict[str, List[Any]],
     mode: str = "aggregated",
     granularity: str = "monthly",

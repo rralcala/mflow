@@ -68,10 +68,10 @@ class Instrument(Asset):
         """
         Returns the value of the asset in USD.
         """
-        if self.symbol == "CROUSD":
-            self.price = ExchangeRates.exchange_rate("CROUSD")
-        elif self.symbol == "BTCUSD":
-            self.price = ExchangeRates.exchange_rate("BTCUSD")
+        #if self.symbol == "CROUSD":
+        #    self.price = ExchangeRates.exchange_rate("CROUSD")
+        #elif self.symbol == "BTCUSD":
+        #    self.price = ExchangeRates.exchange_rate("BTCUSD")
 
         return self.qty * self.price * self.factor, self.currency
 
@@ -100,7 +100,8 @@ class Instrument(Asset):
             datetime(year, month, 1),
             datetime(year, month, calendar.monthrange(year, month)[1]),
         ):
-            amount += self.estimated_dividend * self.factor
+            
+            amount += self.qty * self.price * self.estimated_dividend * self.factor
 
         return amount, self.currency
 
@@ -118,7 +119,7 @@ class Instrument(Asset):
         if self.estimated_dividend != 0.0:
             for date in cron_runs(self.dividend, datetime.today(), end):
                 timeline.append(
-                    (date.date(), (self.estimated_dividend, self.currency, False))
+                    (date.date(), (self.qty * self.price * self.estimated_dividend * self.factor, self.currency, False))
                 )
         return timeline
 
@@ -146,16 +147,6 @@ class Instrument(Asset):
     def __repr__(self):
         return f"Instrument({self.identifier}, value={self.get_current_value()[0]:,.0f} {self.currency}, rate={(self.rate*100):,.2f}% location={self.location}, liquid={self.liquid})"
 
-
-def get_total_value(assets: List[Instrument]) -> float:
-    """
-    Returns the total value of the portfolio.
-    """
-    total = 0.0
-    for asset in assets:
-        value, _ = asset.get_current_value()
-        total += value
-    return total
 
 
 def fetch(sheet: DataSource) -> List[Instrument]:
@@ -192,7 +183,7 @@ def parse_portfolio(data: List[List[Any]]) -> List[Instrument]:
             payouts = count_cron_runs(
                 row[7], datetime(year, 1, 1), datetime(year, 12, 31)
             )
-            estimated_dividend = qty * price * rate / payouts
+            estimated_dividend = rate / payouts
         raise Exception("Deprecated")
         asset = Instrument(
             country=row[0],

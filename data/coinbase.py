@@ -49,7 +49,7 @@ def fetch_cb_assets(key, secret, portfolio_id, stake_rates) -> List[Instrument]:
             price=fiat_balance / qty,
             factor=1.0,
             qty=qty,
-            estimated_dividend=qty * rate / 12,
+            estimated_dividend=rate / 12,
             rate=rate,
             dividend="0 0 1 * *",
             currency="USD",

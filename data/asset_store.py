@@ -39,6 +39,7 @@ def get_asset_store(user_config: UserConfig) -> Dict[str, List[Asset]]:
 
 # Add a loader lock.
 def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
+    Logger.info("Loading assets from database...")
     with Config.DB_SESSION() as session:
         assets = {"USD": [], user_config.SECONDARY_CURRENCY: []}
         if user_config.COINBASE_API_KEY and len(user_config.COINBASE_API_KEY) > 0:
@@ -134,13 +135,17 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
             rate = float(row.dividend_rate)
 
             estimated_dividend = 0.0
+            Logger.warning(row.dividend)
             if len(row.dividend) > 5:
                 year = datetime.now().year
                 payouts = count_cron_runs(
                     row.dividend, datetime(year, 1, 1), datetime(year, 12, 31)
                 )
-                estimated_dividend = qty * price * rate / payouts
-
+                
+                estimated_dividend = rate / payouts
+                Logger.info(f"LOADED {estimated_dividend}")
+            if row.symbol == "SOLUSD":
+                print(f"{row.symbol} -> {estimated_dividend}")
             asset = Instrument(
                 country=row.country,
                 location=row.location,

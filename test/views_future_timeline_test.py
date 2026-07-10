@@ -1,7 +1,7 @@
 import unittest
 from datetime import date, datetime
 
-from views.future_timeline import future_timeline
+from views.future_timeline import future_timeline2, inflation_matrix
 
 
 class StubAsset:
@@ -39,7 +39,12 @@ class StubAsset:
         return self.country, "stub"
 
 
+
 class TestFutureTimelineView(unittest.TestCase):
+    def test_inflation_generator(self):
+        matrix = inflation_matrix(2026, 10)
+        self.assertEqual(matrix[2036], {'USD': 1.2801, 'PYG': 1.5529})
+
     def test_flat_monthly_includes_value_yield_and_expiration(self):
         bond = StubAsset(
             identifier="bond-1",
@@ -60,7 +65,7 @@ class TestFutureTimelineView(unittest.TestCase):
             timeline=[],
         )
 
-        rows = future_timeline(
+        rows = future_timeline2(
             {"USD": [bond, account]},
             mode="flat",
             granularity="monthly",
@@ -93,7 +98,7 @@ class TestFutureTimelineView(unittest.TestCase):
             due_date=datetime(2031, 6, 10),
         )
 
-        rows = future_timeline(
+        rows = future_timeline2(
             {"USD": [payable]},
             mode="aggregated",
             granularity="yearly",
@@ -116,7 +121,7 @@ class TestFutureTimelineView(unittest.TestCase):
             maturity_date=datetime(2032, 1, 10),
         )
 
-        rows = future_timeline(
+        rows = future_timeline2(
             {"USD": [expiring]},
             mode="flat",
             granularity="yearly",
