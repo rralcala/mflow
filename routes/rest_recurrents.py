@@ -118,7 +118,7 @@ def recurrents_all():
             recurrence=data.get("recurrence"),
             start=data.get("start"),
             end=data.get("end"),
-            flow_class=data.get("flowClass"),
+            flow_class=data.get("flowClass").lower(),
             rate=data.get("rate"),
             user_id=int(current_user.id),
         )
@@ -165,7 +165,7 @@ def recurrents_get(name):
             result.recurrence = data.get("recurrence", result.recurrence)
             result.start = data.get("start", result.start)
             result.end = data.get("end", result.end)
-            result.flow_class = data.get("flowClass", result.flow_class)
+            result.flow_class = data.get("flowClass", result.flow_class).lower()
             result.rate = data.get("rate", result.rate)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))

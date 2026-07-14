@@ -553,7 +553,7 @@ def payables():
             commited=1 if data.get("paidWithAssetId") else 0,
             user_id=int(current_user.id),
             one_off=1 if data.get("oneOff") else 0,
-            flow_class=data.get("flowClass"),
+            flow_class=data.get("flowClass").lower(),
         )
         with Config.DB_SESSION() as session:
             session.add(new_transaction)
@@ -606,7 +606,7 @@ def payables_get(id):
             result.description = data.get("description", result.description)
             result.commited = 1 if data.get("commited", result.commited) else 0
             result.one_off = 1 if data.get("oneOff", result.one_off) else 0
-            result.flow_class = data.get("flowClass", result.flow_class)
+            result.flow_class = data.get("flowClass", result.flow_class).lower()
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
         elif request.method == "DELETE":
