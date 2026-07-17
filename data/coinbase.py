@@ -56,7 +56,7 @@ def fetch_cb_assets(key, secret, portfolio_id, stake_rates) -> List[Instrument]:
             acquisition_date=datetime(2026, 2, 10),
             acquisition_price=float(position["average_entry_price"]["value"]),
             liquid=position["asset"] == "USDC",
-            capital_rate=0.0, # Calculate based on 10Y chg
+            capital_rate=0.0,  # Calculate based on 10Y chg
         )
         assets.append(account)
     return assets

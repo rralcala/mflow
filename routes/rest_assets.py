@@ -221,17 +221,42 @@ def bonds_all():
         return response, HTTPStatus.OK
 
 
-@assets_bp.route("/bonds/<id>", methods=["GET"])
+@assets_bp.route("/bonds/<id>", methods=["GET", "PUT"])
 @login_required
 def bonds_get(id):
+    return certificate_get(Bond, request, id)
+
+
+@assets_bp.route("/depositCertificates/<int:id>", methods=["GET", "PUT"])
+@login_required
+def deposit_certificates_get(id):
+    return certificate_get(DepositCertificate, request, id)
+
+
+def certificate_get(cert_type, request_input, id):
     with Config.DB_SESSION() as session:
         result = (
-            session.query(Bond).filter_by(user_id=int(current_user.id), id=id).first()
+            session.query(cert_type)
+            .filter_by(user_id=int(current_user.id), id=id)
+            .first()
         )
         if result is None:
-            response = jsonify({"message": "Bond not found"}), HTTPStatus.NOT_FOUND
-        else:
-            response = jsonify(result.to_dict()), HTTPStatus.OK
+            return (
+                jsonify({"message": f"{cert_type.__name__} not found"}),
+                HTTPStatus.NOT_FOUND,
+            )
+        elif request_input.method == "PUT":
+            data = request_input.json
+            result.name = data.get("name", result.name)
+            result.capital = data.get("capital", result.capital)
+            result.rate = data.get("rate", result.rate)
+            result.maturity_date = data.get("maturityDate", result.maturity_date)
+            result.currency = data.get("currency", result.currency)
+            result.entity = data.get("entity", result.entity)
+            result.country = data.get("country", result.country)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+        response = jsonify(result.to_dict()), HTTPStatus.OK
     return response
 
 
@@ -348,24 +373,6 @@ def deposit_certificates_all():
 
         response.headers["X-Total-Count"] = len(results)
         return response, HTTPStatus.OK
-
-
-@assets_bp.route("/depositCertificates/<int:id>", methods=["GET"])
-@login_required
-def deposit_certificates_get(id):
-    with Config.DB_SESSION() as session:
-        result = (
-            session.query(DepositCertificate)
-            .filter_by(user_id=int(current_user.id), id=id)
-            .first()
-        )
-        if result is None:
-            return (
-                jsonify({"message": "Deposit Certificate not found"}),
-                HTTPStatus.NOT_FOUND,
-            )
-        response = jsonify(result.to_dict()), HTTPStatus.OK
-    return response
 
 
 @assets_bp.route("/accounts/<identifier:name>", methods=["GET", "PUT", "DELETE"])

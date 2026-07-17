@@ -8,6 +8,7 @@ from data.exchange_rates import ExchangeRates
 from lib.util import count_cron_runs, cron_runs
 from lib.config import Config
 
+
 class Instrument(Asset):
     """Represents a financial asset with its attributes and methods to calculate its value."""
 
@@ -26,7 +27,7 @@ class Instrument(Asset):
         acquisition_date: datetime,
         acquisition_price: float,
         liquid: bool,
-        capital_rate: float
+        capital_rate: float,
     ):
         self.symbol = symbol
         self.identifier = f"{location}_{symbol}"
