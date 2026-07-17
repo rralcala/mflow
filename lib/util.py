@@ -21,6 +21,15 @@ class FormatPrinter(pprint.PrettyPrinter):
 PRINTER = FormatPrinter({float: "{:,.2f}", int: "{:d}"})
 
 
+def type_to_str(type_obj) -> str:
+    """
+    Converts a type object to a string representation.
+    """
+    if hasattr(type_obj, "__name__"):
+        return type_obj.__name__
+    return str(type_obj)
+
+
 def count_cron_runs(cron_pattern: str, start_date: datetime, end_date: datetime) -> int:
     return len(cron_runs(cron_pattern, start_date, end_date))
 

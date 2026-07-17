@@ -20,6 +20,7 @@ class TestInstrumentAssets(unittest.TestCase):
             acquisition_date=datetime.combine(datetime.today(), time.min),
             acquisition_price=100.0,
             liquid=True,
+            capital_rate=0.0,
         )
         performance = acc.get_returns()
         self.assertEqual(performance, (1500.0, 0.5))

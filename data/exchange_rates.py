@@ -64,12 +64,12 @@ class ExchangeRates:
         for crypto in Config.TRADED_CRYPTO:
             key = crypto.upper() + "USD"
             ticker = yf.Ticker(crypto + "-USD")
-            quote_cache[key] = round(ticker.fast_info.last_price, 4)
+            quote_cache[key] = round(ticker.fast_info["last_price"], 4)
             Logger.info(f"Loaded cryto price for {crypto}: {quote_cache[key]}")
 
         for stock in Config.TRADED_STOCKS:
             ticker = yf.Ticker(stock)
-            quote_cache[stock] = round(ticker.fast_info.last_price, 2)
+            quote_cache[stock] = round(ticker.fast_info["last_price"], 2)
             Logger.info(f"Loaded stock price for {stock}: {quote_cache[stock]}")
         quote_cache["UYAM"] = 1.0
         ExchangeRates.currencies = set(Config.CURRENCIES)

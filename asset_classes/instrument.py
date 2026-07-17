@@ -5,8 +5,8 @@ from typing import Any, List, Tuple
 from asset_classes.asset import Asset
 from data.datasource import DataSource
 from data.exchange_rates import ExchangeRates
-from lib.util import count_cron_runs, cron_runs
 from lib.config import Config
+from lib.util import count_cron_runs, cron_runs
 
 
 class Instrument(Asset):

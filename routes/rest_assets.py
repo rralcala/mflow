@@ -8,6 +8,7 @@ from data.asset_store import get_asset_store, reload_asset_store
 from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserStore
+from lib.util import type_to_str
 from models.bond import Bond, BondSchedule
 from models.deposit_certificate import DepositCertificate, DepositCertificateSchedule
 from models.instrument import Instrument
@@ -174,60 +175,13 @@ def bond_schedules_get(id):
         return jsonify(result.to_dict()), HTTPStatus.OK
 
 
-@assets_bp.route("/bonds", methods=["GET", "POST"])
-@login_required
-def bonds_all():
-    if request.method == "POST":
-        data = request.json
-        new_item = Bond(
-            name=data.get("name"),
-            capital=data.get("capital"),
-            interest_rate=data.get("rate"),
-            maturity_date=data.get("maturityDate"),
-            currency=data.get("currency"),
-            entity=data.get("entity"),
-            country=data.get("country"),
-            user_id=int(current_user.id),
-        )
-        with Config.DB_SESSION() as session:
-            session.add(new_item)
-            session.commit()
-            reload_asset_store(UserStore.get_user_config(current_user.id))
-            response = jsonify(new_item.to_dict()), 201
-        return response
-    else:
-        with Config.DB_SESSION() as session:
-            rows = session.query(Bond).filter_by(user_id=int(current_user.id))
-
-            sort_key = "name"
-            if "_sort" in request.args:
-                if request.args["_sort"] != "id":
-                    sort_key = request.args["_sort"]
-
-            if sort_key == "maturityDate":
-                if request.args.get("_order", "ASC") == "DESC":
-                    rows = rows.order_by(Bond.maturity_date.desc())
-                else:
-                    rows = rows.order_by(Bond.maturity_date.asc())
-            if sort_key == "name":
-                if request.args.get("_order", "ASC") == "DESC":
-                    rows = rows.order_by(Bond.name.desc())
-                else:
-                    rows = rows.order_by(Bond.name.asc())
-            results = [post.to_dict() for post in rows.all()]
-
-            response = jsonify(results)
-        response.headers["X-Total-Count"] = len(results)
-        return response, HTTPStatus.OK
-
-
-@assets_bp.route("/bonds/<id>", methods=["GET", "PUT"])
+@assets_bp.route("/bonds/<id>", methods=["GET", "PUT", "DELETE"])
 @login_required
 def bonds_get(id):
     return certificate_get(Bond, request, id)
 
 
-@assets_bp.route("/depositCertificates/<int:id>", methods=["GET", "PUT"])
+@assets_bp.route("/depositCertificates/<int:id>", methods=["GET", "PUT", "DELETE"])
 @login_required
 def deposit_certificates_get(id):
     return certificate_get(DepositCertificate, request, id)
@@ -242,7 +196,7 @@ def certificate_get(cert_type, request_input, id):
         )
         if result is None:
             return (
-                jsonify({"message": f"{cert_type.__name__} not found"}),
+                jsonify({"message": f"{type_to_str(cert_type)} not found"}),
                 HTTPStatus.NOT_FOUND,
             )
         elif request_input.method == "PUT":
@@ -256,6 +210,10 @@ def certificate_get(cert_type, request_input, id):
             result.country = data.get("country", result.country)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
+        elif request_input.method == "DELETE":
+            session.delete(result)
+            session.commit()
+        reload_asset_store(UserStore.get_user_config(current_user.id))
         response = jsonify(result.to_dict()), HTTPStatus.OK
     return response
 
@@ -328,46 +286,55 @@ def deposit_certificate_schedules_get(id):
         return jsonify(result.to_dict()), HTTPStatus.OK
 
 
+@assets_bp.route("/bonds", methods=["GET", "POST"])
+@login_required
+def bonds_all():
+    return certificates_all(request, Bond)
+
+
 @assets_bp.route("/depositCertificates", methods=["GET", "POST"])
 @login_required
 def deposit_certificates_all():
-    if request.method == "POST":
-        data = request.json
-        new_item = DepositCertificate(
-            name=data.get("name"),
-            capital=data.get("capital"),
-            interest_rate=data.get("rate"),
-            maturity_date=data.get("maturityDate"),
-            currency=data.get("currency"),
-            entity=data.get("entity"),
-            country=data.get("country"),
-            user_id=int(current_user.id),
-        )
+    return certificates_all(request, DepositCertificate)
+
+
+def certificates_all(request_input, cert_type) -> tuple[Response, HTTPStatus]:
+    if request_input.method == "POST":
+        data = request_input.json
         with Config.DB_SESSION() as session:
+            new_item = cert_type(
+                name=data.get("name"),
+                capital=data.get("capital"),
+                rate=data.get("rate"),
+                maturity_date=data.get("maturityDate"),
+                currency=data.get("currency"),
+                entity=data.get("entity"),
+                country=data.get("country"),
+                user_id=int(current_user.id),
+            )
+
             session.add(new_item)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
-            response = jsonify(new_item.to_dict()), 201
-        return response
+            response = jsonify(new_item.to_dict())
+        return response, HTTPStatus.CREATED
     else:
         with Config.DB_SESSION() as session:
-            rows = session.query(DepositCertificate).filter_by(
-                user_id=int(current_user.id)
-            )
+            rows = session.query(cert_type).filter_by(user_id=int(current_user.id))
             sort_key = "name"
-            if "_sort" in request.args:
-                if request.args["_sort"] != "id":
-                    sort_key = request.args["_sort"]
+            if "_sort" in request_input.args:
+                if request_input.args["_sort"] != "id":
+                    sort_key = request_input.args["_sort"]
             if sort_key == "maturityDate":
-                if request.args.get("_order", "ASC") == "DESC":
-                    rows = rows.order_by(DepositCertificate.maturity_date.desc())
+                if request_input.args.get("_order", "ASC") == "DESC":
+                    rows = rows.order_by(cert_type.maturity_date.desc())
                 else:
-                    rows = rows.order_by(DepositCertificate.maturity_date.asc())
+                    rows = rows.order_by(cert_type.maturity_date.asc())
             if sort_key == "name":
-                if request.args.get("_order", "ASC") == "DESC":
-                    rows = rows.order_by(DepositCertificate.name.desc())
+                if request_input.args.get("_order", "ASC") == "DESC":
+                    rows = rows.order_by(cert_type.name.desc())
                 else:
-                    rows = rows.order_by(DepositCertificate.name.asc())
+                    rows = rows.order_by(cert_type.name.asc())
             results = [post.to_dict() for post in rows.all()]
             response = jsonify(results)
 

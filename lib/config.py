@@ -17,6 +17,7 @@ class Config:
     TRADED_STOCKS: List[str]
     CURRENCIES: List[str]
     DB_SESSION: sessionmaker
+    LANG = "EN"
 
 
 def load_config(config_file: Path, dest) -> bool:
