@@ -17,6 +17,7 @@ class Bond(Base):
     rate = mapped_column(String(10), nullable=False)
     entity = mapped_column(String(20), nullable=False)
     country = mapped_column(String(2), nullable=False)
+    purchase_price = mapped_column(String(20), nullable=False)
 
     def __str__(self):
         return str(self.id)
@@ -31,6 +32,7 @@ class Bond(Base):
             "rate": float(self.rate),
             "entity": self.entity,
             "country": self.country,
+            "purchasePrice": self.purchase_price,
         }
 
 

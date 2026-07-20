@@ -311,6 +311,7 @@ def certificates_all(request_input, cert_type) -> tuple[Response, HTTPStatus]:
                 entity=data.get("entity"),
                 country=data.get("country"),
                 user_id=int(current_user.id),
+                purchase_price=data.get("capital"),
             )
 
             session.add(new_item)

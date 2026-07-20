@@ -4,7 +4,6 @@ import sys
 import threading
 import time
 
-from flask import request
 from werkzeug.routing import BaseConverter, ValidationError
 
 from data.exchange_rates import ExchangeRates

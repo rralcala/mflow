@@ -26,6 +26,7 @@ class Bond(Asset):
         self.interest_rate = interest_rate
         self.maturity_date = maturity_date
         self.payment_schedule: List[Dict[str, Any]] = []
+        self.purchase_price = capital
 
     def is_liquid(self) -> bool:
         return False
