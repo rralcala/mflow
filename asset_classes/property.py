@@ -55,7 +55,11 @@ class Property(Asset):
         if self.rent_currency != self.currency:
             exchange = ExchangeRates.exchange_rate(f"USD{self.rent_currency}")
             rented_price = self.rented_price / exchange
-        return round(annualized_return + (rented_price * 12 / self.latest_price), 4)
+        if self.latest_price != 0.0:
+            rental_return = rented_price * 12 / self.latest_price
+        else:
+            rental_return = 0
+        return round(annualized_return + rental_return, 4)
 
     def is_liquid(self) -> bool:
         return False

@@ -1,9 +1,11 @@
 import hashlib
 import pprint
 from datetime import date, datetime, timedelta
+from http import HTTPStatus
 from typing import List, Optional
 
 from croniter import croniter
+from flask import Response, jsonify
 
 
 class FormatPrinter(pprint.PrettyPrinter):
@@ -19,6 +21,25 @@ class FormatPrinter(pprint.PrettyPrinter):
 
 
 PRINTER = FormatPrinter({float: "{:,.2f}", int: "{:d}"})
+
+
+def validate_date(date_string: str, date_format="%Y-%m-%d") -> bool:
+    if date_string is not None:
+        try:
+            datetime.strptime(date_string, date_format)
+            return True
+        except ValueError:
+            pass
+    return False
+
+
+def error_response(
+    message: str, status_code: HTTPStatus
+) -> tuple[Response, HTTPStatus]:
+    return (
+        jsonify({"message": message}),
+        status_code,
+    )
 
 
 def type_to_str(type_obj) -> str:

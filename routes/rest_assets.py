@@ -8,7 +8,7 @@ from data.asset_store import get_asset_store, reload_asset_store
 from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserStore
-from lib.util import type_to_str
+from lib.util import error_response, type_to_str, validate_date
 from models.bond import Bond, BondSchedule
 from models.deposit_certificate import DepositCertificate, DepositCertificateSchedule
 from models.instrument import Instrument
@@ -175,49 +175,6 @@ def bond_schedules_get(id):
         return jsonify(result.to_dict()), HTTPStatus.OK
 
 
-@assets_bp.route("/bonds/<id>", methods=["GET", "PUT", "DELETE"])
-@login_required
-def bonds_get(id):
-    return certificate_get(Bond, request, id)
-
-
-@assets_bp.route("/depositCertificates/<int:id>", methods=["GET", "PUT", "DELETE"])
-@login_required
-def deposit_certificates_get(id):
-    return certificate_get(DepositCertificate, request, id)
-
-
-def certificate_get(cert_type, request_input, id):
-    with Config.DB_SESSION() as session:
-        result = (
-            session.query(cert_type)
-            .filter_by(user_id=int(current_user.id), id=id)
-            .first()
-        )
-        if result is None:
-            return (
-                jsonify({"message": f"{type_to_str(cert_type)} not found"}),
-                HTTPStatus.NOT_FOUND,
-            )
-        elif request_input.method == "PUT":
-            data = request_input.json
-            result.name = data.get("name", result.name)
-            result.capital = data.get("capital", result.capital)
-            result.rate = data.get("rate", result.rate)
-            result.maturity_date = data.get("maturityDate", result.maturity_date)
-            result.currency = data.get("currency", result.currency)
-            result.entity = data.get("entity", result.entity)
-            result.country = data.get("country", result.country)
-            session.commit()
-            reload_asset_store(UserStore.get_user_config(current_user.id))
-        elif request_input.method == "DELETE":
-            session.delete(result)
-            session.commit()
-        reload_asset_store(UserStore.get_user_config(current_user.id))
-        response = jsonify(result.to_dict()), HTTPStatus.OK
-    return response
-
-
 @assets_bp.route("/depositCertificateSchedules", methods=["GET", "POST"])
 @login_required
 def deposit_certificate_schedules_all():
@@ -284,6 +241,49 @@ def deposit_certificate_schedules_get(id):
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
         return jsonify(result.to_dict()), HTTPStatus.OK
+
+
+@assets_bp.route("/bonds/<id>", methods=["GET", "PUT", "DELETE"])
+@login_required
+def bonds_get(id):
+    return certificate_get(Bond, request, id)
+
+
+@assets_bp.route("/depositCertificates/<int:id>", methods=["GET", "PUT", "DELETE"])
+@login_required
+def deposit_certificates_get(id):
+    return certificate_get(DepositCertificate, request, id)
+
+
+def certificate_get(cert_type, request_input, id):
+    with Config.DB_SESSION() as session:
+        result = (
+            session.query(cert_type)
+            .filter_by(user_id=int(current_user.id), id=id)
+            .first()
+        )
+        if result is None:
+            return (
+                jsonify({"message": f"{type_to_str(cert_type)} not found"}),
+                HTTPStatus.NOT_FOUND,
+            )
+        elif request_input.method == "PUT":
+            data = request_input.json
+            result.name = data.get("name", result.name)
+            result.capital = data.get("capital", result.capital)
+            result.rate = data.get("rate", result.rate)
+            result.maturity_date = data.get("maturityDate", result.maturity_date)
+            result.currency = data.get("currency", result.currency)
+            result.entity = data.get("entity", result.entity)
+            result.country = data.get("country", result.country)
+            session.commit()
+            reload_asset_store(UserStore.get_user_config(current_user.id))
+        elif request_input.method == "DELETE":
+            session.delete(result)
+            session.commit()
+        reload_asset_store(UserStore.get_user_config(current_user.id))
+        response = jsonify(result.to_dict()), HTTPStatus.OK
+    return response
 
 
 @assets_bp.route("/bonds", methods=["GET", "POST"])
@@ -378,6 +378,11 @@ def get_account(name):
 def instruments():
     if request.method == "POST":
         data = request.json
+        acquisition_date = data.get("acquisition_date")
+        if not validate_date(acquisition_date):
+            return error_response(
+                f"Invalid date '{acquisition_date}'", HTTPStatus.BAD_REQUEST
+            )
         new_transaction = Instrument(
             country=data.get("country"),
             location=data.get("location"),
@@ -388,7 +393,7 @@ def instruments():
             dividend=data.get("dividend"),
             dividend_rate=data.get("dividend_rate"),
             user_id=int(current_user.id),
-            acquisition_date=data.get("acquisition_date"),
+            acquisition_date=acquisition_date,
             acquisition_price=data.get("acquisition_price"),
             liquid=1 if data.get("liquid") else 0,
             capital_rate=data.get("capital_rate", 0.0),
@@ -437,6 +442,11 @@ def instruments_get(id):
             return jsonify({"message": "Instrument not found"}), HTTPStatus.NOT_FOUND
         if request.method == "PUT":
             data = request.json
+            acquisition_date = data.get("acquisition_date")
+            if not validate_date(acquisition_date):
+                return error_response(
+                    f"Invalid date '{acquisition_date}'", HTTPStatus.BAD_REQUEST
+                )
             result.id = data.get("id", result.id)
             result.user_id = data.get("user_id", result.user_id)
             result.country = data.get("country", result.country)
@@ -447,9 +457,7 @@ def instruments_get(id):
             result.dividend = data.get("dividend", result.dividend)
             result.dividend_rate = data.get("dividend_rate", result.dividend_rate)
             result.currency = data.get("currency", result.currency)
-            result.acquisition_date = data.get(
-                "acquisition_date", result.acquisition_date
-            )
+            result.acquisition_date = acquisition_date
             result.acquisition_price = data.get(
                 "acquisition_price", result.acquisition_price
             )
@@ -518,13 +526,16 @@ def monthly_transactions_get(name) -> Response:
 def payables():
     if request.method == "POST":
         data = request.json
+        due_date = data.get("dueDate")
+        if not validate_date(due_date):
+            return error_response(f"Invalid date '{due_date}'", HTTPStatus.BAD_REQUEST)
         new_transaction = Payable(
             country=data.get("country"),
             currency=data.get("currency"),
             description=data.get("description"),
             amount=data.get("amount"),
             balance=data.get("balance"),
-            due_date=data.get("dueDate"),
+            due_date=due_date,
             commited=1 if data.get("paidWithAssetId") else 0,
             user_id=int(current_user.id),
             one_off=1 if data.get("oneOff") else 0,
