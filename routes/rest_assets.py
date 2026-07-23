@@ -1,4 +1,6 @@
+import csv
 from http import HTTPStatus
+from io import StringIO
 from typing import Any, Dict, List
 
 from flask import Response, jsonify, request
@@ -112,19 +114,43 @@ def assets():
     return response, HTTPStatus.OK
 
 
+@assets_bp.route("/bondSchedulesUpload", methods=["POST"])
+@login_required
+def bond_schedules_upload():
+    f = StringIO(request.data.decode("utf-8"))
+    reader = csv.DictReader(f)
+    with Config.DB_SESSION() as session:
+        c = 0
+        for row in reader:
+            new_item = BondSchedule(
+                bond_id=int(row["iid"]),
+                date=row["date"],
+                user_id=int(current_user.id),
+                amount=str(float(row["amount"])),
+                paid=1 if row["paid"] == "1" else 0,
+            )
+
+            session.add(new_item)
+            c += 1
+        session.commit()
+    response = jsonify({"message": f"inserted: {c}"}), 201
+    return response
+
+
 @assets_bp.route("/bondSchedules", methods=["GET", "POST"])
 @login_required
 def bond_schedules_all():
     if request.method == "POST":
         data = request.json
-        new_item = BondSchedule(
-            bond_id=data.get("bondId"),
-            date=data.get("transactionDate"),
-            user_id=int(current_user.id),
-            amount=data.get("amount"),
-            paid=1 if data.get("paid", False) else 0,
-        )
         with Config.DB_SESSION() as session:
+            new_item = BondSchedule(
+                bond_id=data.get("bondId"),
+                date=data.get("transactionDate"),
+                user_id=int(current_user.id),
+                amount=data.get("amount"),
+                paid=1 if data.get("paid", False) else 0,
+            )
+
             session.add(new_item)
             session.commit()
             response = jsonify(new_item.to_dict()), 201
@@ -180,14 +206,15 @@ def bond_schedules_get(id):
 def deposit_certificate_schedules_all():
     if request.method == "POST":
         data = request.json
-        new_item = DepositCertificateSchedule(
-            cd_id=data.get("cdId"),
-            date=data.get("transactionDate"),
-            user_id=int(current_user.id),
-            amount=data.get("amount"),
-            paid=1 if data.get("paid", False) else 0,
-        )
         with Config.DB_SESSION() as session:
+            new_item = DepositCertificateSchedule(
+                cd_id=data.get("cdId"),
+                date=data.get("transactionDate"),
+                user_id=int(current_user.id),
+                amount=data.get("amount"),
+                paid=1 if data.get("paid", False) else 0,
+            )
+
             session.add(new_item)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
