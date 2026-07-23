@@ -560,12 +560,18 @@ def monthly_transactions_get(name) -> Response:
 def payables():
     if request.method == "POST":
         data = request.json
+        currency = data.get("currency").upper()
+        country = data.get("country").upper()
+        if currency.lower() not in Config.CURRENCIES:
+            return jsonify({"message": "Bad currency"}), HTTPStatus.BAD_REQUEST
+        if country not in Config.COUNTRIES:
+            return jsonify({"message": "Bad Country"}), HTTPStatus.BAD_REQUEST
         due_date = data.get("dueDate")
         if not validate_date(due_date):
             return error_response(f"Invalid date '{due_date}'", HTTPStatus.BAD_REQUEST)
         new_transaction = Payable(
-            country=data.get("country"),
-            currency=data.get("currency"),
+            country=country,
+            currency=currency,
             description=data.get("description"),
             amount=data.get("amount"),
             balance=data.get("balance"),
