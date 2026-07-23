@@ -140,6 +140,7 @@ def bond_schedules_upload():
 @assets_bp.route("/bondSchedules", methods=["GET", "POST"])
 @login_required
 def bond_schedules_all():
+    print(Config.__dict__)
     if request.method == "POST":
         data = request.json
         with Config.DB_SESSION() as session:
@@ -328,15 +329,21 @@ def deposit_certificates_all():
 def certificates_all(request_input, cert_type) -> tuple[Response, HTTPStatus]:
     if request_input.method == "POST":
         data = request_input.json
+        currency = data.get("currency").upper()
+        country = data.get("country").upper()
+        if currency.lower() not in Config.CURRENCIES:
+            return jsonify({"message": "Bad currency"}), HTTPStatus.BAD_REQUEST
+        if country not in Config.COUNTRIES:
+            return jsonify({"message": "Bad Country"}), HTTPStatus.BAD_REQUEST
         with Config.DB_SESSION() as session:
             new_item = cert_type(
                 name=data.get("name"),
                 capital=data.get("capital"),
                 rate=data.get("rate"),
                 maturity_date=data.get("maturityDate"),
-                currency=data.get("currency"),
+                currency=currency,
                 entity=data.get("entity"),
-                country=data.get("country"),
+                country=country,
                 user_id=int(current_user.id),
                 purchase_price=data.get("capital"),
             )
