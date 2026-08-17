@@ -9,7 +9,7 @@ from lib.logger import get_logger
 from lib.user_config import UserStore
 from models.models import Recurrent, RecurrentTransaction
 
-from .blueprints import assets_bp
+from ..blueprints import assets_bp
 
 Logger = get_logger()
 

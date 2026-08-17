@@ -1,4 +1,4 @@
-from . import rest_assets, rest_recurrents
+from .assets import rest_assets, rest_certificates, rest_recurrents
 from .auth import auth_bp
 from .blueprints import assets_bp
 from .rest_reports import reports_bp

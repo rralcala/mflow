@@ -4,10 +4,9 @@ from unittest.mock import patch
 
 from flask import Flask
 
-import routes.rest_assets as rest_assets
-import routes.rest_recurrents as rest_recurrents
 from lib.config import Config
 from models.models import Recurrent, RecurrentTransaction
+from routes.assets import rest_assets, rest_certificates, rest_recurrents
 
 
 def row(data):
@@ -135,25 +134,27 @@ class TestRestAssetsRoutes(unittest.TestCase):
     def test_bond_schedules_all_get(self):
         session = SessionStub(
             {
-                rest_assets.BondSchedule: QueryStub(
+                rest_certificates.BondSchedule: QueryStub(
                     all_items=[row({"id": "1"}), row({"id": "2"})]
                 )
             }
         )
         with self.app.test_request_context("/bondSchedules", method="GET"), patch(
-            "routes.rest_assets.current_user", self.user
+            "routes.rest_certificates.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_assets.bond_schedules_all.__wrapped__()
+            response, status = rest_certificates.bond_schedules_all.__wrapped__()
 
         self.assertEqual(status, 200)
         self.assertEqual(response.headers["X-Total-Count"], "2")
 
     def test_bond_schedules_get_not_found(self):
-        session = SessionStub({rest_assets.BondSchedule: QueryStub(first_item=None)})
+        session = SessionStub(
+            {rest_certificates.BondSchedule: QueryStub(first_item=None)}
+        )
         with self.app.test_request_context("/bondSchedules/1", method="GET"), patch(
-            "routes.rest_assets.current_user", self.user
+            "routes.rest_certificates.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_assets.bond_schedules_get.__wrapped__("1")
+            response, status = rest_certificates.bond_schedules_get.__wrapped__("1")
 
         self.assertEqual(status, 404)
         self.assertEqual(response.get_json(), {"message": "Bond Schedule not found"})
@@ -161,7 +162,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
     def test_bonds_all_get(self):
         session = SessionStub(
             {
-                rest_assets.Bond: QueryStub(
+                rest_certificates.Bond: QueryStub(
                     all_items=[
                         row({"id": "a", "name": "a"}),
                         row({"id": "b", "name": "b"}),
@@ -170,9 +171,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
             }
         )
         with self.app.test_request_context("/bonds", method="GET"), patch(
-            "routes.rest_assets.current_user", self.user
+            "routes.rest_certificates.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_assets.bonds_all.__wrapped__()
+            response, status = rest_certificates.bonds_all.__wrapped__()
 
         self.assertEqual(status, 200)
         self.assertEqual(
@@ -180,11 +181,11 @@ class TestRestAssetsRoutes(unittest.TestCase):
         )
 
     def test_bonds_get_not_found(self):
-        session = SessionStub({rest_assets.Bond: QueryStub(first_item=None)})
+        session = SessionStub({rest_certificates.Bond: QueryStub(first_item=None)})
         with self.app.test_request_context("/bonds/1", method="GET"), patch(
-            "routes.rest_assets.current_user", self.user
+            "routes.rest_certificates.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_assets.bonds_get.__wrapped__("1")
+            response, status = rest_certificates.bonds_get.__wrapped__("1")
 
         self.assertEqual(status, 404)
         self.assertEqual(response.get_json(), {"message": "Bond not found"})
@@ -192,18 +193,18 @@ class TestRestAssetsRoutes(unittest.TestCase):
     def test_deposit_certificate_schedules_all_get(self):
         session = SessionStub(
             {
-                rest_assets.DepositCertificateSchedule: QueryStub(
+                rest_certificates.DepositCertificateSchedule: QueryStub(
                     all_items=[row({"id": "1"})]
                 )
             }
         )
         with self.app.test_request_context(
             "/depositCertificateSchedules", method="GET"
-        ), patch("routes.rest_assets.current_user", self.user), patch.object(
+        ), patch("routes.rest_certificates.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
             response, status = (
-                rest_assets.deposit_certificate_schedules_all.__wrapped__()
+                rest_certificates.deposit_certificate_schedules_all.__wrapped__()
             )
 
         self.assertEqual(status, 200)
@@ -211,15 +212,15 @@ class TestRestAssetsRoutes(unittest.TestCase):
 
     def test_deposit_certificate_schedules_get_not_found(self):
         session = SessionStub(
-            {rest_assets.DepositCertificateSchedule: QueryStub(first_item=None)}
+            {rest_certificates.DepositCertificateSchedule: QueryStub(first_item=None)}
         )
         with self.app.test_request_context(
             "/depositCertificateSchedules/1", method="GET"
-        ), patch("routes.rest_assets.current_user", self.user), patch.object(
+        ), patch("routes.rest_certificates.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
             response, status = (
-                rest_assets.deposit_certificate_schedules_get.__wrapped__("1")
+                rest_certificates.deposit_certificate_schedules_get.__wrapped__("1")
             )
 
         self.assertEqual(status, 404)
@@ -227,7 +228,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
     def test_deposit_certificates_all_get(self):
         session = SessionStub(
             {
-                rest_assets.DepositCertificate: QueryStub(
+                rest_certificates.DepositCertificate: QueryStub(
                     all_items=[
                         row({"id": "2", "name": "a"}),
                         row({"id": "1", "name": "b"}),
@@ -236,9 +237,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
             }
         )
         with self.app.test_request_context("/depositCertificates", method="GET"), patch(
-            "routes.rest_assets.current_user", self.user
+            "routes.rest_certificates.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_assets.deposit_certificates_all.__wrapped__()
+            response, status = rest_certificates.deposit_certificates_all.__wrapped__()
 
         self.assertEqual(status, 200)
         self.assertEqual(
@@ -247,14 +248,16 @@ class TestRestAssetsRoutes(unittest.TestCase):
 
     def test_deposit_certificates_get_not_found(self):
         session = SessionStub(
-            {rest_assets.DepositCertificate: QueryStub(first_item=None)}
+            {rest_certificates.DepositCertificate: QueryStub(first_item=None)}
         )
         with self.app.test_request_context(
             "/depositCertificates/1", method="GET"
-        ), patch("routes.rest_assets.current_user", self.user), patch.object(
+        ), patch("routes.rest_certificates.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.deposit_certificates_get.__wrapped__("1")
+            response, status = rest_certificates.deposit_certificates_get.__wrapped__(
+                "1"
+            )
 
         self.assertEqual(status, 404)
 
