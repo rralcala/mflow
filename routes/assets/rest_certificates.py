@@ -15,6 +15,29 @@ from models.deposit_certificate import DepositCertificate, DepositCertificateSch
 from ..blueprints import assets_bp
 
 
+@assets_bp.route("/cdSchedulesUpload", methods=["POST"])
+@login_required
+def cd_schedules_upload():
+    f = StringIO(request.data.decode("utf-8"))
+    reader = csv.DictReader(f)
+    with Config.DB_SESSION() as session:
+        c = 0
+        for row in reader:
+            new_item = DepositCertificateSchedule(
+                cd_id=int(row["iid"]),
+                date=row["date"],
+                user_id=int(current_user.id),
+                amount=str(float(row["amount"])),
+                paid=1 if row["paid"] == "1" else 0,
+            )
+
+            session.add(new_item)
+            c += 1
+        session.commit()
+    response = jsonify({"message": f"inserted: {c}"}), HTTPStatus.CREATED
+    return response
+
+
 @assets_bp.route("/bondSchedulesUpload", methods=["POST"])
 @login_required
 def bond_schedules_upload():
