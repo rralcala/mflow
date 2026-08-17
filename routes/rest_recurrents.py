@@ -55,7 +55,12 @@ def recurrent_transactions():
                 base_query = base_query.filter(
                     RecurrentTransaction.year_month == request.args["yearMonth"],
                 )
-
+            if "description" in request.args:
+                base_query = base_query.filter(
+                    RecurrentTransaction.description.contains(
+                        request.args["description"]
+                    ),
+                )
             results = []
             for post in base_query.order_by(
                 RecurrentTransaction.transaction_date.desc()
