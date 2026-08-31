@@ -8,16 +8,17 @@ from sqlalchemy.orm import sessionmaker
 
 class Config:
     BASE_PATH: Path
-    DATE_FORMAT_STRING = "%Y-%m-%d"
-    SECRET_KEY: str
-    SCRIPT_DIR: Path
-    YEAR: float = 365.25
-    USERS: Dict
-    TRADED_CRYPTO: List[str]
-    TRADED_STOCKS: List[str]
     CURRENCIES: List[str]
+    DATE_FORMAT_STRING = "%Y-%m-%d"
     DB_SESSION: sessionmaker
     LANG = "EN"
+    SCRIPT_DIR: Path
+    SECRET_KEY: str
+    TRADED_CRYPTO: List[str]
+    TRADED_METALS: List[str]
+    TRADED_STOCKS: List[str]
+    USERS: Dict
+    YEAR: float = 365.25
 
 
 def load_config(config_file: Path, dest) -> bool:

@@ -85,6 +85,7 @@ class TestExchangeRates(unittest.TestCase):
             prices = {
                 "btc-USD": 66666.123456,
                 "AAPL": 205.987,
+                "IAUM": 100.1234,
             }
             return SimpleNamespace(fast_info={"last_price": prices[symbol]})
 
@@ -97,6 +98,8 @@ class TestExchangeRates(unittest.TestCase):
             "data.exchange_rates.yf.Ticker", side_effect=fake_ticker
         ), patch.object(Config, "TRADED_CRYPTO", ["btc"], create=True), patch.object(
             Config, "TRADED_STOCKS", ["AAPL"], create=True
+        ), patch.object(
+            Config, "TRADED_METALS", ["IAUM"], create=True
         ), patch(
             "data.exchange_rates.datetime", FixedDateTime
         ):

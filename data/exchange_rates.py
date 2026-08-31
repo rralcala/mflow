@@ -67,7 +67,7 @@ class ExchangeRates:
             quote_cache[key] = round(ticker.fast_info["last_price"], 4)
             Logger.info(f"Loaded cryto price for {crypto}: {quote_cache[key]}")
 
-        for stock in Config.TRADED_STOCKS:
+        for stock in Config.TRADED_STOCKS + Config.TRADED_METALS:
             ticker = yf.Ticker(stock)
             quote_cache[stock] = round(ticker.fast_info["last_price"], 2)
             Logger.info(f"Loaded stock price for {stock}: {quote_cache[stock]}")

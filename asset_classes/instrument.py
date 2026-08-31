@@ -51,6 +51,8 @@ class Instrument(Asset):
     def get_market(self) -> str:
         if self.symbol in ["CROUSD", "BTCUSD", "SOL", "ETH", "SOLUSD", "ETHUSD"]:
             return "Crypto"
+        if self.symbol in Config.TRADED_METALS:
+            return "Metals"
         if self.symbol in Config.TRADED_STOCKS:
             return "StockMarket"
         if self.symbol in ["USDC"]:
