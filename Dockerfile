@@ -1,6 +1,11 @@
 FROM python:3.14-slim
 
 # Set the working directory inside the container
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy the requirements file and install dependencies

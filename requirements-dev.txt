@@ -10,3 +10,5 @@ openpyxl==3.1.5
 coverage==7.13.5
 yfinance==1.5.1
 SQLAlchemy==2.0.51
+setuptools==84.0.0
+msgpack==1.2.2
