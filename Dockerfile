@@ -15,6 +15,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of your application code
 COPY . .
 
+RUN groupadd --gid 1000 ubuntu \
+    && useradd --uid 1000 --gid 1000 -m ubuntu
+
+USER ubuntu
+
 EXPOSE 5001
 # Define the command to run your Python application
 CMD ["python", "service.py", "--base", "/data/"]
