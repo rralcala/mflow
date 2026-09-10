@@ -73,7 +73,7 @@ def asset_get(id):
 
     for sub in assets.values():
         for asset in sub:
-            if asset.identifier == id:
+            if asset.get_identifier() == id:
                 return (
                     jsonify(asset_data_from_asset(asset)),
                     HTTPStatus.OK,

@@ -52,7 +52,7 @@ class Recurrent(Asset):
         rate: float = 0.0,
         target_asset_id: str = "",
     ):
-        self.identifier = identifier
+        self._identifier = identifier
         self.amount = amount
         self.country = country
         self.currency = currency
@@ -64,11 +64,14 @@ class Recurrent(Asset):
         self.parent_asset_id = parent_asset_id
         self.target_asset_id = target_asset_id
 
+    def get_identifier(self) -> str:
+        return self._identifier
+
     def is_liquid(self) -> bool:
         return False
 
     def get_location(self):
-        return self.country, self.identifier.split("-")[0]
+        return self.country, self._identifier.split("-")[0]
 
     def get_market(self) -> str:
         return self.currency
@@ -90,7 +93,7 @@ class Recurrent(Asset):
             with Config.DB_SESSION() as session:
                 transactions = (
                     session.query(models.RecurrentTransaction)
-                    .filter_by(parent_id=self.identifier)
+                    .filter_by(parent_id=self._identifier)
                     .all()
                 )
             for row in transactions:
@@ -100,7 +103,7 @@ class Recurrent(Asset):
     def fetch_transactions(self, date):
         with Config.DB_SESSION() as session:
             select_stmt = session.query(models.RecurrentTransaction).filter_by(
-                parent_id=self.identifier, year_month=date.strftime("%Y-%m")
+                parent_id=self._identifier, year_month=date.strftime("%Y-%m")
             )
             return session.execute(select_stmt).scalars().all()
 
@@ -126,7 +129,7 @@ class Recurrent(Asset):
         return self.get_current_value()[0], 0.0
 
     def __repr__(self):
-        return f"Recurrent({self.identifier}, Country: {self.country}, Class: {self.flow_class}, Value: {self.amount:,.0f} {self.currency}, Maturity Date: {self.maturity_date.date()}"
+        return f"Recurrent({self._identifier}, Country: {self.country}, Class: {self.flow_class}, Value: {self.amount:,.0f} {self.currency}, Maturity Date: {self.maturity_date.date()}"
 
     def get_liquid_balance(self) -> Tuple[float, str]:
         """

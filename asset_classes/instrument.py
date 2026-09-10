@@ -1,9 +1,8 @@
 import calendar
 from datetime import date, datetime
-from typing import Any, List, Tuple
+from typing import List, Tuple
 
 from asset_classes.asset import Asset
-from data.datasource import DataSource
 from data.exchange_rates import ExchangeRates
 from lib.config import Config
 from lib.util import count_cron_runs, cron_runs
@@ -31,7 +30,7 @@ class Instrument(Asset):
         target_asset_id: str = "",
     ):
         self.symbol = symbol
-        self.identifier = f"{location}_{symbol}"
+        self._identifier = f"{location}_{symbol}"
         self.price = price
         self.factor = factor
         self.qty = qty
@@ -46,6 +45,9 @@ class Instrument(Asset):
         self.liquid = liquid
         self.capital_rate = capital_rate
         self.target_asset_id = target_asset_id
+
+    def get_identifier(self) -> str:
+        return self._identifier
 
     def is_liquid(self) -> bool:
         return self.liquid
@@ -148,7 +150,7 @@ class Instrument(Asset):
         return self.get_current_value()[0], annualized_return + self.rate
 
     def __repr__(self):
-        return f"Instrument({self.identifier}, value={self.get_current_value()[0]:,.0f} {self.currency}, rate={(self.rate*100):,.2f}% location={self.location}, liquid={self.liquid})"
+        return f"Instrument({self._identifier}, value={self.get_current_value()[0]:,.0f} {self.currency}, rate={(self.rate*100):,.2f}% location={self.location}, liquid={self.liquid})"
 
 
 def get_total_value(assets: List[Instrument]) -> float:

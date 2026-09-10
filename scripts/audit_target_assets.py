@@ -37,9 +37,7 @@ def missing_target_rows(session, model, label_field: str) -> List[str]:
         .order_by(model.user_id)
         .all()
     )
-    return [
-        f"  user_id={row.user_id} id={getattr(row, label_field)!r}" for row in rows
-    ]
+    return [f"  user_id={row.user_id} id={getattr(row, label_field)!r}" for row in rows]
 
 
 def main() -> None:

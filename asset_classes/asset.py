@@ -8,11 +8,10 @@ class Asset(ABC):
     Abstract base class for all asset classes.
     """
 
-    #@abstractmethod
+    @abstractmethod
     def get_identifier(self) -> str:
         """
         Method to get the identifier of the asset.
-        Optional method, can be overridden by subclasses.
         """
         pass
 

@@ -18,7 +18,7 @@ class TestBondAsset(unittest.TestCase):
         )
 
     def test_init_sets_expected_attributes(self):
-        self.assertEqual(self.bond.identifier, "BOND-1")
+        self.assertEqual(self.bond.get_identifier(), "BOND-1")
         self.assertEqual(self.bond.capital, 1000.0)
         self.assertEqual(self.bond.interest_rate, 0.05)
         self.assertEqual(self.bond.maturity_date, datetime(2026, 12, 31))

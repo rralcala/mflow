@@ -58,11 +58,7 @@ def validate_target_asset(session, user_id: int, target_asset_id: str) -> bool:
 
     if not target_asset_id:
         return False
-    if (
-        session.query(Account)
-        .filter_by(user_id=user_id, id=target_asset_id)
-        .first()
-    ):
+    if session.query(Account).filter_by(user_id=user_id, id=target_asset_id).first():
         return True
     return any(
         f"{row.location}_{row.symbol}" == target_asset_id

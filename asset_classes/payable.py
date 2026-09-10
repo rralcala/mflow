@@ -22,7 +22,7 @@ class Payable(Asset):
     ):
         self.country = country
         self.currency = currency
-        self.identifier = identifier
+        self._identifier = identifier
         self.amount = amount
         self.flow_class = flow_class
         self.balance = balance
@@ -31,6 +31,9 @@ class Payable(Asset):
         self.one_off = one_off
         self.target_asset_id = target_asset_id
 
+    def get_identifier(self) -> str:
+        return self._identifier
+
     def is_liquid(self) -> bool:
         return False
 
@@ -38,7 +41,7 @@ class Payable(Asset):
         return self.currency
 
     def get_location(self):
-        return self.country, self.identifier.split("-")[0]
+        return self.country, self._identifier.split("-")[0]
 
     def calculate_year_performance(self) -> Tuple[float, float, str]:
         return self.balance, 0.0, self.currency
@@ -99,7 +102,7 @@ class Payable(Asset):
         return 0.0, 0.0
 
     def __repr__(self):
-        return f"Payable({self.identifier}, {self.country}, {self.balance:,.0f} {self.currency}, {self.due_date})"
+        return f"Payable({self._identifier}, {self.country}, {self.balance:,.0f} {self.currency}, {self.due_date})"
 
 
 def parse_payables(data: List[List[Any]]) -> List[Payable]:

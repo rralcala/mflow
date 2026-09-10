@@ -93,7 +93,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(response.get_json(), [{"id": "a", "balance": 10}])
 
     def test_asset_get_found(self):
-        asset = SimpleNamespace(identifier="asset-1")
+        asset = SimpleNamespace(identifier="asset-1", get_identifier=lambda: "asset-1")
         with self.app.test_request_context("/assets/asset-1", method="GET"), patch(
             "routes.rest_assets.current_user", self.user
         ), patch(
@@ -520,7 +520,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
             return_value=SimpleNamespace(),
         ), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
-        ), patch.object(Config, "CURRENCIES", ["usd"], create=True), patch.object(
+        ), patch.object(
+            Config, "CURRENCIES", ["usd"], create=True
+        ), patch.object(
             Config, "COUNTRIES", ["US"], create=True
         ):
             response, status = rest_certificates.bonds_all.__wrapped__()
@@ -551,7 +553,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
             },
         ), patch("routes.rest_certificates.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
-        ), patch.object(Config, "CURRENCIES", ["usd"], create=True), patch.object(
+        ), patch.object(
+            Config, "CURRENCIES", ["usd"], create=True
+        ), patch.object(
             Config, "COUNTRIES", ["US"], create=True
         ):
             response, status = rest_certificates.bonds_all.__wrapped__()
@@ -640,7 +644,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch(
             "routes.rest_recurrents.UserStore.get_user_config",
             return_value=SimpleNamespace(),
-        ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
+        ), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
             response, status = rest_recurrents.recurrents_all.__wrapped__()
 
         self.assertEqual(status, 201)
@@ -742,7 +748,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
             },
         ), patch("routes.rest_assets.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
-        ), patch.object(Config, "CURRENCIES", ["usd"], create=True), patch.object(
+        ), patch.object(
+            Config, "CURRENCIES", ["usd"], create=True
+        ), patch.object(
             Config, "COUNTRIES", ["US"], create=True
         ):
             response, status = rest_assets.payables.__wrapped__()
@@ -776,7 +784,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
             return_value=SimpleNamespace(),
         ), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
-        ), patch.object(Config, "CURRENCIES", ["usd"], create=True), patch.object(
+        ), patch.object(
+            Config, "CURRENCIES", ["usd"], create=True
+        ), patch.object(
             Config, "COUNTRIES", ["US"], create=True
         ):
             response, status = rest_assets.payables.__wrapped__()

@@ -168,10 +168,10 @@ def future_timeline(
     buckets = _iter_buckets(start, end, granularity)
 
     expiration_by_asset_id: Dict[str, Optional[date]] = {
-        asset.identifier: _get_expiration_date(asset) for asset in assets_list
+        asset.get_identifier(): _get_expiration_date(asset) for asset in assets_list
     }
     has_due_date_by_asset_id: Dict[str, bool] = {
-        asset.identifier: hasattr(asset, "due_date") for asset in assets_list
+        asset.get_identifier(): hasattr(asset, "due_date") for asset in assets_list
     }
 
     yield_events, expiration_events = _build_event_maps(
@@ -184,7 +184,7 @@ def future_timeline(
 
     flat_rows: List[Dict[str, Any]] = []
     for asset in assets_list:
-        asset_id = asset.identifier
+        asset_id = asset.get_identifier()
         asset_type = asset.__class__.__name__
         country = getattr(asset, "country", asset.get_location()[0])
         currency = asset.get_currency()

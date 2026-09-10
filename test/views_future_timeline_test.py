@@ -15,7 +15,7 @@ class StubAsset:
         maturity_date=None,
         due_date=None,
     ):
-        self.identifier = identifier
+        self._identifier = identifier
         self.country = country
         self._currency = currency
         self._current_value = current_value
@@ -24,6 +24,9 @@ class StubAsset:
             self.maturity_date = maturity_date
         if due_date is not None:
             self.due_date = due_date
+
+    def get_identifier(self):
+        return self._identifier
 
     def get_timeline(self, end):
         end_date = end.date()

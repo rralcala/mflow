@@ -28,7 +28,7 @@ class Property(Asset):
     ):
         self.country = country
         self.currency = currency
-        self.identifier = identifier
+        self._identifier = identifier
         self.purchase_price = purchase_price
         self.purchase_date = purchase_date
         self.latest_price = latest_price
@@ -61,6 +61,9 @@ class Property(Asset):
             rental_return = 0
         return round(annualized_return + rental_return, 4)
 
+    def get_identifier(self) -> str:
+        return self._identifier
+
     def is_liquid(self) -> bool:
         return False
 
@@ -68,7 +71,7 @@ class Property(Asset):
         return "Property" + self.country
 
     def get_location(self):
-        return self.country, self.identifier.split("-")[0]
+        return self.country, self._identifier.split("-")[0]
 
     def calculate_year_performance(self) -> Tuple[float, float, str]:
         return self.latest_price, self.total_return, self.currency
@@ -121,7 +124,7 @@ class Property(Asset):
         return self.get_current_value()[0], self.total_return
 
     def __repr__(self):
-        return f"Property({self.identifier}, Latest Price: {self.latest_price:,.0f} {self.currency})"
+        return f"Property({self._identifier}, Latest Price: {self.latest_price:,.0f} {self.currency})"
 
 
 def get_total_value(properties: List[Property], exchange: float) -> float:

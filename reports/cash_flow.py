@@ -12,5 +12,4 @@ def generate_timeline(
             tl = asset.get_timeline(end)
             if len(tl) == 0:
                 continue
-            logging.debug(f"Timeline for {asset.identifier}: {tl}")
-            yield (asset.country, asset.identifier, tl)
+            yield (asset.country, asset.get_identifier(), tl)

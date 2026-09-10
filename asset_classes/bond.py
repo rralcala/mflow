@@ -19,7 +19,7 @@ class Bond(Asset):
         entity: str,
         target_asset_id: str = "",
     ):
-        self.identifier = identifier
+        self._identifier = identifier
         self.country = country
         self.entity = entity
         self.capital = capital
@@ -29,6 +29,9 @@ class Bond(Asset):
         self.payment_schedule: List[Dict[str, Any]] = []
         self.purchase_price = capital
         self.target_asset_id = target_asset_id
+
+    def get_identifier(self) -> str:
+        return self._identifier
 
     def is_liquid(self) -> bool:
         return False
@@ -139,7 +142,7 @@ class Bond(Asset):
     def __repr__(self):
         return (
             "Bond("
-            + self.identifier
+            + self._identifier
             + ", Face Value:"
             + f"{self.capital:,.0f} {self.currency}"
             + ", Interest Rate: "

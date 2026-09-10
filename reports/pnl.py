@@ -42,8 +42,8 @@ def monthly_transactions(
                     continue
                 transactions.append(
                     {
-                        "id": year_month + "-" + asset.identifier,
-                        "assetId": asset.identifier,
+                        "id": year_month + "-" + asset.get_identifier(),
+                        "assetId": asset.get_identifier(),
                         "amount": income[IncomeField.AMOUNT],
                         "currency": income[IncomeField.CURRENCY],
                     }

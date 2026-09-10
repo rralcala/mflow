@@ -21,12 +21,15 @@ class Account(Asset):
     ):
         self.country = country
         self.institution = institution
-        self.identifier = identifier
+        self._identifier = identifier
         self.currency = currency
         self.balance = balance
         self.factor = factor
         self.account_type = account_type
         self.liquid = liquid
+
+    def get_identifier(self) -> str:
+        return self._identifier
 
     def is_liquid(self) -> bool:
         return self.liquid
@@ -72,7 +75,7 @@ class Account(Asset):
         return self.balance * self.factor, 0.0
 
     def __repr__(self):
-        return f"Account({self.identifier}, {self.institution}, {self.account_type}, Balance: {self.balance:,.0f} {self.currency})"
+        return f"Account({self._identifier}, {self.institution}, {self.account_type}, Balance: {self.balance:,.0f} {self.currency})"
 
     def __str__(self):
         return self.__repr__()
@@ -81,7 +84,7 @@ class Account(Asset):
         return {
             "country": self.country,
             "institution": self.institution,
-            "identifier": self.identifier,
+            "identifier": self._identifier,
             "currency": self.currency,
             "balance": self.balance,
             "factor": self.factor,

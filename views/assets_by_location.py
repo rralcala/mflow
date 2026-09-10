@@ -32,7 +32,7 @@ def assets_by_location_data(assets) -> List[List[Any]]:
 
 
 def generate_asset_split(assets):
-    summary = list_assets_by_location(assets, print_pos=True, print_neg=False)
+    summary = list_assets_by_location(assets)
     loc_summary = []
     tot = 0.0
     prop_sum = {}
