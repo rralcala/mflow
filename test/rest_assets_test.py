@@ -615,7 +615,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
         session = SessionStub(
             {
                 rest_assets.Account: QueryStub(first_item=None),
-                rest_assets.Instrument: QueryStub(first_item=SimpleNamespace(id=7)),
+                rest_assets.Instrument: QueryStub(
+                    all_items=[SimpleNamespace(location="NYSE", symbol="AAPL")]
+                ),
             }
         )
         with self.app.test_request_context(
@@ -631,7 +633,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
                 "end": "2027-01-01",
                 "flowClass": "Income",
                 "rate": 0.0,
-                "targetAssetId": "7",
+                "targetAssetId": "NYSE_AAPL",
             },
         ), patch("routes.rest_recurrents.current_user", self.user), patch(
             "routes.rest_recurrents.reload_asset_store"
@@ -642,7 +644,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
             response, status = rest_recurrents.recurrents_all.__wrapped__()
 
         self.assertEqual(status, 201)
-        self.assertEqual(session.added[0].target_asset_id, "7")
+        self.assertEqual(session.added[0].target_asset_id, "NYSE_AAPL")
 
     def test_recurrents_get_put_bad_target(self):
         existing = SimpleNamespace(

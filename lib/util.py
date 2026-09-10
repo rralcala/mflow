@@ -47,6 +47,11 @@ def validate_target_asset(session, user_id: int, target_asset_id: str) -> bool:
     A target asset represents where cash is pulled from (cost-bearing flows) or
     deposited to (income flows). It must be an Account or an Instrument
     (e.g. an interest-bearing brokerage sweep) owned by the same user.
+
+    Each asset type defines its own `identifier` (see asset_classes/*.py), which
+    is not always the model's primary key: Account.identifier is its `id` column,
+    but Instrument.identifier is `f"{location}_{symbol}"`. Matching must follow
+    that per-type identifier, not the raw row id.
     """
     from models.instrument import Instrument
     from models.models import Account
@@ -59,15 +64,9 @@ def validate_target_asset(session, user_id: int, target_asset_id: str) -> bool:
         .first()
     ):
         return True
-    try:
-        instrument_id = int(target_asset_id)
-    except ValueError:
-        return False
-    return (
-        session.query(Instrument)
-        .filter_by(user_id=user_id, id=instrument_id)
-        .first()
-        is not None
+    return any(
+        f"{row.location}_{row.symbol}" == target_asset_id
+        for row in session.query(Instrument).filter_by(user_id=user_id).all()
     )
 
 

@@ -8,6 +8,14 @@ class Asset(ABC):
     Abstract base class for all asset classes.
     """
 
+    #@abstractmethod
+    def get_identifier(self) -> str:
+        """
+        Method to get the identifier of the asset.
+        Optional method, can be overridden by subclasses.
+        """
+        pass
+
     @abstractmethod
     def get_budgeted_income(self, year_month: datetime) -> Tuple[float, str]:
         """
