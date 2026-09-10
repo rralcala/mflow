@@ -46,6 +46,7 @@ class Recurrent(Base):
 
     identifier = mapped_column(String(80), primary_key=True)
     parent_asset_id = mapped_column(String(80), nullable=True)
+    target_asset_id = mapped_column(String(80), nullable=True)
     country = mapped_column(String(2), nullable=False)
     amount = mapped_column(String(20), nullable=False)
     currency = mapped_column(String(3), nullable=False)
@@ -63,6 +64,7 @@ class Recurrent(Base):
         return {
             "id": self.identifier,
             "assetId": self.parent_asset_id,
+            "targetAssetId": self.target_asset_id,
             "country": self.country,
             "amount": float(self.amount),
             "currency": self.currency,

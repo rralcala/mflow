@@ -17,6 +17,7 @@ class Bond(Asset):
         currency: str,
         country: str,
         entity: str,
+        target_asset_id: str = "",
     ):
         self.identifier = identifier
         self.country = country
@@ -27,6 +28,7 @@ class Bond(Asset):
         self.maturity_date = maturity_date
         self.payment_schedule: List[Dict[str, Any]] = []
         self.purchase_price = capital
+        self.target_asset_id = target_asset_id
 
     def is_liquid(self) -> bool:
         return False

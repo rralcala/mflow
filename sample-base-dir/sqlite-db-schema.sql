@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS "bond" (
 	"rate"	TEXT NOT NULL,
 	"entity"	TEXT NOT NULL,
 	"country"	TEXT NOT NULL,
+	"purchase_price"	TEXT NOT NULL DEFAULT capital,
+	"target_asset_id"	TEXT,
 	PRIMARY KEY("id")
 );
 CREATE TABLE IF NOT EXISTS "bond_schedule" (
@@ -42,6 +44,8 @@ CREATE TABLE IF NOT EXISTS "deposit_certificate" (
 	"rate"	TEXT NOT NULL,
 	"entity"	TEXT NOT NULL,
 	"country"	TEXT NOT NULL,
+	"purchase_price"	TEXT NOT NULL DEFAULT 'capital',
+	"target_asset_id"	TEXT,
 	PRIMARY KEY("id")
 );
 CREATE TABLE IF NOT EXISTS "deposit_certificate_schedule" (
@@ -75,6 +79,8 @@ CREATE TABLE IF NOT EXISTS "instrument" (
 	"acquisition_date"	TEXT NOT NULL,
 	"acquisition_price"	TEXT NOT NULL,
 	"liquid"	INTEGER NOT NULL,
+	"capital_rate"	TEXT NOT NULL DEFAULT 0,
+	"target_asset_id"	TEXT,
 	PRIMARY KEY("id")
 );
 CREATE TABLE IF NOT EXISTS "payable" (
@@ -89,6 +95,29 @@ CREATE TABLE IF NOT EXISTS "payable" (
 	"balance"	TEXT NOT NULL DEFAULT amount,
 	"one_off"	INTEGER NOT NULL DEFAULT 0,
 	"flow_class"	TEXT NOT NULL DEFAULT 'expense',
+	"target_asset_id"	TEXT,
+	PRIMARY KEY("id" AUTOINCREMENT)
+);
+CREATE TABLE IF NOT EXISTS "property" (
+	"id"	INTEGER NOT NULL,
+	"user_id"	INTEGER NOT NULL DEFAULT 1,
+	"property_name"	TEXT NOT NULL,
+	"country"	TEXT NOT NULL,
+	"currency"	TEXT NOT NULL,
+	"purchase_price"	TEXT NOT NULL,
+	"purchase_date"	TEXT NOT NULL,
+	"current_price"	TEXT NOT NULL,
+	"rent_price"	TEXT NOT NULL,
+	"depreciation"	TEXT NOT NULL,
+	"additional_data"	TEXT NOT NULL,
+	"rent_currency"	INTEGER NOT NULL DEFAULT 'USD',
+	PRIMARY KEY("id" AUTOINCREMENT)
+);
+CREATE TABLE IF NOT EXISTS "quotes" (
+	"id"	INTEGER NOT NULL,
+	"date"	TEXT NOT NULL,
+	"symbol"	TEXT NOT NULL,
+	"value"	TEXT NOT NULL,
 	PRIMARY KEY("id" AUTOINCREMENT)
 );
 CREATE TABLE IF NOT EXISTS "recurrent" (
@@ -103,18 +132,20 @@ CREATE TABLE IF NOT EXISTS "recurrent" (
 	"flow_class"	TEXT NOT NULL,
 	"rate"	TEXT NOT NULL,
 	"user_Id"	INTEGER NOT NULL DEFAULT 1,
+	"target_asset_id"	TEXT,
 	PRIMARY KEY("identifier")
 );
 CREATE TABLE IF NOT EXISTS "recurrent_transaction" (
 	"transaction_id"	INTEGER,
 	"parent_id"	TEXT NOT NULL,
 	"year_month"	TEXT NOT NULL,
-	"description"	TEXT NOT NULL,
+	"description"	NUMERIC NOT NULL,
 	"amount"	TEXT NOT NULL,
 	"transaction_date"	TEXT NOT NULL,
 	"paid_with"	TEXT NOT NULL,
 	"create_date"	TEXT NOT NULL,
 	"user_id"	INTEGER NOT NULL DEFAULT 1,
+	"external_id"	TEXT NOT NULL DEFAULT ,
 	PRIMARY KEY("transaction_id" AUTOINCREMENT)
 );
 CREATE INDEX IF NOT EXISTS "account_user_id" ON "account" (
@@ -139,6 +170,10 @@ CREATE INDEX IF NOT EXISTS "history_user_Id" ON "history" (
 );
 CREATE INDEX IF NOT EXISTS "payable_user_id" ON "payable" (
 	"user_id"
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "quotes-date-symbol" ON "quotes" (
+	"date"	DESC,
+	"symbol"	ASC
 );
 CREATE INDEX IF NOT EXISTS "recurrent_transaction_user_id" ON "recurrent_transaction" (
 	"user_id"

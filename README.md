@@ -2,10 +2,10 @@
 
 ### What it does
 
-- Manage Investments across institutions.
+- Track Investments across institutions.
 - Track Income and Payments.
-- Track Budgets "Recurrents"
-- And more...
+- Track Recurrent expenses
+- Build a long term cash flow estimate.
 
 You'll also need *mflow-frontend* to interact with the api.
 

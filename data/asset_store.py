@@ -62,6 +62,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                     currency=str(row.currency),
                     country=str(row.country),
                     entity=str(row.entity),
+                    target_asset_id=str(row.target_asset_id or ""),
                 )
                 for irow in (
                     session.query(BondScheduleModel)
@@ -94,6 +95,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 currency=str(row.currency),
                 country=str(row.country),
                 entity=str(row.entity),
+                target_asset_id=str(row.target_asset_id or ""),
             )
             for irow in (
                 session.query(DepositCertificateSchedule)
@@ -122,6 +124,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 end=datetime.strptime(row.end, Config.DATE_FORMAT_STRING),
                 flow_class=row.flow_class,
                 rate=float(row.rate),
+                target_asset_id=str(row.target_asset_id or ""),
             )
 
             assets[asset.currency].append(asset)
@@ -158,6 +161,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 acquisition_price=float(row.acquisition_price),
                 liquid=row.liquid == 1,
                 capital_rate=float(row.capital_rate),
+                target_asset_id=str(row.target_asset_id or ""),
             )
             assets[asset.currency].append(asset)
         for row in session.query(Account).filter_by(user_id=user_config.USER_ID).all():
@@ -185,6 +189,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 balance=float(row.balance),
                 one_off=row.one_off == 1,
                 flow_class=row.flow_class,
+                target_asset_id=str(row.target_asset_id or ""),
             )
             assets[asset.currency].append(asset)
         for row in (

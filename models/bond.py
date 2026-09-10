@@ -18,6 +18,7 @@ class Bond(Base):
     entity = mapped_column(String(20), nullable=False)
     country = mapped_column(String(2), nullable=False)
     purchase_price = mapped_column(String(20), nullable=False)
+    target_asset_id = mapped_column(String(80), nullable=True)
 
     def __str__(self):
         return str(self.id)
@@ -33,6 +34,7 @@ class Bond(Base):
             "entity": self.entity,
             "country": self.country,
             "purchasePrice": self.purchase_price,
+            "targetAssetId": self.target_asset_id,
         }
 
 

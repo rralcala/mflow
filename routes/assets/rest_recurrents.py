@@ -7,6 +7,7 @@ from data.asset_store import reload_asset_store
 from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserStore
+from lib.util import validate_target_asset
 from models.models import Recurrent, RecurrentTransaction
 
 from ..blueprints import assets_bp
@@ -114,20 +115,26 @@ def recurrent_transactions_get(name):
 def recurrents_all():
     if request.method == "POST":
         data = request.json
-        new_transaction = Recurrent(
-            identifier=data.get("id"),
-            parent_asset_id=data.get("assetId"),
-            country=data.get("country"),
-            amount=data.get("amount"),
-            currency=data.get("currency"),
-            recurrence=data.get("recurrence"),
-            start=data.get("start"),
-            end=data.get("end"),
-            flow_class=data.get("flowClass").lower(),
-            rate=data.get("rate"),
-            user_id=int(current_user.id),
-        )
+        target_asset_id = data.get("targetAssetId")
         with Config.DB_SESSION() as session:
+            if not validate_target_asset(
+                session, int(current_user.id), target_asset_id
+            ):
+                return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
+            new_transaction = Recurrent(
+                identifier=data.get("id"),
+                parent_asset_id=data.get("assetId"),
+                target_asset_id=target_asset_id,
+                country=data.get("country"),
+                amount=data.get("amount"),
+                currency=data.get("currency"),
+                recurrence=data.get("recurrence"),
+                start=data.get("start"),
+                end=data.get("end"),
+                flow_class=data.get("flowClass").lower(),
+                rate=data.get("rate"),
+                user_id=int(current_user.id),
+            )
             session.add(new_transaction)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -163,7 +170,13 @@ def recurrents_get(name):
             return jsonify({"message": "Recurrent not found"}), HTTPStatus.NOT_FOUND
         if request.method == "PUT":
             data = request.json
+            target_asset_id = data.get("targetAssetId", result.target_asset_id)
+            if not validate_target_asset(
+                session, int(current_user.id), target_asset_id
+            ):
+                return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
             result.parent_asset_id = data.get("assetId", result.parent_asset_id)
+            result.target_asset_id = target_asset_id
             result.country = data.get("country", result.country)
             result.amount = data.get("amount", result.amount)
             result.currency = data.get("currency", result.currency)

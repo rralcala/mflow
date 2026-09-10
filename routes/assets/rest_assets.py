@@ -8,7 +8,7 @@ from data.asset_store import get_asset_store, reload_asset_store
 from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserStore
-from lib.util import error_response, validate_date
+from lib.util import error_response, validate_date, validate_target_asset
 from models.instrument import Instrument
 from models.models import Account
 from models.payable import Payable
@@ -150,22 +150,28 @@ def instruments():
             return error_response(
                 f"Invalid date '{acquisition_date}'", HTTPStatus.BAD_REQUEST
             )
-        new_transaction = Instrument(
-            country=data.get("country"),
-            location=data.get("location"),
-            symbol=data.get("symbol"),
-            currency=data.get("currency"),
-            factor=data.get("factor"),
-            qty=data.get("qty"),
-            dividend=data.get("dividend"),
-            dividend_rate=data.get("dividend_rate"),
-            user_id=int(current_user.id),
-            acquisition_date=acquisition_date,
-            acquisition_price=data.get("acquisition_price"),
-            liquid=1 if data.get("liquid") else 0,
-            capital_rate=data.get("capital_rate", 0.0),
-        )
+        target_asset_id = data.get("targetAssetId")
         with Config.DB_SESSION() as session:
+            if not validate_target_asset(
+                session, int(current_user.id), target_asset_id
+            ):
+                return error_response("Bad target asset", HTTPStatus.BAD_REQUEST)
+            new_transaction = Instrument(
+                country=data.get("country"),
+                location=data.get("location"),
+                symbol=data.get("symbol"),
+                currency=data.get("currency"),
+                factor=data.get("factor"),
+                qty=data.get("qty"),
+                dividend=data.get("dividend"),
+                dividend_rate=data.get("dividend_rate"),
+                user_id=int(current_user.id),
+                acquisition_date=acquisition_date,
+                acquisition_price=data.get("acquisition_price"),
+                liquid=1 if data.get("liquid") else 0,
+                capital_rate=data.get("capital_rate", 0.0),
+                target_asset_id=target_asset_id,
+            )
             session.add(new_transaction)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -214,6 +220,11 @@ def instruments_get(id):
                 return error_response(
                     f"Invalid date '{acquisition_date}'", HTTPStatus.BAD_REQUEST
                 )
+            target_asset_id = data.get("targetAssetId", result.target_asset_id)
+            if not validate_target_asset(
+                session, int(current_user.id), target_asset_id
+            ):
+                return error_response("Bad target asset", HTTPStatus.BAD_REQUEST)
             result.id = data.get("id", result.id)
             result.user_id = data.get("user_id", result.user_id)
             result.country = data.get("country", result.country)
@@ -230,6 +241,7 @@ def instruments_get(id):
             )
             result.liquid = 1 if data.get("liquid", result.liquid) else 0
             result.capital_rate = data.get("capital_rate", result.capital_rate)
+            result.target_asset_id = target_asset_id
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
         elif request.method == "DELETE":
@@ -302,19 +314,25 @@ def payables():
         due_date = data.get("dueDate")
         if not validate_date(due_date):
             return error_response(f"Invalid date '{due_date}'", HTTPStatus.BAD_REQUEST)
-        new_transaction = Payable(
-            country=country,
-            currency=currency,
-            description=data.get("description"),
-            amount=data.get("amount"),
-            balance=data.get("balance"),
-            due_date=due_date,
-            commited=1 if data.get("paidWithAssetId") else 0,
-            user_id=int(current_user.id),
-            one_off=1 if data.get("oneOff") else 0,
-            flow_class=data.get("flowClass").lower(),
-        )
+        target_asset_id = data.get("targetAssetId", data.get("paidWithAssetId"))
         with Config.DB_SESSION() as session:
+            if not validate_target_asset(
+                session, int(current_user.id), target_asset_id
+            ):
+                return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
+            new_transaction = Payable(
+                country=country,
+                currency=currency,
+                description=data.get("description"),
+                amount=data.get("amount"),
+                balance=data.get("balance"),
+                due_date=due_date,
+                commited=1 if data.get("paidWithAssetId") else 0,
+                user_id=int(current_user.id),
+                one_off=1 if data.get("oneOff") else 0,
+                flow_class=data.get("flowClass").lower(),
+                target_asset_id=target_asset_id,
+            )
             session.add(new_transaction)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -357,6 +375,13 @@ def payables_get(id):
             return jsonify({"message": "Payable not found"}), HTTPStatus.NOT_FOUND
         if request.method == "PUT":
             data = request.json
+            target_asset_id = data.get(
+                "targetAssetId", data.get("paidWithAssetId", result.target_asset_id)
+            )
+            if not validate_target_asset(
+                session, int(current_user.id), target_asset_id
+            ):
+                return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
             result.country = data.get("country", result.country)
             result.currency = data.get("currency", result.currency)
             result.amount = data.get("amount", result.amount)
@@ -366,6 +391,7 @@ def payables_get(id):
             result.commited = 1 if data.get("commited", result.commited) else 0
             result.one_off = 1 if data.get("oneOff", result.one_off) else 0
             result.flow_class = data.get("flowClass", result.flow_class).lower()
+            result.target_asset_id = target_asset_id
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
         elif request.method == "DELETE":

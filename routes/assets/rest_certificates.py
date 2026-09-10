@@ -8,7 +8,7 @@ from flask_login import current_user, login_required
 from data.asset_store import reload_asset_store
 from lib.config import Config
 from lib.user_config import UserStore
-from lib.util import type_to_str
+from lib.util import type_to_str, validate_target_asset
 from models.bond import Bond, BondSchedule
 from models.deposit_certificate import DepositCertificate, DepositCertificateSchedule
 
@@ -221,6 +221,11 @@ def certificate_get(cert_type, request_input, id):
             )
         elif request_input.method == "PUT":
             data = request_input.json
+            target_asset_id = data.get("targetAssetId", result.target_asset_id)
+            if not validate_target_asset(
+                session, int(current_user.id), target_asset_id
+            ):
+                return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
             result.name = data.get("name", result.name)
             result.capital = data.get("capital", result.capital)
             result.rate = data.get("rate", result.rate)
@@ -228,6 +233,7 @@ def certificate_get(cert_type, request_input, id):
             result.currency = data.get("currency", result.currency)
             result.entity = data.get("entity", result.entity)
             result.country = data.get("country", result.country)
+            result.target_asset_id = target_asset_id
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
         elif request_input.method == "DELETE":
@@ -259,7 +265,12 @@ def certificates_all(request_input, cert_type) -> tuple[Response, HTTPStatus]:
             return jsonify({"message": "Bad currency"}), HTTPStatus.BAD_REQUEST
         if country not in Config.COUNTRIES:
             return jsonify({"message": "Bad Country"}), HTTPStatus.BAD_REQUEST
+        target_asset_id = data.get("targetAssetId")
         with Config.DB_SESSION() as session:
+            if not validate_target_asset(
+                session, int(current_user.id), target_asset_id
+            ):
+                return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
             new_item = cert_type(
                 name=data.get("name"),
                 capital=data.get("capital"),
@@ -270,6 +281,7 @@ def certificates_all(request_input, cert_type) -> tuple[Response, HTTPStatus]:
                 country=country,
                 user_id=int(current_user.id),
                 purchase_price=data.get("capital"),
+                target_asset_id=target_asset_id,
             )
 
             session.add(new_item)

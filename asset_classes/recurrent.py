@@ -50,6 +50,7 @@ class Recurrent(Asset):
         end: datetime,
         flow_class: str,
         rate: float = 0.0,
+        target_asset_id: str = "",
     ):
         self.identifier = identifier
         self.amount = amount
@@ -61,6 +62,7 @@ class Recurrent(Asset):
         self.recurrence = recurrence
         self.flow_class = flow_class
         self.parent_asset_id = parent_asset_id
+        self.target_asset_id = target_asset_id
 
     def is_liquid(self) -> bool:
         return False
@@ -199,6 +201,7 @@ def parse_recurrent(data: Dict[str, Any]) -> Recurrent:
         start=data["start"],
         parent_asset_id=data.get("parent_asset", ""),
         rate=data.get("rate", 0.0),
+        target_asset_id=data.get("target_asset", ""),
     )
 
     return new_rec

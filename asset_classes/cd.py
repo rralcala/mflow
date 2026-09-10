@@ -15,6 +15,7 @@ class DepositCertificate(Bond):
         currency: str,
         country: str,
         entity: str,
+        target_asset_id: str = "",
     ):
         super().__init__(
             identifier=identifier,
@@ -24,4 +25,5 @@ class DepositCertificate(Bond):
             currency=currency,
             country=country,
             entity=entity,
+            target_asset_id=target_asset_id,
         )

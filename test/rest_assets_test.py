@@ -1,4 +1,5 @@
 import unittest
+from http import HTTPStatus
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -492,6 +493,313 @@ class TestRestAssetsRoutes(unittest.TestCase):
             response, status = rest_recurrents.recurrents_get.__wrapped__("r")
 
         self.assertEqual(status, 404)
+
+    def test_certificates_all_post_success_with_account_target(self):
+        session = SessionStub(
+            {
+                rest_assets.Account: QueryStub(first_item=SimpleNamespace(id="acc-1")),
+            }
+        )
+        with self.app.test_request_context(
+            "/bonds",
+            method="POST",
+            json={
+                "name": "b1",
+                "capital": 100.0,
+                "rate": 0.05,
+                "maturityDate": "2030-01-01",
+                "currency": "usd",
+                "entity": "Bank",
+                "country": "us",
+                "targetAssetId": "acc-1",
+            },
+        ), patch("routes.rest_certificates.current_user", self.user), patch(
+            "routes.rest_certificates.reload_asset_store"
+        ), patch(
+            "routes.rest_certificates.UserStore.get_user_config",
+            return_value=SimpleNamespace(),
+        ), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ), patch.object(Config, "CURRENCIES", ["usd"], create=True), patch.object(
+            Config, "COUNTRIES", ["US"], create=True
+        ):
+            response, status = rest_certificates.bonds_all.__wrapped__()
+
+        self.assertEqual(status, 201)
+        self.assertEqual(len(session.added), 1)
+        self.assertEqual(session.added[0].target_asset_id, "acc-1")
+
+    def test_certificates_all_post_bad_target(self):
+        session = SessionStub(
+            {
+                rest_assets.Account: QueryStub(first_item=None),
+                rest_assets.Instrument: QueryStub(first_item=None),
+            }
+        )
+        with self.app.test_request_context(
+            "/bonds",
+            method="POST",
+            json={
+                "name": "b1",
+                "capital": 100.0,
+                "rate": 0.05,
+                "maturityDate": "2030-01-01",
+                "currency": "usd",
+                "entity": "Bank",
+                "country": "us",
+                "targetAssetId": "missing",
+            },
+        ), patch("routes.rest_certificates.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ), patch.object(Config, "CURRENCIES", ["usd"], create=True), patch.object(
+            Config, "COUNTRIES", ["US"], create=True
+        ):
+            response, status = rest_certificates.bonds_all.__wrapped__()
+
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(response.get_json(), {"message": "Bad target asset"})
+        self.assertEqual(session.added, [])
+
+    def test_certificate_get_put_bad_target(self):
+        existing = SimpleNamespace(target_asset_id="old", name="b1")
+        session = SessionStub(
+            {
+                rest_certificates.Bond: QueryStub(first_item=existing),
+                rest_assets.Account: QueryStub(first_item=None),
+                rest_assets.Instrument: QueryStub(first_item=None),
+            }
+        )
+        with self.app.test_request_context(
+            "/bonds/1", method="PUT", json={"targetAssetId": "missing"}
+        ), patch("routes.rest_certificates.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_certificates.bonds_get.__wrapped__("1")
+
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(response.get_json(), {"message": "Bad target asset"})
+        self.assertFalse(session.committed)
+
+    def test_recurrents_all_post_bad_target(self):
+        session = SessionStub(
+            {
+                rest_assets.Account: QueryStub(first_item=None),
+                rest_assets.Instrument: QueryStub(first_item=None),
+            }
+        )
+        with self.app.test_request_context(
+            "/recurrents",
+            method="POST",
+            json={
+                "id": "r1",
+                "country": "US",
+                "amount": 10.0,
+                "currency": "USD",
+                "recurrence": "0 0 1 * *",
+                "start": "2026-01-01",
+                "end": "2027-01-01",
+                "flowClass": "Expense",
+                "rate": 0.0,
+                "targetAssetId": "missing",
+            },
+        ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_recurrents.recurrents_all.__wrapped__()
+
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(response.get_json(), {"message": "Bad target asset"})
+        self.assertEqual(session.added, [])
+
+    def test_recurrents_all_post_success_with_instrument_target(self):
+        session = SessionStub(
+            {
+                rest_assets.Account: QueryStub(first_item=None),
+                rest_assets.Instrument: QueryStub(first_item=SimpleNamespace(id=7)),
+            }
+        )
+        with self.app.test_request_context(
+            "/recurrents",
+            method="POST",
+            json={
+                "id": "r1",
+                "country": "US",
+                "amount": 10.0,
+                "currency": "USD",
+                "recurrence": "0 0 1 * *",
+                "start": "2026-01-01",
+                "end": "2027-01-01",
+                "flowClass": "Income",
+                "rate": 0.0,
+                "targetAssetId": "7",
+            },
+        ), patch("routes.rest_recurrents.current_user", self.user), patch(
+            "routes.rest_recurrents.reload_asset_store"
+        ), patch(
+            "routes.rest_recurrents.UserStore.get_user_config",
+            return_value=SimpleNamespace(),
+        ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
+            response, status = rest_recurrents.recurrents_all.__wrapped__()
+
+        self.assertEqual(status, 201)
+        self.assertEqual(session.added[0].target_asset_id, "7")
+
+    def test_recurrents_get_put_bad_target(self):
+        existing = SimpleNamespace(
+            target_asset_id="old", parent_asset_id="parent-1", identifier="r1"
+        )
+        session = SessionStub(
+            {
+                Recurrent: QueryStub(first_item=existing),
+                rest_assets.Account: QueryStub(first_item=None),
+                rest_assets.Instrument: QueryStub(first_item=None),
+            }
+        )
+        with self.app.test_request_context(
+            "/recurrents/r1", method="PUT", json={"targetAssetId": "missing"}
+        ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_recurrents.recurrents_get.__wrapped__("r1")
+
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(response.get_json(), {"message": "Bad target asset"})
+        self.assertFalse(session.committed)
+
+    def test_instruments_post_bad_target(self):
+        session = SessionStub(
+            {
+                rest_assets.Account: QueryStub(first_item=None),
+                rest_assets.Instrument: QueryStub(first_item=None),
+            }
+        )
+        with self.app.test_request_context(
+            "/instruments",
+            method="POST",
+            json={
+                "country": "US",
+                "location": "NYSE",
+                "symbol": "AAPL",
+                "currency": "USD",
+                "factor": 1.0,
+                "qty": 1,
+                "dividend": "",
+                "dividend_rate": 0.0,
+                "acquisition_date": "2026-01-01",
+                "acquisition_price": 100.0,
+                "liquid": True,
+                "targetAssetId": "missing",
+            },
+        ), patch("routes.rest_assets.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_assets.instruments.__wrapped__()
+
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(session.added, [])
+
+    def test_instruments_get_put_bad_target(self):
+        existing = SimpleNamespace(target_asset_id="old")
+        session = SessionStub(
+            {
+                rest_assets.Instrument: QueryStub(first_item=existing),
+                rest_assets.Account: QueryStub(first_item=None),
+            }
+        )
+        with self.app.test_request_context(
+            "/instruments/1",
+            method="PUT",
+            json={"acquisition_date": "2026-01-01", "targetAssetId": "missing"},
+        ), patch("routes.rest_assets.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_assets.instruments_get.__wrapped__(1)
+
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertFalse(session.committed)
+
+    def test_payables_post_bad_target(self):
+        session = SessionStub(
+            {
+                rest_assets.Account: QueryStub(first_item=None),
+                rest_assets.Instrument: QueryStub(first_item=None),
+            }
+        )
+        with self.app.test_request_context(
+            "/payables",
+            method="POST",
+            json={
+                "currency": "usd",
+                "country": "us",
+                "description": "Rent",
+                "amount": 10.0,
+                "balance": 10.0,
+                "dueDate": "2026-01-01",
+                "flowClass": "Expense",
+                "targetAssetId": "missing",
+            },
+        ), patch("routes.rest_assets.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ), patch.object(Config, "CURRENCIES", ["usd"], create=True), patch.object(
+            Config, "COUNTRIES", ["US"], create=True
+        ):
+            response, status = rest_assets.payables.__wrapped__()
+
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(session.added, [])
+
+    def test_payables_post_success_falls_back_to_paid_with_asset_id(self):
+        session = SessionStub(
+            {
+                rest_assets.Account: QueryStub(first_item=SimpleNamespace(id="acc-1")),
+            }
+        )
+        with self.app.test_request_context(
+            "/payables",
+            method="POST",
+            json={
+                "currency": "usd",
+                "country": "us",
+                "description": "Rent",
+                "amount": 10.0,
+                "balance": 10.0,
+                "dueDate": "2026-01-01",
+                "flowClass": "Expense",
+                "paidWithAssetId": "acc-1",
+            },
+        ), patch("routes.rest_assets.current_user", self.user), patch(
+            "routes.rest_assets.reload_asset_store"
+        ), patch(
+            "routes.rest_assets.UserStore.get_user_config",
+            return_value=SimpleNamespace(),
+        ), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ), patch.object(Config, "CURRENCIES", ["usd"], create=True), patch.object(
+            Config, "COUNTRIES", ["US"], create=True
+        ):
+            response, status = rest_assets.payables.__wrapped__()
+
+        self.assertEqual(status, 201)
+        self.assertEqual(session.added[0].target_asset_id, "acc-1")
+
+    def test_payables_get_put_bad_target(self):
+        existing = SimpleNamespace(target_asset_id="old", flow_class="expense")
+        session = SessionStub(
+            {
+                rest_assets.Payable: QueryStub(first_item=existing),
+                rest_assets.Account: QueryStub(first_item=None),
+                rest_assets.Instrument: QueryStub(first_item=None),
+            }
+        )
+        with self.app.test_request_context(
+            "/payables/1", method="PUT", json={"targetAssetId": "missing"}
+        ), patch("routes.rest_assets.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_assets.payables_get.__wrapped__(1)
+
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertFalse(session.committed)
 
     def test_reload_assets(self):
         with self.app.test_request_context("/reload", method="GET"), patch(

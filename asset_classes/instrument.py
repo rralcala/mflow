@@ -28,6 +28,7 @@ class Instrument(Asset):
         acquisition_price: float,
         liquid: bool,
         capital_rate: float,
+        target_asset_id: str = "",
     ):
         self.symbol = symbol
         self.identifier = f"{location}_{symbol}"
@@ -44,6 +45,7 @@ class Instrument(Asset):
         self.acquisition_price = acquisition_price
         self.liquid = liquid
         self.capital_rate = capital_rate
+        self.target_asset_id = target_asset_id
 
     def is_liquid(self) -> bool:
         return self.liquid

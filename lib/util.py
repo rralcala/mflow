@@ -42,6 +42,35 @@ def error_response(
     )
 
 
+def validate_target_asset(session, user_id: int, target_asset_id: str) -> bool:
+    """
+    A target asset represents where cash is pulled from (cost-bearing flows) or
+    deposited to (income flows). It must be an Account or an Instrument
+    (e.g. an interest-bearing brokerage sweep) owned by the same user.
+    """
+    from models.instrument import Instrument
+    from models.models import Account
+
+    if not target_asset_id:
+        return False
+    if (
+        session.query(Account)
+        .filter_by(user_id=user_id, id=target_asset_id)
+        .first()
+    ):
+        return True
+    try:
+        instrument_id = int(target_asset_id)
+    except ValueError:
+        return False
+    return (
+        session.query(Instrument)
+        .filter_by(user_id=user_id, id=instrument_id)
+        .first()
+        is not None
+    )
+
+
 def type_to_str(type_obj) -> str:
     """
     Converts a type object to a string representation.

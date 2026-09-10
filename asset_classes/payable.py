@@ -18,6 +18,7 @@ class Payable(Asset):
         commited: bool,
         one_off: bool,
         flow_class: str,
+        target_asset_id: str = "",
     ):
         self.country = country
         self.currency = currency
@@ -28,6 +29,7 @@ class Payable(Asset):
         self.due_date = due_date
         self.commited = commited
         self.one_off = one_off
+        self.target_asset_id = target_asset_id
 
     def is_liquid(self) -> bool:
         return False

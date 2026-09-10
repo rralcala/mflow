@@ -22,6 +22,7 @@ class Instrument(Base):
     acquisition_price = mapped_column(String(80), nullable=False)
     liquid = mapped_column(Integer, nullable=False)
     capital_rate = mapped_column(String(80), nullable=False)
+    target_asset_id = mapped_column(String(80), nullable=True)
 
     def __str__(self):
         return str(self.id)
@@ -49,4 +50,5 @@ class Instrument(Base):
             "acquisition_price": float(self.acquisition_price),
             "liquid": self.liquid == 1,
             "capital_rate": float(self.capital_rate),
+            "targetAssetId": self.target_asset_id,
         }
