@@ -1,11 +1,11 @@
-import logging
 from typing import Any, Dict, List, Tuple
 
 from asset_classes.asset import Asset
 from data.exchange_rates import ExchangeRates
+from lib.config import NEGATIVES, POSITIVES
+from lib.logger import get_logger
 
-POSITIVES = "positives"
-NEGATIVES = "negatives"
+Logger = get_logger()
 
 
 def list_assets_by_location(assets: Dict[str, List[Asset]]) -> Dict[
@@ -53,10 +53,57 @@ def get_assets(
                 continue
             type_name = type(asset).__name__
             if type_name == "Payable" and not asset.commited:
+                Logger.warning(
+                    "Skipping uncommitted payable asset: %s", asset.get_identifier()
+                )
                 continue
 
             response.append(asset_data_from_asset(asset))
     return response
+
+
+def list_asset_performance(
+    assets: Dict[str, List[Asset]],
+) -> List[Tuple[str, float, str, float]]:
+
+    performance = []
+    for currency, sub in assets.items():
+
+        for asset in sub:
+            current_value, current_return, currency = asset.calculate_year_performance()
+            if current_value <= 0.0:
+                continue
+            if currency != "USD":
+                exchange = ExchangeRates.exchange_rate("USD" + currency)
+                performance.append(
+                    [
+                        asset.get_identifier(),
+                        current_value / exchange,
+                        "USD",
+                        current_return * 100,
+                    ]
+                )
+            else:
+                performance.append(
+                    [
+                        asset.get_identifier(),
+                        current_value,
+                        currency,
+                        current_return * 100,
+                    ]
+                )
+
+    return sorted(performance, key=lambda x: x[3], reverse=True)
+
+
+def net_worth(assets: Dict[str, List[Asset]]):
+    a, returns, c = list_assets(assets, print_pos=True, print_neg=True)
+
+    grand_total = 0.0
+    for item in a:
+        grand_total += item[1] + item[2]
+
+    return grand_total, returns, c
 
 
 def list_assets(
@@ -77,7 +124,7 @@ def list_assets(
             current_value, currency = asset.get_current_value()
             currval, current_return = asset.get_returns()
             if current_value != currval:
-                logging.error(
+                Logger.error(
                     "Current value %s does not match returns value %s for asset %s",
                     current_value,
                     currval,
@@ -126,47 +173,3 @@ def list_assets(
             NEGATIVES: asset_data[NEGATIVES],
         }
     return currency_summary, returns, breakdown
-
-
-def list_asset_performance(
-    assets: Dict[str, List[Asset]],
-) -> List[Tuple[str, float, str, float]]:
-
-    performance = []
-    for currency, sub in assets.items():
-
-        for asset in sub:
-            current_value, current_return, currency = asset.calculate_year_performance()
-            if current_value <= 0.0:
-                continue
-            if currency != "USD":
-                exchange = ExchangeRates.exchange_rate("USD" + currency)
-                performance.append(
-                    [
-                        asset.get_identifier(),
-                        current_value / exchange,
-                        "USD",
-                        current_return * 100,
-                    ]
-                )
-            else:
-                performance.append(
-                    [
-                        asset.get_identifier(),
-                        current_value,
-                        currency,
-                        current_return * 100,
-                    ]
-                )
-
-    return sorted(performance, key=lambda x: x[3], reverse=True)
-
-
-def net_worth(assets: Dict[str, List[Asset]]):
-    a, returns, c = list_assets(assets, print_pos=True, print_neg=True)
-
-    grand_total = 0.0
-    for item in a:
-        grand_total += item[1] + item[2]
-
-    return grand_total, returns, c

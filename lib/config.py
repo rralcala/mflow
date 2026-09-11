@@ -5,6 +5,9 @@ from typing import Dict, List
 
 from sqlalchemy.orm import sessionmaker
 
+POSITIVES = "positives"
+NEGATIVES = "negatives"
+
 
 class Config:
     BASE_PATH: Path

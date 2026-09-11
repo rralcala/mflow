@@ -7,9 +7,9 @@ from flask_login import current_user
 
 from asset_classes.asset import Asset
 from data.exchange_rates import ExchangeRates
-from lib.config import Config
+from lib.config import NEGATIVES, POSITIVES, Config
 from models.history import History
-from reports.list_assets import NEGATIVES, POSITIVES, net_worth
+from reports.list_assets import net_worth
 
 
 def long_term_projection(assets):
