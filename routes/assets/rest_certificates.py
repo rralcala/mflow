@@ -222,15 +222,16 @@ def certificate_get(cert_type, request_input, id):
         elif request_input.method == "PUT":
             data = request_input.json
             target_asset_id = data.get("targetAssetId", result.target_asset_id)
+            currency = data.get("currency", result.currency)
             if not validate_target_asset(
-                session, int(current_user.id), target_asset_id
+                session, int(current_user.id), target_asset_id, currency
             ):
                 return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
             result.name = data.get("name", result.name)
             result.capital = data.get("capital", result.capital)
             result.rate = data.get("rate", result.rate)
             result.maturity_date = data.get("maturityDate", result.maturity_date)
-            result.currency = data.get("currency", result.currency)
+            result.currency = currency
             result.entity = data.get("entity", result.entity)
             result.country = data.get("country", result.country)
             result.target_asset_id = target_asset_id
@@ -268,7 +269,7 @@ def certificates_all(request_input, cert_type) -> tuple[Response, HTTPStatus]:
         target_asset_id = data.get("targetAssetId")
         with Config.DB_SESSION() as session:
             if not validate_target_asset(
-                session, int(current_user.id), target_asset_id
+                session, int(current_user.id), target_asset_id, currency
             ):
                 return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
             new_item = cert_type(

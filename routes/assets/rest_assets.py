@@ -151,16 +151,17 @@ def instruments():
                 f"Invalid date '{acquisition_date}'", HTTPStatus.BAD_REQUEST
             )
         target_asset_id = data.get("targetAssetId")
+        currency = data.get("currency")
         with Config.DB_SESSION() as session:
             if not validate_target_asset(
-                session, int(current_user.id), target_asset_id
+                session, int(current_user.id), target_asset_id, currency
             ):
                 return error_response("Bad target asset", HTTPStatus.BAD_REQUEST)
             new_transaction = Instrument(
                 country=data.get("country"),
                 location=data.get("location"),
                 symbol=data.get("symbol"),
-                currency=data.get("currency"),
+                currency=currency,
                 factor=data.get("factor"),
                 qty=data.get("qty"),
                 dividend=data.get("dividend"),
@@ -221,8 +222,9 @@ def instruments_get(id):
                     f"Invalid date '{acquisition_date}'", HTTPStatus.BAD_REQUEST
                 )
             target_asset_id = data.get("targetAssetId", result.target_asset_id)
+            currency = data.get("currency", result.currency)
             if not validate_target_asset(
-                session, int(current_user.id), target_asset_id
+                session, int(current_user.id), target_asset_id, currency
             ):
                 return error_response("Bad target asset", HTTPStatus.BAD_REQUEST)
             result.id = data.get("id", result.id)
@@ -234,7 +236,7 @@ def instruments_get(id):
             result.qty = data.get("qty", result.qty)
             result.dividend = data.get("dividend", result.dividend)
             result.dividend_rate = data.get("dividend_rate", result.dividend_rate)
-            result.currency = data.get("currency", result.currency)
+            result.currency = currency
             result.acquisition_date = acquisition_date
             result.acquisition_price = data.get(
                 "acquisition_price", result.acquisition_price
@@ -317,7 +319,7 @@ def payables():
         target_asset_id = data.get("targetAssetId", data.get("paidWithAssetId"))
         with Config.DB_SESSION() as session:
             if not validate_target_asset(
-                session, int(current_user.id), target_asset_id
+                session, int(current_user.id), target_asset_id, currency
             ):
                 return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
             new_transaction = Payable(
@@ -378,12 +380,13 @@ def payables_get(id):
             target_asset_id = data.get(
                 "targetAssetId", data.get("paidWithAssetId", result.target_asset_id)
             )
+            currency = data.get("currency", result.currency)
             if not validate_target_asset(
-                session, int(current_user.id), target_asset_id
+                session, int(current_user.id), target_asset_id, currency
             ):
                 return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
             result.country = data.get("country", result.country)
-            result.currency = data.get("currency", result.currency)
+            result.currency = currency
             result.amount = data.get("amount", result.amount)
             result.balance = data.get("balance", result.balance)
             result.due_date = data.get("dueDate", result.due_date)

@@ -42,26 +42,39 @@ def error_response(
     )
 
 
-def validate_target_asset(session, user_id: int, target_asset_id: str) -> bool:
+def validate_target_asset(
+    session, user_id: int, target_asset_id: str, source_currency: str
+) -> bool:
     """
     A target asset represents where cash is pulled from (cost-bearing flows) or
     deposited to (income flows). It must be an Account or an Instrument
-    (e.g. an interest-bearing brokerage sweep) owned by the same user.
+    (e.g. an interest-bearing brokerage sweep) owned by the same user, and it
+    must hold the same currency as the source asset being configured.
 
     Each asset type defines its own `identifier` (see asset_classes/*.py), which
     is not always the model's primary key: Account.identifier is its `id` column,
     but Instrument.identifier is `f"{location}_{symbol}"`. Matching must follow
     that per-type identifier, not the raw row id.
+
+    For an Instrument target, the currency it holds is represented by its
+    `symbol` (e.g. a high-yield savings sweep with symbol "USD"), not by its
+    `currency` column -- that column is the currency used to buy/sell the
+    instrument itself (e.g. the dividend/purchase currency of an AAPL position).
     """
     from models.instrument import Instrument
     from models.models import Account
 
-    if not target_asset_id:
+    if not target_asset_id or not source_currency:
         return False
-    if session.query(Account).filter_by(user_id=user_id, id=target_asset_id).first():
-        return True
+    source_currency = source_currency.upper()
+    account = (
+        session.query(Account).filter_by(user_id=user_id, id=target_asset_id).first()
+    )
+    if account:
+        return account.currency.upper() == source_currency
     return any(
         f"{row.location}_{row.symbol}" == target_asset_id
+        and row.symbol.upper() == source_currency
         for row in session.query(Instrument).filter_by(user_id=user_id).all()
     )
 

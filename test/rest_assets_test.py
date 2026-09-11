@@ -497,7 +497,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
     def test_certificates_all_post_success_with_account_target(self):
         session = SessionStub(
             {
-                rest_assets.Account: QueryStub(first_item=SimpleNamespace(id="acc-1")),
+                rest_assets.Account: QueryStub(
+                    first_item=SimpleNamespace(id="acc-1", currency="USD")
+                ),
             }
         )
         with self.app.test_request_context(
@@ -530,6 +532,40 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(status, 201)
         self.assertEqual(len(session.added), 1)
         self.assertEqual(session.added[0].target_asset_id, "acc-1")
+
+    def test_certificates_all_post_bad_target_currency_mismatch(self):
+        session = SessionStub(
+            {
+                rest_assets.Account: QueryStub(
+                    first_item=SimpleNamespace(id="acc-1", currency="EUR")
+                ),
+            }
+        )
+        with self.app.test_request_context(
+            "/bonds",
+            method="POST",
+            json={
+                "name": "b1",
+                "capital": 100.0,
+                "rate": 0.05,
+                "maturityDate": "2030-01-01",
+                "currency": "usd",
+                "entity": "Bank",
+                "country": "us",
+                "targetAssetId": "acc-1",
+            },
+        ), patch("routes.rest_certificates.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ), patch.object(
+            Config, "CURRENCIES", ["usd"], create=True
+        ), patch.object(
+            Config, "COUNTRIES", ["US"], create=True
+        ):
+            response, status = rest_certificates.bonds_all.__wrapped__()
+
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(response.get_json(), {"message": "Bad target asset"})
+        self.assertEqual(session.added, [])
 
     def test_certificates_all_post_bad_target(self):
         session = SessionStub(
@@ -565,7 +601,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(session.added, [])
 
     def test_certificate_get_put_bad_target(self):
-        existing = SimpleNamespace(target_asset_id="old", name="b1")
+        existing = SimpleNamespace(target_asset_id="old", name="b1", currency="USD")
         session = SessionStub(
             {
                 rest_certificates.Bond: QueryStub(first_item=existing),
@@ -620,6 +656,43 @@ class TestRestAssetsRoutes(unittest.TestCase):
             {
                 rest_assets.Account: QueryStub(first_item=None),
                 rest_assets.Instrument: QueryStub(
+                    all_items=[SimpleNamespace(location="NYSE", symbol="USD")]
+                ),
+            }
+        )
+        with self.app.test_request_context(
+            "/recurrents",
+            method="POST",
+            json={
+                "id": "r1",
+                "country": "US",
+                "amount": 10.0,
+                "currency": "USD",
+                "recurrence": "0 0 1 * *",
+                "start": "2026-01-01",
+                "end": "2027-01-01",
+                "flowClass": "Income",
+                "rate": 0.0,
+                "targetAssetId": "NYSE_USD",
+            },
+        ), patch("routes.rest_recurrents.current_user", self.user), patch(
+            "routes.rest_recurrents.reload_asset_store"
+        ), patch(
+            "routes.rest_recurrents.UserStore.get_user_config",
+            return_value=SimpleNamespace(),
+        ), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_recurrents.recurrents_all.__wrapped__()
+
+        self.assertEqual(status, 201)
+        self.assertEqual(session.added[0].target_asset_id, "NYSE_USD")
+
+    def test_recurrents_all_post_bad_target_instrument_currency_mismatch(self):
+        session = SessionStub(
+            {
+                rest_assets.Account: QueryStub(first_item=None),
+                rest_assets.Instrument: QueryStub(
                     all_items=[SimpleNamespace(location="NYSE", symbol="AAPL")]
                 ),
             }
@@ -639,22 +712,21 @@ class TestRestAssetsRoutes(unittest.TestCase):
                 "rate": 0.0,
                 "targetAssetId": "NYSE_AAPL",
             },
-        ), patch("routes.rest_recurrents.current_user", self.user), patch(
-            "routes.rest_recurrents.reload_asset_store"
-        ), patch(
-            "routes.rest_recurrents.UserStore.get_user_config",
-            return_value=SimpleNamespace(),
-        ), patch.object(
+        ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
             response, status = rest_recurrents.recurrents_all.__wrapped__()
 
-        self.assertEqual(status, 201)
-        self.assertEqual(session.added[0].target_asset_id, "NYSE_AAPL")
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(response.get_json(), {"message": "Bad target asset"})
+        self.assertEqual(session.added, [])
 
     def test_recurrents_get_put_bad_target(self):
         existing = SimpleNamespace(
-            target_asset_id="old", parent_asset_id="parent-1", identifier="r1"
+            target_asset_id="old",
+            parent_asset_id="parent-1",
+            identifier="r1",
+            currency="USD",
         )
         session = SessionStub(
             {
@@ -707,7 +779,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(session.added, [])
 
     def test_instruments_get_put_bad_target(self):
-        existing = SimpleNamespace(target_asset_id="old")
+        existing = SimpleNamespace(target_asset_id="old", currency="USD")
         session = SessionStub(
             {
                 rest_assets.Instrument: QueryStub(first_item=existing),
@@ -761,7 +833,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
     def test_payables_post_success_falls_back_to_paid_with_asset_id(self):
         session = SessionStub(
             {
-                rest_assets.Account: QueryStub(first_item=SimpleNamespace(id="acc-1")),
+                rest_assets.Account: QueryStub(
+                    first_item=SimpleNamespace(id="acc-1", currency="USD")
+                ),
             }
         )
         with self.app.test_request_context(
@@ -795,7 +869,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(session.added[0].target_asset_id, "acc-1")
 
     def test_payables_get_put_bad_target(self):
-        existing = SimpleNamespace(target_asset_id="old", flow_class="expense")
+        existing = SimpleNamespace(
+            target_asset_id="old", flow_class="expense", currency="USD"
+        )
         session = SessionStub(
             {
                 rest_assets.Payable: QueryStub(first_item=existing),

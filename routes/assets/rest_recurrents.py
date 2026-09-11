@@ -116,9 +116,10 @@ def recurrents_all():
     if request.method == "POST":
         data = request.json
         target_asset_id = data.get("targetAssetId")
+        currency = data.get("currency")
         with Config.DB_SESSION() as session:
             if not validate_target_asset(
-                session, int(current_user.id), target_asset_id
+                session, int(current_user.id), target_asset_id, currency
             ):
                 return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
             new_transaction = Recurrent(
@@ -127,7 +128,7 @@ def recurrents_all():
                 target_asset_id=target_asset_id,
                 country=data.get("country"),
                 amount=data.get("amount"),
-                currency=data.get("currency"),
+                currency=currency,
                 recurrence=data.get("recurrence"),
                 start=data.get("start"),
                 end=data.get("end"),
@@ -171,15 +172,16 @@ def recurrents_get(name):
         if request.method == "PUT":
             data = request.json
             target_asset_id = data.get("targetAssetId", result.target_asset_id)
+            currency = data.get("currency", result.currency)
             if not validate_target_asset(
-                session, int(current_user.id), target_asset_id
+                session, int(current_user.id), target_asset_id, currency
             ):
                 return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
             result.parent_asset_id = data.get("assetId", result.parent_asset_id)
             result.target_asset_id = target_asset_id
             result.country = data.get("country", result.country)
             result.amount = data.get("amount", result.amount)
-            result.currency = data.get("currency", result.currency)
+            result.currency = currency
             result.recurrence = data.get("recurrence", result.recurrence)
             result.start = data.get("start", result.start)
             result.end = data.get("end", result.end)
