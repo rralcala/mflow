@@ -10,8 +10,6 @@ class UserConfig:
         self.USER_ID = user_id
         self.SECONDARY_CURRENCY = ""
         self.SECONDARY_COUNTRY = "PY"
-        self.TRADED_STOCKS = []
-        self.TRADED_CRYPTO = []
         self.LAST_UNTIL = "2075-01-01"
         self.DESIRED_ESTATE = 0.0
         self.DEFAULT_VAR_ID = "default_var"

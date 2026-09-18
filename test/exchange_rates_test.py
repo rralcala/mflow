@@ -100,6 +100,8 @@ class TestExchangeRates(unittest.TestCase):
             Config, "TRADED_STOCKS", ["AAPL"], create=True
         ), patch.object(
             Config, "TRADED_METALS", ["IAUM"], create=True
+        ), patch.object(
+            Config, "LOCAL_SYMBOLS", [("LOCAL1", 123.45)], create=True
         ), patch(
             "data.exchange_rates.datetime", FixedDateTime
         ):

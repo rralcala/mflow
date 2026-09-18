@@ -20,6 +20,7 @@ class Config:
     TRADED_CRYPTO: List[str]
     TRADED_METALS: List[str]
     TRADED_STOCKS: List[str]
+    LOCAL_SYMBOLS: Dict[str, float]
     USERS: Dict
     YEAR: float = 365.25
 

@@ -122,10 +122,12 @@ def exchange_rates():
     user_config = UserStore.get_user_config(current_user.id)
     result = []
     selected_exchanges = f"USD{user_config.SECONDARY_CURRENCY}"
-    for currency in user_config.TRADED_CRYPTO:
+    for currency in Config.TRADED_CRYPTO:
         selected_exchanges += f" {currency}USD"
-    for currency in user_config.TRADED_STOCKS:
-        selected_exchanges += f" {currency}"
+    for stock in Config.TRADED_STOCKS:
+        selected_exchanges += f" {stock}"
+    for metal in Config.TRADED_METALS:
+        selected_exchanges += f" {metal}"
     for key, value in ExchangeRates.get_all().items():
         if key in selected_exchanges.split():
             result.append({"id": key, "rate": value, "weekChange": value})
