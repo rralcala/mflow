@@ -1,4 +1,3 @@
-import logging
 from datetime import date, datetime
 from typing import Dict, List
 
@@ -8,12 +7,14 @@ from flask_login import current_user
 from asset_classes.asset import Asset
 from data.exchange_rates import ExchangeRates
 from lib.config import NEGATIVES, POSITIVES, Config
+from lib.logger import get_logger
 from models.history import History
 from reports.list_assets import net_worth
 
+Logger = get_logger()
 
 def long_term_projection(assets):
-    grand_total, b, c = net_worth(assets)
+    grand_total, _, _ = net_worth(assets)
     return grand_total
 
 
@@ -185,7 +186,7 @@ def list_assets(assets: Dict[str, List[Asset]]) -> Dict[str, float]:
             )
             session.add(result)
             session.commit()
-            logging.warning(
+            Logger.warning(
                 f"Created new history record for user {current_user.id} with value {grand_total} and fixed {total_fixed}"
             )
     resp_dict = {

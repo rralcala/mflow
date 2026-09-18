@@ -21,7 +21,6 @@ from views import monthly_pnl as vmpnl
 from views import projection as vp
 from views import spending as vs
 from views import upcoming_payments as vup
-from views.upload_statement import upload_statement
 
 reports_bp = Blueprint("reports", __name__)
 
@@ -256,45 +255,12 @@ def upcoming_payments_flat():
     response.headers["X-Total-Count"] = count
     return response, HTTPStatus.OK
 
-
-@reports_bp.route("/upload-statement", methods=["POST"])
-@login_required
-def upload_statement_endpoint():
-    if "statement" not in request.files:
-        return jsonify({"message": "No file part"}), HTTPStatus.BAD_REQUEST
-    update_balance = request.form.get("update", "0") == "1"
-    account_id = request.form.get("account")
-    file = request.files["statement"]
-    if file.filename == "":
-        return jsonify({"message": "No selected file"}), HTTPStatus.BAD_REQUEST
-
-    in_memory_file = io.BytesIO(file.read())
-    try:
-        response, summary = upload_statement(
-            Config.DB_SESSION(), update_balance, account_id, in_memory_file
-        )
-        if update_balance and account_id:
-            reload_asset_store(UserStore.get_user_config(current_user.id))
-    except ValueError as _:
-        return (
-            jsonify({"message": "Invalid file format. Required columns are missing."}),
-            HTTPStatus.BAD_REQUEST,
-        )
-    except Exception as e:
-        return (
-            jsonify({"message": "An error occurred while processing the file."}),
-            HTTPStatus.INTERNAL_SERVER_ERROR,
-        )
-
-    return jsonify({"message": response + summary}), HTTPStatus.OK
-
-
 @reports_bp.route("/valuation_history", methods=["GET"])
 @login_required
 def valuation_history():
     user_config = UserStore.get_user_config(current_user.id)
     assets = get_asset_store(user_config)
-    data = vnh.nw_history(assets)
+    data = vnh.nw_history()
     count = len(data)
 
     response = jsonify(data)

@@ -6,7 +6,7 @@ from lib.config import Config
 from models.history import History
 
 
-def nw_history(assets) -> List[List[Any]]:
+def nw_history() -> List[List[Any]]:
     with Config.DB_SESSION() as session:
         history = session.query(History).filter_by(user_id=current_user.id).all()
     items = len(history)
