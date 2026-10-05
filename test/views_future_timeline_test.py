@@ -237,6 +237,22 @@ class TestFutureTimeline(unittest.TestCase):
         )
         self.assertAlmostEqual(asset_row(result, "Tuition")["endValue"], 0.0)
 
+    def test_one_off_loan_payable_is_not_inflated(self, *_):
+        installment = Payable(
+            "US",
+            "USD",
+            "Installment",
+            -1000.0,
+            -1000.0,
+            datetime(2030, 7, 7),
+            False,
+            True,
+            "Loan",
+            "Checking",
+        )
+        result = run([account(balance=5000.0), installment], end=date(2031, 12, 31))
+        self.assertAlmostEqual(month(result, "2031-07")["expenses"], -1000.0)
+
     def test_overdue_payable_lands_in_first_month(self, *_):
         bill = Payable(
             "US",

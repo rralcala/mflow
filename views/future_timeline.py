@@ -348,7 +348,10 @@ class _Simulation:
         )
         if not asset.one_off:
             return
-        # One-offs are expected to come back every year, inflation adjusted.
+        # One-offs are expected to come back every year, inflation adjusted
+        # unless they are fixed contracts like loans.
+        flow_class = (asset.flow_class or RecurrentTypes.Expense).lower()
+        indexed = flow_class in INFLATION_INDEXED_FLOWS
         year = asset.due_date.year + 1
         while year <= self.end_dt.year:
             when = _safe_replace_year(asset.due_date, year)
@@ -358,7 +361,9 @@ class _Simulation:
                 break
             if when < self.start_dt:
                 continue  # Overdue occurrence is already the original due date.
-            amount = asset.amount * self.inflation_factor(holding.country, index)
+            amount = asset.amount
+            if indexed:
+                amount *= self.inflation_factor(holding.country, index)
             self.schedule(
                 when,
                 partial(

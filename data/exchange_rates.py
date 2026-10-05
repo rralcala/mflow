@@ -71,7 +71,7 @@ class ExchangeRates:
             ticker = yf.Ticker(stock)
             quote_cache[stock] = round(ticker.fast_info["last_price"], 2)
             Logger.info(f"Loaded stock price for {stock}: {quote_cache[stock]}")
-        for stock, value in Config.LOCAL_SYMBOLS:
+        for stock, value in Config.LOCAL_SYMBOLS.items():
             quote_cache[stock] = value
         ExchangeRates.currencies = set(Config.CURRENCIES)
         ExchangeRates.quote_cache = quote_cache
