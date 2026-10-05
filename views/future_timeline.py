@@ -1,280 +1,569 @@
-from datetime import date, datetime
-from typing import Any, Dict, List, Optional, Tuple
+"""Month-by-month simulation of every asset until UserConfig.LAST_UNTIL.
 
-from data.exchange_rates import ExchangeRates
-from reports.cash_flow import generate_timeline
+Each asset becomes a holding with a value. Dated events (recurrents, payables,
+bond/CD coupons and maturities, instrument interest/dividends) move money into
+the *target pool* named by the asset's ``target_asset_id`` (an Account id or an
+Instrument identifier). Pools are what the user has to keep above zero.
+
+Modeling rules:
+  * Recurrent expenses/incomes and yearly one-off payables grow with the
+    inflation of their country. Loans and repayments are fixed contracts.
+  * Housing properties grow with their country's inflation; vehicles don't.
+  * Instruments pay ``rate`` on their cron schedule, computed on their current
+    simulated value, into their target (themselves when unset, so cash-like
+    sweeps compound). ``capital_rate`` appreciation is opt-in: compounding
+    speculative rates for decades swamps everything else.
+  * Exchange rates are held constant at today's quotes.
+"""
+
+import calendar
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
+from functools import partial
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+
+from asset_classes.account import Account
+from asset_classes.bond import Bond
+from asset_classes.instrument import Instrument
+from asset_classes.payable import Payable
+from asset_classes.property import Property
+from asset_classes.recurrent import Recurrent
+from data.constants import RecurrentTypes
+from lib.util import cron_runs
+
+DEFAULT_INFLATION_RATES: Dict[str, float] = {"US": 0.025, "UY": 0.025, "PY": 0.035}
+FALLBACK_INFLATION_RATE = 0.025
+VEHICLE_PREFIXES = ("auto", "car", "moto", "vehicle")
+VEHICLE_MARKERS = ("VIN=", "Plates=")
+INFLATION_INDEXED_FLOWS = (RecurrentTypes.Expense, RecurrentTypes.Income)
+CATEGORIES = ("income", "expenses", "interest", "maturities")
 
 
-def _to_date(value: Optional[date | datetime]) -> date:
-    if value is None:
-        return date.today()
+@dataclass
+class _Holding:
+    key: str
+    name: str
+    kind: str
+    country: str
+    currency: str
+    value: float
+    liquid: bool = False
+    is_pool: bool = False
+    is_fallback: bool = False
+    growth: Optional[str] = None
+    start_value: float = 0.0
+
+
+def _to_date(value: date | datetime | str) -> date:
+    if isinstance(value, str):
+        return datetime.strptime(value, "%Y-%m-%d").date()
     if isinstance(value, datetime):
         return value.date()
     return value
 
 
-def _bucket_date(value: date, granularity: str) -> date:
-    if granularity == "yearly":
-        return date(value.year, 1, 1)
-    return date(value.year, value.month, 1)
+def _month_end(year: int, month: int) -> datetime:
+    last_day = calendar.monthrange(year, month)[1]
+    return datetime(year, month, last_day, 23, 59, 59)
 
 
-def _next_bucket(value: date, granularity: str) -> date:
-    if granularity == "yearly":
-        return date(value.year + 1, 1, 1)
-
-    if value.month == 12:
-        return date(value.year + 1, 1, 1)
-    return date(value.year, value.month + 1, 1)
-
-
-def _iter_buckets(start_date: date, end_date: date, granularity: str) -> List[date]:
-    buckets: List[date] = []
-    current = _bucket_date(start_date, granularity)
-    while current <= end_date:
-        buckets.append(current)
-        current = _next_bucket(current, granularity)
-    return buckets
-
-
-def _safe_add_years(value: date, years: int) -> date:
+def _safe_replace_year(value: datetime, year: int) -> datetime:
     try:
-        return value.replace(year=value.year + years)
+        return value.replace(year=year)
     except ValueError:
-        # Handle leap day by moving to Feb 28 on non-leap target years.
-        return value.replace(month=2, day=28, year=value.year + years)
+        return value.replace(year=year, day=28)
 
 
-def _get_expiration_date(asset: Any) -> Optional[date]:
-    for field in ("maturity_date", "due_date", "end_date"):
-        raw = getattr(asset, field, None)
-        if raw is None:
-            continue
-        if isinstance(raw, datetime):
-            return raw.date()
-        if isinstance(raw, date):
-            return raw
-    return None
+def is_vehicle(asset: Property) -> bool:
+    name = asset.get_identifier().lower()
+    details = getattr(asset, "additional_data", "") or ""
+    return name.startswith(VEHICLE_PREFIXES) or any(
+        marker in details for marker in VEHICLE_MARKERS
+    )
 
 
-def _flatten_assets(assets: Dict[str, List[Any]]) -> List[Any]:
-    all_assets: List[Any] = []
+def market_fx_rates(assets: Dict[str, List[Any]]) -> Dict[str, float]:
+    """Units of each held currency per USD, using today's quotes."""
+    from data.exchange_rates import ExchangeRates
+
+    rates = {"USD": 1.0}
+    for asset in _flatten(assets):
+        currency = asset.get_currency().upper()
+        if currency not in rates:
+            rate = ExchangeRates.exchange_rate("USD" + currency)
+            if rate:
+                rates[currency] = rate
+    return rates
+
+
+def _flatten(assets: Dict[str, List[Any]]) -> Iterable[Any]:
     for bucket in assets.values():
-        all_assets.extend(bucket)
-    return all_assets
+        yield from bucket
 
 
-def _base_currency_value(amount: float, currency: str) -> float:
-    if currency == "USD":
-        return amount
-    pair = f"USD{currency}"
-    rate = ExchangeRates.exchange_rate(pair)
-    if not rate:
-        return 0.0
-    return amount / rate
-
-
-def _build_event_maps(
-    assets: Dict[str, List[Any]],
-    end_date: date,
-    granularity: str,
-    expiration_by_asset_id: Dict[str, Optional[date]],
-    has_due_date_by_asset_id: Dict[str, bool],
-) -> Tuple[Dict[Tuple[str, date], float], Dict[Tuple[str, date], float]]:
-    yield_events: Dict[Tuple[str, date], float] = {}
-    expiration_events: Dict[Tuple[str, date], float] = {}
-
-    for _, asset_id, timeline in generate_timeline(
-        assets, datetime.combine(end_date, datetime.min.time())
+class _Simulation:
+    def __init__(
+        self,
+        start: date,
+        end: date,
+        inflation_rates: Dict[str, float],
+        fx_rates: Dict[str, float],
+        include_capital_growth: bool,
     ):
-        expiration_date = expiration_by_asset_id.get(asset_id)
-        expiration_bucket = (
-            _bucket_date(expiration_date, granularity) if expiration_date else None
+        self.start_dt = datetime.combine(start, datetime.min.time())
+        self.end_dt = datetime.combine(end, datetime.max.time())
+        self.inflation_rates = inflation_rates
+        self.fx_rates = {k.upper(): v for k, v in fx_rates.items()}
+        self.include_capital_growth = include_capital_growth
+
+        self.months: List[date] = []
+        current = date(start.year, start.month, 1)
+        while current <= end:
+            self.months.append(current)
+            current = (current + timedelta(days=32)).replace(day=1)
+
+        self.holdings: Dict[str, _Holding] = {}
+        self.targets: Dict[str, str] = {}  # target_asset_id -> holding key
+        self.events: List[List[Tuple[datetime, int, Callable[[], None]]]] = [
+            [] for _ in self.months
+        ]
+        self.growth: List[Tuple[_Holding, float]] = []
+        self.warnings: List[str] = []
+        self._pending: List[Tuple[Any, _Holding]] = []
+        self._seq = 0
+        self._flows: Dict[str, float] = {}
+        self._month_min: Dict[str, float] = {}
+
+    # -- setup -----------------------------------------------------------
+
+    def inflation(self, country: str) -> float:
+        return self.inflation_rates.get(country, FALLBACK_INFLATION_RATE)
+
+    def inflation_factor(self, country: str, month_index: int) -> float:
+        return (1 + self.inflation(country)) ** (month_index / 12)
+
+    def month_index(self, when: datetime) -> Optional[int]:
+        """Month bucket for an event; overdue events land in the first month."""
+        if when > self.end_dt:
+            return None
+        index = (when.year - self.months[0].year) * 12 + when.month
+        return max(0, index - self.months[0].month)
+
+    def schedule(self, when: datetime, action: Callable[[], None]) -> None:
+        index = self.month_index(when)
+        if index is None:
+            return
+        self._seq += 1
+        self.events[index].append((max(when, self.start_dt), self._seq, action))
+
+    def add_holding(self, asset: Any, value: float, **kwargs) -> _Holding:
+        kind = type(asset).__name__
+        name = asset.get_identifier()
+        key = name if name not in self.holdings else f"{kind}:{name}"
+        holding = _Holding(
+            key=key,
+            name=name,
+            kind=kind,
+            country=getattr(asset, "country", "") or "",
+            currency=asset.get_currency().upper(),
+            value=value,
+            start_value=value,
+            **kwargs,
         )
-        has_due_date = has_due_date_by_asset_id.get(asset_id, False)
+        self.holdings[key] = holding
+        return holding
 
-        for timeline_date, (amount, _, is_capital) in timeline:
-            bucket_date = _bucket_date(timeline_date, granularity)
-            key = (asset_id, bucket_date)
-
-            # Capital events at maturity and payable due-date events are treated as expiration.
-            if is_capital and expiration_bucket == bucket_date:
-                expiration_events[key] = expiration_events.get(key, 0.0) + amount
+    def add_assets(self, assets: Iterable[Any]) -> None:
+        assets = list(assets)
+        # Targets must exist before anything references them.
+        for asset in assets:
+            if isinstance(asset, Account):
+                holding = self.add_holding(
+                    asset, asset.get_current_value()[0], liquid=asset.is_liquid()
+                )
+                self.targets.setdefault(asset.get_identifier(), holding.key)
+        for asset in assets:
+            if isinstance(asset, Instrument):
+                holding = self.add_holding(
+                    asset, asset.get_current_value()[0], liquid=asset.is_liquid()
+                )
+                self.targets.setdefault(asset.get_identifier(), holding.key)
+                self._pending.append((asset, holding))
+        for asset in assets:
+            if isinstance(asset, (Account, Instrument)):
                 continue
+            if isinstance(asset, Bond):
+                self.add_bond(asset)
+            elif isinstance(asset, Recurrent):
+                self.add_recurrent(asset)
+            elif isinstance(asset, Payable):
+                self.add_payable(asset)
+            elif isinstance(asset, Property):
+                self.add_property(asset)
+            else:
+                self.warnings.append(
+                    f"{type(asset).__name__} {asset.get_identifier()} is not simulated."
+                )
+        for asset, holding in self._pending:
+            self.add_instrument(asset, holding)
 
-            if has_due_date and expiration_bucket == bucket_date:
-                expiration_events[key] = expiration_events.get(key, 0.0) + amount
+    def resolve_target(
+        self, asset: Any, default: Optional[_Holding] = None
+    ) -> _Holding:
+        target_id = getattr(asset, "target_asset_id", "") or ""
+        if target_id in self.targets:
+            holding = self.holdings[self.targets[target_id]]
+        elif not target_id and default is not None:
+            holding = default
+        else:
+            if target_id:
+                self.warnings.append(
+                    f"{asset.get_identifier()} targets unknown asset '{target_id}'."
+                )
+            holding = self.fallback_pool(
+                asset.get_currency().upper(), getattr(asset, "country", "")
+            )
+        holding.is_pool = True
+        return holding
+
+    def fallback_pool(self, currency: str, country: str) -> _Holding:
+        key = f"Unassigned {currency} {country}".strip()
+        if key not in self.holdings:
+            self.holdings[key] = _Holding(
+                key=key,
+                name=key,
+                kind="Unassigned",
+                country=country,
+                currency=currency,
+                value=0.0,
+                liquid=True,
+                is_pool=True,
+                is_fallback=True,
+            )
+        return self.holdings[key]
+
+    def add_instrument(self, asset: Instrument, holding: _Holding) -> None:
+        if self.include_capital_growth and asset.capital_rate:
+            holding.growth = "capital"
+            self.growth.append((holding, float(asset.capital_rate)))
+        if not asset.rate:
+            return
+        first_year = cron_runs(
+            asset.dividend,
+            self.start_dt,
+            self.start_dt + timedelta(days=365) - timedelta(seconds=1),
+        )
+        if not first_year:
+            return
+        rate_per_payout = float(asset.rate) / len(first_year)
+        target = self.resolve_target(asset, default=holding)
+        for run in cron_runs(asset.dividend, self.start_dt, self.end_dt):
+            if run >= self.start_dt:
+                self.schedule(
+                    run, partial(self.pay_yield, holding, target, rate_per_payout)
+                )
+
+    def add_bond(self, asset: Bond) -> None:
+        holding = self.add_holding(asset, asset.get_current_value()[0])
+        target = self.resolve_target(asset)
+        for payment in asset.payment_schedule:
+            if not payment["paid"]:
+                self.schedule(
+                    payment["date"],
+                    partial(
+                        self.transfer,
+                        None,
+                        target,
+                        payment["amount"],
+                        holding.currency,
+                        "interest",
+                    ),
+                )
+        self.schedule(
+            asset.maturity_date,
+            partial(
+                self.transfer,
+                holding,
+                target,
+                asset.capital,
+                holding.currency,
+                "maturities",
+            ),
+        )
+
+    def add_recurrent(self, asset: Recurrent) -> None:
+        is_contract = asset.flow_class in (
+            RecurrentTypes.Loan,
+            RecurrentTypes.Repayment,
+        )
+        holding = self.add_holding(
+            asset, asset.get_current_value()[0] if is_contract else 0.0
+        )
+        if not asset.amount:
+            return
+        target = self.resolve_target(asset)
+        source = holding if is_contract else None
+        indexed = asset.flow_class in INFLATION_INDEXED_FLOWS
+        window_start = max(
+            asset.start_date, datetime.combine(self.months[0], datetime.min.time())
+        )
+        window_end = min(asset.maturity_date, self.end_dt)
+        for run in cron_runs(asset.recurrence, window_start, window_end):
+            if run < window_start:
                 continue
+            index = self.month_index(run)
+            amount = asset.amount
+            if index == 0:
+                # Discount what was already recorded as paid this month.
+                for row in asset.fetch_transactions(run):
+                    amount = round(amount - float(row.amount), 2)
+                if asset.flow_class == RecurrentTypes.Expense and amount >= 0.0:
+                    continue
+            elif indexed:
+                amount *= self.inflation_factor(holding.country, index)
+            category = "income" if amount > 0 else "expenses"
+            self.schedule(
+                run,
+                partial(
+                    self.transfer, source, target, amount, holding.currency, category
+                ),
+            )
 
-            if not is_capital:
-                yield_events[key] = yield_events.get(key, 0.0) + amount
+    def add_payable(self, asset: Payable) -> None:
+        holding = self.add_holding(asset, asset.get_current_value()[0])
+        if not asset.balance:
+            return
+        target = self.resolve_target(asset)
+        category = "income" if asset.balance > 0 else "expenses"
+        self.schedule(
+            asset.due_date,
+            partial(
+                self.transfer,
+                holding if asset.commited else None,
+                target,
+                asset.balance,
+                holding.currency,
+                category,
+            ),
+        )
+        if not asset.one_off:
+            return
+        # One-offs are expected to come back every year, inflation adjusted.
+        year = asset.due_date.year + 1
+        while year <= self.end_dt.year:
+            when = _safe_replace_year(asset.due_date, year)
+            year += 1
+            index = self.month_index(when)
+            if index is None:
+                break
+            if when < self.start_dt:
+                continue  # Overdue occurrence is already the original due date.
+            amount = asset.amount * self.inflation_factor(holding.country, index)
+            self.schedule(
+                when,
+                partial(
+                    self.transfer, None, target, amount, holding.currency, category
+                ),
+            )
 
-    return yield_events, expiration_events
+    def add_property(self, asset: Property) -> None:
+        holding = self.add_holding(asset, asset.get_current_value()[0])
+        if is_vehicle(asset):
+            return
+        holding.growth = "inflation"
+        self.growth.append((holding, self.inflation(holding.country)))
 
+    # -- runtime ---------------------------------------------------------
 
-def _resolve_end_date(
-    all_assets: List[Any],
-    start_date: date,
-    end_date: Optional[date],
-    fallback_years: int,
-) -> date:
-    if end_date is not None:
-        return end_date
+    def convert(self, amount: float, source: str, target: str) -> float:
+        if source == target:
+            return amount
+        return self.to_usd(amount, source) * self.rate(target)
 
-    latest_expiration: Optional[date] = None
-    for asset in all_assets:
-        expiration = _get_expiration_date(asset)
-        if expiration is None or expiration < start_date:
-            continue
-        if latest_expiration is None or expiration > latest_expiration:
-            latest_expiration = expiration
+    def rate(self, currency: str) -> float:
+        if currency not in self.fx_rates:
+            self.warnings.append(f"No exchange rate for {currency}, assuming 1:1 USD.")
+            self.fx_rates[currency] = 1.0
+        return self.fx_rates[currency]
 
-    if latest_expiration is not None:
-        return latest_expiration
+    def to_usd(self, amount: float, currency: str) -> float:
+        return amount / self.rate(currency)
 
-    return _safe_add_years(start_date, fallback_years)
+    def transfer(
+        self,
+        source: Optional[_Holding],
+        target: _Holding,
+        amount: float,
+        currency: str,
+        category: str,
+    ) -> None:
+        if source is not None:
+            source.value -= amount
+        target.value += self.convert(amount, currency, target.currency)
+        self._flows[category] += self.to_usd(amount, currency)
+        self._month_min[target.key] = min(
+            self._month_min.get(target.key, target.value), target.value
+        )
+
+    def pay_yield(self, source: _Holding, target: _Holding, rate: float) -> None:
+        if source.value <= 0.0:
+            return
+        self.transfer(None, target, source.value * rate, source.currency, "interest")
+
+    def run(self, desired_estate: float) -> Dict[str, Any]:
+        pools = [h for h in self.holdings.values() if h.is_pool]
+        pool_stats = {
+            p.key: {
+                "minBalance": p.value,
+                "minDate": self.months[0].isoformat(),
+                "firstNegativeDate": None,
+                "monthsNegative": 0,
+            }
+            for p in pools
+        }
+        start_net_worth = self.net_worth()
+        rows = []
+        for index, month in enumerate(self.months):
+            self._flows = {category: 0.0 for category in CATEGORIES}
+            self._month_min = {p.key: p.value for p in pools}
+            for _, _, action in sorted(self.events[index], key=lambda e: e[:2]):
+                action()
+            for holding, annual_rate in self.growth:
+                if holding.value > 0.0:
+                    holding.value *= (1 + annual_rate) ** (1 / 12)
+
+            month_str = month.isoformat()
+            negative = []
+            for pool in pools:
+                low = min(self._month_min[pool.key], pool.value)
+                stats = pool_stats[pool.key]
+                if low < stats["minBalance"]:
+                    stats["minBalance"] = low
+                    stats["minDate"] = month_str
+                if low < 0.0:
+                    negative.append(pool.key)
+                    stats["monthsNegative"] += 1
+                    stats["firstNegativeDate"] = stats["firstNegativeDate"] or month_str
+
+            rows.append(
+                {
+                    "id": month_str[:7],
+                    "date": month_str,
+                    **self._flows,
+                    "netCashFlow": self._flows["income"]
+                    + self._flows["expenses"]
+                    + self._flows["interest"],
+                    "cashTotal": sum(self.to_usd(p.value, p.currency) for p in pools),
+                    "liquidTotal": sum(
+                        self.to_usd(h.value, h.currency)
+                        for h in self.holdings.values()
+                        if h.liquid
+                    ),
+                    "netWorth": self.net_worth(),
+                    "balances": {p.key: p.value for p in pools},
+                    "minBalances": {
+                        p.key: min(self._month_min[p.key], p.value) for p in pools
+                    },
+                    "negativePools": negative,
+                }
+            )
+
+        pool_rows = []
+        for pool in pools:
+            stats = pool_stats[pool.key]
+            pool_rows.append(
+                {
+                    "id": pool.key,
+                    "name": pool.name,
+                    "type": pool.kind,
+                    "country": pool.country,
+                    "currency": pool.currency,
+                    "liquid": pool.liquid,
+                    "isFallback": pool.is_fallback,
+                    "startBalance": pool.start_value,
+                    "endBalance": pool.value,
+                    **stats,
+                    "requiredTopUp": max(0.0, -stats["minBalance"]),
+                    "requiredTopUpUsd": max(
+                        0.0, -self.to_usd(stats["minBalance"], pool.currency)
+                    ),
+                }
+            )
+        pool_rows.sort(key=lambda p: (p["firstNegativeDate"] is None, p["id"]))
+
+        asset_rows = [
+            {
+                "id": h.key,
+                "name": h.name,
+                "type": h.kind,
+                "country": h.country,
+                "currency": h.currency,
+                "growth": h.growth,
+                "isPool": h.is_pool,
+                "startValue": h.start_value,
+                "endValue": h.value,
+                "startValueUsd": self.to_usd(h.start_value, h.currency),
+                "endValueUsd": self.to_usd(h.value, h.currency),
+            }
+            for h in self.holdings.values()
+            if h.start_value or h.value
+        ]
+        asset_rows.sort(key=lambda a: -abs(a["endValueUsd"]))
+
+        negative_dates = [
+            p["firstNegativeDate"] for p in pool_rows if p["firstNegativeDate"]
+        ]
+        low_cash = min(rows, key=lambda r: r["cashTotal"]) if rows else None
+        end_net_worth = rows[-1]["netWorth"] if rows else start_net_worth
+        return {
+            "summary": {
+                "startDate": self.start_dt.date().isoformat(),
+                "endDate": self.end_dt.date().isoformat(),
+                "months": len(rows),
+                "startNetWorth": start_net_worth,
+                "endNetWorth": end_net_worth,
+                "desiredEstate": desired_estate,
+                "estateGap": end_net_worth - desired_estate,
+                "firstNegativeDate": min(negative_dates) if negative_dates else None,
+                "negativePools": len(negative_dates),
+                "requiredTopUpUsd": sum(p["requiredTopUpUsd"] for p in pool_rows),
+                "minCashTotal": low_cash["cashTotal"] if low_cash else 0.0,
+                "minCashTotalDate": low_cash["date"] if low_cash else None,
+                "onTrack": not negative_dates and end_net_worth >= desired_estate,
+            },
+            "inflationRates": self.inflation_rates,
+            "fxRates": self.fx_rates,
+            "warnings": sorted(set(self.warnings)),
+            "pools": pool_rows,
+            "months": rows,
+            "assets": asset_rows,
+        }
+
+    def net_worth(self) -> float:
+        return sum(self.to_usd(h.value, h.currency) for h in self.holdings.values())
 
 
 def future_timeline(
     assets: Dict[str, List[Any]],
-    mode: str = "aggregated",
-    granularity: str = "monthly",
+    end_date: date | datetime | str,
     start_date: Optional[date | datetime] = None,
-    end_date: Optional[date | datetime] = None,
-    include_non_expiring_value: bool = True,
-    include_expirations: bool = True,
-    include_yield: bool = True,
-    fallback_years: int = 5,
-) -> List[Dict[str, Any]]:
-    """Build a chart-oriented projection view for value, yield and expiration timelines.
-
-    This follows the repository's old-school view pattern where business projections live
-    under views and are exposed by REST routes as database-like report projections.
-    """
-    if mode not in ("flat", "aggregated"):
-        raise ValueError("mode must be one of: flat, aggregated")
-
-    if granularity not in ("monthly", "yearly"):
-        raise ValueError("granularity must be one of: monthly, yearly")
-
-    start = _to_date(start_date)
-    assets_list = _flatten_assets(assets)
-    end = _resolve_end_date(
-        assets_list, start, _to_date(end_date) if end_date else None, fallback_years
-    )
+    inflation_rates: Optional[Dict[str, float]] = None,
+    fx_rates: Optional[Dict[str, float]] = None,
+    include_capital_growth: bool = False,
+    desired_estate: float = 0.0,
+) -> Dict[str, Any]:
+    """Simulate every asset month by month from start_date until end_date."""
+    start = _to_date(start_date or date.today())
+    end = _to_date(end_date)
     if end < start:
-        return []
+        raise ValueError("endDate must not be before startDate")
 
-    buckets = _iter_buckets(start, end, granularity)
-
-    expiration_by_asset_id: Dict[str, Optional[date]] = {
-        asset.get_identifier(): _get_expiration_date(asset) for asset in assets_list
-    }
-    has_due_date_by_asset_id: Dict[str, bool] = {
-        asset.get_identifier(): hasattr(asset, "due_date") for asset in assets_list
-    }
-
-    yield_events, expiration_events = _build_event_maps(
-        assets,
+    simulation = _Simulation(
+        start,
         end,
-        granularity,
-        expiration_by_asset_id,
-        has_due_date_by_asset_id,
+        {**DEFAULT_INFLATION_RATES, **(inflation_rates or {})},
+        fx_rates if fx_rates is not None else market_fx_rates(assets),
+        include_capital_growth,
     )
-
-    flat_rows: List[Dict[str, Any]] = []
-    for asset in assets_list:
-        asset_id = asset.get_identifier()
-        asset_type = asset.__class__.__name__
-        country = getattr(asset, "country", asset.get_location()[0])
-        currency = asset.get_currency()
-        current_value, _ = asset.get_current_value()
-        expiration_date = expiration_by_asset_id[asset_id]
-        expiration_bucket = (
-            _bucket_date(expiration_date, granularity) if expiration_date else None
-        )
-
-        include_repeated_value = (
-            include_non_expiring_value or expiration_date is not None
-        )
-
-        for bucket in buckets:
-            if expiration_bucket is not None and bucket > expiration_bucket:
-                value_amount = 0.0
-            elif include_repeated_value:
-                value_amount = current_value
-            else:
-                value_amount = 0.0
-
-            yield_amount = (
-                yield_events.get((asset_id, bucket), 0.0) if include_yield else 0.0
-            )
-            expiration_amount = (
-                expiration_events.get((asset_id, bucket), 0.0)
-                if include_expirations
-                else 0.0
-            )
-
-            if value_amount == 0.0 and yield_amount == 0.0 and expiration_amount == 0.0:
-                continue
-
-            flat_rows.append(
-                {
-                    "id": f"{asset_id}-{bucket.isoformat()}",
-                    "date": bucket.isoformat(),
-                    "assetId": asset_id,
-                    "country": country,
-                    "type": asset_type,
-                    "currency": currency,
-                    "value": value_amount,
-                    "yieldAmount": yield_amount,
-                    "expirationAmount": expiration_amount,
-                    "isExpiration": expiration_amount != 0.0,
-                    "expirationDate": (
-                        expiration_date.isoformat() if expiration_date else None
-                    ),
-                }
-            )
-
-    flat_rows.sort(key=lambda row: (row["date"], row["assetId"]))
-    if mode == "flat":
-        return flat_rows
-
-    aggregated: Dict[str, Dict[str, Any]] = {}
-    for row in flat_rows:
-        date_key = row["date"]
-        item = aggregated.setdefault(
-            date_key,
-            {
-                "id": date_key,
-                "date": date_key,
-                "valueTotal": 0.0,
-                "yieldTotal": 0.0,
-                "expirationTotal": 0.0,
-                "totalBaseCurrency": 0.0,
-                "totalsByCurrencyCountry": {},
-                "byType": {},
-            },
-        )
-
-        point_total = row["value"] + row["yieldAmount"] + row["expirationAmount"]
-        currency_country = f"{row['currency']}-{row['country']}"
-
-        item["valueTotal"] += row["value"]
-        item["yieldTotal"] += row["yieldAmount"]
-        item["expirationTotal"] += row["expirationAmount"]
-        item["totalBaseCurrency"] += _base_currency_value(point_total, row["currency"])
-
-        cc_totals = item["totalsByCurrencyCountry"]
-        cc_totals[currency_country] = cc_totals.get(currency_country, 0.0) + point_total
-
-        by_type = item["byType"].setdefault(
-            row["type"],
-            {"value": 0.0, "yield": 0.0, "expiration": 0.0, "count": 0},
-        )
-        by_type["value"] += row["value"]
-        by_type["yield"] += row["yieldAmount"]
-        by_type["expiration"] += row["expirationAmount"]
-        by_type["count"] += 1
-
-    return [aggregated[d] for d in sorted(aggregated)]
+    simulation.add_assets(_flatten(assets))
+    return simulation.run(desired_estate)

@@ -1,5 +1,5 @@
 import io
-from datetime import date, datetime
+from datetime import date
 from http import HTTPStatus
 
 from flask import Blueprint, jsonify, request
@@ -56,49 +56,26 @@ def cash_flow():
 @reports_bp.route("/future_timeline", methods=["GET"])
 @login_required
 def future_timeline():
-    """Expose a chart-ready projection view for value, yield and expiration timelines.
+    """Monthly simulation of every asset until the user's LAST_UNTIL date.
 
-    This keeps report projection logic under views as database-like projections and
-    serves the result through REST for frontend consumers such as React-Admin.
+    Optional query args: endDate (YYYY-MM-DD, defaults to LAST_UNTIL) and
+    capitalGrowth (0/1, whether instruments appreciate by their capital rate).
     """
-
-    def arg_bool(name: str, default: bool) -> bool:
-        value = request.args.get(name)
-        if value is None:
-            return default
-        return value.lower() in ("1", "true", "yes", "y")
-
-    def arg_date(name: str):
-        value = request.args.get(name)
-        if not value:
-            return None
-        return datetime.strptime(value, "%Y-%m-%d").date()
-
     try:
         user_config = UserStore.get_user_config(current_user.id)
         assets = get_asset_store(user_config)
         data = vft.future_timeline(
             assets,
-            mode=request.args.get("mode", "aggregated"),
-            granularity=request.args.get("granularity", "monthly"),
-            start_date=arg_date("startDate"),
-            end_date=arg_date("endDate"),
-            include_non_expiring_value=arg_bool("includeNonExpiringValue", True),
-            include_expirations=arg_bool("includeExpirations", True),
-            include_yield=arg_bool("includeYield", True),
-            fallback_years=int(request.args.get("fallbackYears", 5)),
+            end_date=request.args.get("endDate") or user_config.LAST_UNTIL,
+            inflation_rates=getattr(user_config, "INFLATION_RATES", None),
+            include_capital_growth=request.args.get("capitalGrowth", "0") == "1",
+            desired_estate=float(getattr(user_config, "DESIRED_ESTATE", 0.0)),
         )
     except ValueError as exc:
         return jsonify({"message": str(exc)}), HTTPStatus.BAD_REQUEST
 
-    count = len(data)
-    if "_start" in request.args and "_end" in request.args:
-        start = int(request.args["_start"])
-        end = int(request.args["_end"])
-        data = data[start:end]
-
     response = jsonify(data)
-    response.headers["X-Total-Count"] = count
+    response.headers["X-Total-Count"] = len(data["months"])
     return response, HTTPStatus.OK
 
 
@@ -254,6 +231,7 @@ def upcoming_payments_flat():
     response = jsonify(payments_by_month)
     response.headers["X-Total-Count"] = count
     return response, HTTPStatus.OK
+
 
 @reports_bp.route("/valuation_history", methods=["GET"])
 @login_required

@@ -12,6 +12,8 @@ class UserConfig:
         self.SECONDARY_COUNTRY = "PY"
         self.LAST_UNTIL = "2075-01-01"
         self.DESIRED_ESTATE = 0.0
+        # Yearly inflation per country, used by the future timeline projection.
+        self.INFLATION_RATES: Dict[str, float] = {"US": 0.025, "UY": 0.025, "PY": 0.035}
         self.DEFAULT_VAR_ID = "default_var"
         self.COINBASE_API_KEY = ""
         self.COINBASE_API_SECRET = ""

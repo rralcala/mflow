@@ -12,19 +12,19 @@ class TestRestReportsRoutes(unittest.TestCase):
         self.app = Flask(__name__)
         self.user = SimpleNamespace(id="1")
 
-    def test_future_timeline_success_and_pagination(self):
-        data = [
-            {"id": "r1", "date": "2030-01-01"},
-            {"id": "r2", "date": "2030-02-01"},
-            {"id": "r3", "date": "2030-03-01"},
-        ]
+    def test_future_timeline_defaults_to_last_until(self):
+        data = {"months": [{"id": "2030-01"}, {"id": "2030-02"}], "summary": {}}
+        user_config = SimpleNamespace(
+            LAST_UNTIL="2075-08-01",
+            INFLATION_RATES={"PY": 0.04},
+            DESIRED_ESTATE=850000.0,
+        )
 
         with self.app.test_request_context(
-            "/future_timeline?mode=flat&granularity=yearly&startDate=2030-01-01&endDate=2030-12-31&_start=1&_end=3",
-            method="GET",
+            "/future_timeline?capitalGrowth=1", method="GET"
         ), patch("routes.rest_reports.current_user", self.user), patch(
             "routes.rest_reports.UserStore.get_user_config",
-            return_value=SimpleNamespace(),
+            return_value=user_config,
         ), patch(
             "routes.rest_reports.get_asset_store", return_value={"USD": []}
         ), patch(
@@ -33,27 +33,48 @@ class TestRestReportsRoutes(unittest.TestCase):
             response, status = rest_reports.future_timeline.__wrapped__()
 
         self.assertEqual(status, 200)
-        self.assertEqual(response.headers["X-Total-Count"], "3")
-        self.assertEqual(response.get_json(), data[1:3])
-        self.assertEqual(timeline_mock.call_args.kwargs["mode"], "flat")
-        self.assertEqual(timeline_mock.call_args.kwargs["granularity"], "yearly")
+        self.assertEqual(response.headers["X-Total-Count"], "2")
+        self.assertEqual(response.get_json(), data)
+        kwargs = timeline_mock.call_args.kwargs
+        self.assertEqual(kwargs["end_date"], "2075-08-01")
+        self.assertEqual(kwargs["inflation_rates"], {"PY": 0.04})
+        self.assertTrue(kwargs["include_capital_growth"])
+        self.assertEqual(kwargs["desired_estate"], 850000.0)
+
+    def test_future_timeline_end_date_override(self):
+        with self.app.test_request_context(
+            "/future_timeline?endDate=2040-01-01", method="GET"
+        ), patch("routes.rest_reports.current_user", self.user), patch(
+            "routes.rest_reports.UserStore.get_user_config",
+            return_value=SimpleNamespace(LAST_UNTIL="2075-08-01"),
+        ), patch(
+            "routes.rest_reports.get_asset_store", return_value={"USD": []}
+        ), patch(
+            "routes.rest_reports.vft.future_timeline", return_value={"months": []}
+        ) as timeline_mock:
+            rest_reports.future_timeline.__wrapped__()
+
+        self.assertEqual(timeline_mock.call_args.kwargs["end_date"], "2040-01-01")
+        self.assertFalse(timeline_mock.call_args.kwargs["include_capital_growth"])
 
     def test_future_timeline_bad_request(self):
         with self.app.test_request_context(
-            "/future_timeline?mode=bad", method="GET"
+            "/future_timeline?endDate=2000-01-01", method="GET"
         ), patch("routes.rest_reports.current_user", self.user), patch(
             "routes.rest_reports.UserStore.get_user_config",
-            return_value=SimpleNamespace(),
+            return_value=SimpleNamespace(LAST_UNTIL="2075-08-01"),
         ), patch(
             "routes.rest_reports.get_asset_store", return_value={"USD": []}
         ), patch(
             "routes.rest_reports.vft.future_timeline",
-            side_effect=ValueError("invalid mode"),
+            side_effect=ValueError("endDate must not be before startDate"),
         ):
             response, status = rest_reports.future_timeline.__wrapped__()
 
         self.assertEqual(status, 400)
-        self.assertEqual(response.get_json(), {"message": "invalid mode"})
+        self.assertEqual(
+            response.get_json(), {"message": "endDate must not be before startDate"}
+        )
 
 
 if __name__ == "__main__":
