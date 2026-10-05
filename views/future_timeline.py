@@ -6,7 +6,7 @@ the *target pool* named by the asset's ``target_asset_id`` (an Account id or an
 Instrument identifier). Pools are what the user has to keep above zero.
 
 Modeling rules:
-  * Recurrent expenses/incomes and yearly one-off payables grow with the
+  * Recurrent expenses/incomes and yearly (non one-off) payables grow with the
     inflation of their country. Loans and repayments are fixed contracts.
   * Housing properties grow with their country's inflation; vehicles don't.
   * Instruments pay ``rate`` on their cron schedule, computed on their current
@@ -346,10 +346,10 @@ class _Simulation:
                 category,
             ),
         )
-        if not asset.one_off:
+        if asset.one_off:
             return
-        # One-offs are expected to come back every year, inflation adjusted
-        # unless they are fixed contracts like loans.
+        # Regular payables are expected to come back every year, inflation
+        # adjusted unless they are fixed contracts like loans.
         flow_class = (asset.flow_class or RecurrentTypes.Expense).lower()
         indexed = flow_class in INFLATION_INDEXED_FLOWS
         year = asset.due_date.year + 1

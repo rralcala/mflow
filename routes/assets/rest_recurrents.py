@@ -147,6 +147,10 @@ def recurrents_all():
             )
             if "flowClass" in request.args:
                 base_query = base_query.filter_by(flow_class=request.args["flowClass"])
+            if "targetAssetId" in request.args:
+                base_query = base_query.filter_by(
+                    target_asset_id=request.args["targetAssetId"]
+                )
 
             rows = base_query.all()
 

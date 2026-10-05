@@ -485,6 +485,21 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(response.get_json(), [{"id": "a"}, {"id": "b"}])
 
+    def test_recurrents_all_filters_by_target_asset(self):
+        query = QueryStub(all_items=[row({"id": "a"})])
+        session = SessionStub({Recurrent: query})
+        with self.app.test_request_context(
+            "/recurrents?targetAssetId=Puente_PYG", method="GET"
+        ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ), patch.object(
+            query, "filter_by", wraps=query.filter_by
+        ) as filter_by:
+            response, status = rest_recurrents.recurrents_all.__wrapped__()
+
+        self.assertEqual(status, 200)
+        filter_by.assert_any_call(target_asset_id="Puente_PYG")
+
     def test_recurrents_get_not_found(self):
         session = SessionStub({Recurrent: QueryStub(first_item=None)})
         with self.app.test_request_context("/recurrents/r", method="GET"), patch(
