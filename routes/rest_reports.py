@@ -1,11 +1,10 @@
-import io
 from datetime import date
 from http import HTTPStatus
 
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
-from data.asset_store import get_asset_store, reload_asset_store
+from data.asset_store import get_asset_store
 from data.exchange_rates import ExchangeRates
 from lib.config import Config
 from lib.logger import get_logger
@@ -236,8 +235,6 @@ def upcoming_payments_flat():
 @reports_bp.route("/valuation_history", methods=["GET"])
 @login_required
 def valuation_history():
-    user_config = UserStore.get_user_config(current_user.id)
-    assets = get_asset_store(user_config)
     data = vnh.nw_history()
     count = len(data)
 

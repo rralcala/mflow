@@ -1,9 +1,7 @@
-import logging
 from datetime import date, datetime
-from typing import Any, List, Tuple
+from typing import List, Tuple
 
 from asset_classes.asset import Asset
-from data.datasource import DataSource
 
 
 class Payable(Asset):
@@ -103,43 +101,3 @@ class Payable(Asset):
 
     def __repr__(self):
         return f"Payable({self._identifier}, {self.country}, {self.balance:,.0f} {self.currency}, {self.due_date})"
-
-
-def parse_payables(data: List[List[Any]]) -> List[Payable]:
-    """
-    Function to parse account data from the provided data.
-
-    :param data: List of lists containing the account data.
-    :return: List of dictionaries with account information.
-    """
-    parsed_accounts: List[Payable] = []
-    for row in data[1:]:  # Skip header row
-        if len(row) < 6:
-            logging.error(
-                "Row {row} does not have enough columns to parse as a Payable."
-            )
-        account = Payable(
-            country=row[0],
-            currency=row[1],
-            identifier=row[2],
-            amount=float(row[4]),
-            due_date=row[3],
-            commited=int(row[5]) == 1,
-            balance=float(row[4]),
-            one_off=False,
-            flow_class="expense",
-        )
-
-        parsed_accounts.append(account)
-
-    return parsed_accounts
-
-
-def fetch(sheet: DataSource) -> List[Payable]:
-    sheet_settings = sheet.get_sheet_settings()
-
-    if "itype" not in sheet_settings or sheet_settings["itype"].lower() != "payable":
-        raise ValueError("The first cell of the Summary sheet must be 'Type' and the")
-
-    ac_data = sheet.get_table(sheet_settings["payables_sheet"])
-    return parse_payables(ac_data)

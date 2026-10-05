@@ -2,7 +2,6 @@ from datetime import date, datetime
 from typing import List, Tuple
 
 from asset_classes.asset import Asset
-from data.datasource import DataSource
 
 
 class Account(Asset):
@@ -91,41 +90,3 @@ class Account(Asset):
             "account_type": self.account_type,
             "liquid": self.liquid,
         }
-
-
-def parse_accounts(data: List[List[str]]) -> List[Account]:
-    """
-    Function to parse account data from the provided data.
-
-    :param data: List of lists containing the account data.
-    :return: List of dictionaries with account information.
-    """
-    parsed_accounts: List[Account] = []
-    for row in data[1:]:  # Skip header row
-        if len(row) < 9:
-            continue  # Skip rows that do not have enough columns
-        account = Account(
-            country=row[1],
-            institution=row[2],
-            identifier=row[0],
-            currency=row[3],
-            balance=float(row[4].replace(",", "")),
-            factor=float(row[5].replace(",", "")),
-            account_type=row[7],
-            liquid=int(row[8]) == 1,
-        )
-        parsed_accounts.append(account)
-
-    return parsed_accounts
-
-
-def fetch(sheet: DataSource, worksheet: str):
-    """Fetch the asset from Gooogle Sheets"""
-    data = sheet.get_sheet_settings()
-
-    if "itype" not in data or data["itype"].lower() != "cash":
-        raise ValueError("The first cell of the Summary sheet must be 'Type' and the")
-
-    ac_data = sheet.get_table(worksheet)
-    accounts = parse_accounts(ac_data)
-    return accounts

@@ -1,4 +1,3 @@
-from threading import Lock
 from typing import Dict, List
 
 from asset_classes.asset import Asset
@@ -19,10 +18,7 @@ class UserConfig:
         self.COINBASE_API_SECRET = ""
         self.COINBASE_PORTFOLIO_ID = ""
         self.CRYPTO_RATES: Dict  # Staking { "USDC": "0.035" }
-        self.GDRIVE_FOLDER_ID = ""
         self.ASSETS: Dict[str, List[Asset]] = {}
-        self.ASSET_STORE_LOCK = Lock()
-        self.ASSET_STORE_UPDATE_TIME = None
 
 
 class UserStore:

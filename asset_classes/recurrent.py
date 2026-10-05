@@ -1,38 +1,15 @@
 import calendar
 from datetime import date, datetime
-from typing import Any, Dict, List, Tuple
+from typing import List, Tuple
 
 from asset_classes.asset import Asset
 from data.constants import RecurrentTypes
-from data.datasource import DataSource
 from lib.config import Config
 from lib.logger import get_logger
 from lib.util import count_cron_runs, cron_runs
 from models import models
 
 Logger = get_logger()
-
-
-class RecurrentTransaction:
-    def __init__(
-        self,
-        transaction_id: int,
-        parent_id: str,
-        year_month: str,
-        description: str,
-        amount: float,
-        transaction_date: datetime,
-        paid_with: str,
-        create_date: datetime,
-    ):
-        self.transaction_id = transaction_id
-        self.parent_id = parent_id
-        self.year_month = year_month
-        self.description = description
-        self.amount = amount
-        self.transaction_date = transaction_date
-        self.paid_with = paid_with
-        self.create_date = create_date
 
 
 class Recurrent(Asset):
@@ -184,37 +161,3 @@ class Recurrent(Asset):
 def last_date_of_month(today: datetime) -> datetime:
     last_day = calendar.monthrange(today.year, today.month)[1]
     return today.replace(day=last_day)
-
-
-def parse_recurrent(data: Dict[str, Any]) -> Recurrent:
-    """
-    Function to parse account data from the provided data.
-
-    :param data: List of lists containing the account data.
-    :return: List of dictionaries with account information.
-    """
-    new_rec = Recurrent(
-        identifier=data["identifier"],
-        flow_class=data["flow_class"].lower(),
-        amount=float(str(data["amount"]).replace(",", "")),
-        country=data["country"],
-        currency=data["currency"],
-        end=data["end"],
-        recurrence=data["recurrence"],
-        start=data["start"],
-        parent_asset_id=data.get("parent_asset", ""),
-        rate=data.get("rate", 0.0),
-        target_asset_id=data.get("target_asset", ""),
-    )
-
-    return new_rec
-
-
-def fetch(sheet: DataSource) -> Recurrent:
-    data = sheet.get_sheet_settings()
-    if "itype" not in data or data["itype"].lower() != "recurrent":
-        raise ValueError("The first cell of the Summary sheet must be 'itype' and the")
-
-    bond = parse_recurrent(data)
-
-    return bond

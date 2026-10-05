@@ -57,12 +57,10 @@ def upcoming_payments_data(assets, exclude_capital=False):
 def upcoming_payments_flat(assets, exclude_capital=False):
     payments_by_month = upcoming_payments_data(assets, exclude_capital)
     flat_payments = []
-    fake_id = 0
     for month_key in sorted(payments_by_month):
         for country in sorted(payments_by_month[month_key]):
             for payment in payments_by_month[month_key][country]:
                 payment["id"] = payment["assetId"] + "-" + payment["date"]
-                fake_id += 1
 
                 flat_payments.append(payment)
     return flat_payments

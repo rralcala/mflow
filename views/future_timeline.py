@@ -16,7 +16,6 @@ Modeling rules:
   * Exchange rates are held constant at today's quotes.
 """
 
-import calendar
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from functools import partial
@@ -60,11 +59,6 @@ def _to_date(value: date | datetime | str) -> date:
     if isinstance(value, datetime):
         return value.date()
     return value
-
-
-def _month_end(year: int, month: int) -> datetime:
-    last_day = calendar.monthrange(year, month)[1]
-    return datetime(year, month, last_day, 23, 59, 59)
 
 
 def _safe_replace_year(value: datetime, year: int) -> datetime:

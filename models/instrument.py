@@ -1,5 +1,5 @@
 from sqlalchemy import Integer, String
-from sqlalchemy.orm import DeclarativeBase, mapped_column
+from sqlalchemy.orm import mapped_column
 
 from data.base import Base
 from data.exchange_rates import ExchangeRates

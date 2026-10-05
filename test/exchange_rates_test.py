@@ -101,7 +101,7 @@ class TestExchangeRates(unittest.TestCase):
         ), patch.object(
             Config, "TRADED_METALS", ["IAUM"], create=True
         ), patch.object(
-            Config, "LOCAL_SYMBOLS", [("LOCAL1", 123.45)], create=True
+            Config, "LOCAL_SYMBOLS", {"LOCAL1": 123.45}, create=True
         ), patch(
             "data.exchange_rates.datetime", FixedDateTime
         ):
@@ -111,6 +111,7 @@ class TestExchangeRates(unittest.TestCase):
         self.assertEqual(ExchangeRates.quote_cache["USDMXN"], 17.12)
         self.assertEqual(ExchangeRates.quote_cache["BTCUSD"], 66666.1235)
         self.assertEqual(ExchangeRates.quote_cache["AAPL"], 205.99)
+        self.assertEqual(ExchangeRates.quote_cache["LOCAL1"], 123.45)
         self.assertEqual(ExchangeRates.last_update, datetime(2026, 4, 19, 12, 0, 0))
 
     def test_refresh_currency_data_raises_request_exception(self):

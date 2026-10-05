@@ -151,28 +151,23 @@ class ExchangeRates:
                 Logger.info("Refreshing exchange rates...")
                 ExchangeRates._refresh_currency_data()
                 with Config.DB_SESSION() as session:
-                    date = ExchangeRates.latest_in_db().strftime(
-                        Config.DATE_FORMAT_STRING
-                    )
-                    today = datetime.now().strftime(Config.DATE_FORMAT_STRING)
-                    if True:  # date is None or date < today:
-                        for key, value in ExchangeRates.get_all().items():
-                            Logger.info(f"Adding quote to DB: {key} = {value:.2f}")
-                            date_str = ExchangeRates.last_update.strftime(
-                                Config.DATE_FORMAT_STRING
+                    for key, value in ExchangeRates.get_all().items():
+                        Logger.info(f"Adding quote to DB: {key} = {value:.2f}")
+                        date_str = ExchangeRates.last_update.strftime(
+                            Config.DATE_FORMAT_STRING
+                        )
+                        quote = session.scalars(
+                            select(Quote).filter_by(date=date_str, symbol=key)
+                        ).one_or_none()
+                        if quote is None:
+                            quote = Quote(
+                                date=date_str, symbol=key, value=f"{value:.2f}"
                             )
-                            quote = session.scalars(
-                                select(Quote).filter_by(date=date_str, symbol=key)
-                            ).one_or_none()
-                            if quote is None:
-                                quote = Quote(
-                                    date=date_str, symbol=key, value=f"{value:.2f}"
-                                )
-                            session.merge(quote)
-                        session.commit()
-                        with open(FX_LAST_UPDATE_FILE, "wb") as f:
-                            pickle.dump(datetime.now(), f)
-                        Logger.info(f"Added Quotes")
+                        session.merge(quote)
+                    session.commit()
+                    with open(FX_LAST_UPDATE_FILE, "wb") as f:
+                        pickle.dump(datetime.now(), f)
+                    Logger.info(f"Added Quotes")
 
     @staticmethod
     def get_all() -> dict:

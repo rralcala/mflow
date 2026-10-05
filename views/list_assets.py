@@ -13,10 +13,6 @@ from reports.list_assets import net_worth
 
 Logger = get_logger()
 
-def long_term_projection(assets):
-    grand_total, _, _ = net_worth(assets)
-    return grand_total
-
 
 def list_income(assets: Dict[str, List[Asset]]) -> Dict[str, float]:
     grand_total, b, c = net_worth(assets)
@@ -54,15 +50,9 @@ def list_income(assets: Dict[str, List[Asset]]) -> Dict[str, float]:
             ] += usd_income * ExchangeRates.exchange_rate("USDPYG")
 
     ret = 0.0
-    sum_py = 0.0
-    sum_us = 0.0
-    for current_value, current_return, _, country in b:
+    for current_value, current_return, _, _ in b:
         tret = (current_value / grand_total) * current_return
         ret += tret
-        if country == "PY":
-            sum_py += current_value
-        else:
-            sum_us += current_value
     debt = 0.0
     capital = 0.0
 
@@ -133,16 +123,9 @@ def list_assets(assets: Dict[str, List[Asset]]) -> Dict[str, float]:
             tot_per_location[asset.get_location()[1]] += usd_value
 
     ret = 0.0
-    sum_py = 0.0
-    sum_us = 0.0
-    for current_value, current_return, asset_id, country in returns:
-
+    for current_value, current_return, _, _ in returns:
         tret = (current_value / grand_total) * current_return
         ret += tret
-        if country == "PY":
-            sum_py += current_value
-        else:
-            sum_us += current_value
     debt = 0.0
     capital = 0.0
 

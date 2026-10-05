@@ -5,7 +5,7 @@ from typing import List, Tuple
 from asset_classes.asset import Asset
 from data.exchange_rates import ExchangeRates
 from lib.config import Config
-from lib.util import count_cron_runs, cron_runs
+from lib.util import cron_runs
 
 
 class Instrument(Asset):
@@ -151,14 +151,3 @@ class Instrument(Asset):
 
     def __repr__(self):
         return f"Instrument({self._identifier}, value={self.get_current_value()[0]:,.0f} {self.currency}, rate={(self.rate*100):,.2f}% location={self.location}, liquid={self.liquid})"
-
-
-def get_total_value(assets: List[Instrument]) -> float:
-    """
-    Returns the total value of the portfolio.
-    """
-    total = 0.0
-    for asset in assets:
-        value, _ = asset.get_current_value()
-        total += value
-    return total

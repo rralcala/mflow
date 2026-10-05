@@ -1,14 +1,10 @@
 import math
 from datetime import date, datetime
-from typing import Any, List, Tuple
-
-from flask_login import current_user
+from typing import List, Tuple
 
 from asset_classes.asset import Asset
-from data.datasource import DataSource
 from data.exchange_rates import ExchangeRates
 from lib.config import Config
-from lib.user_config import UserStore
 
 
 class Property(Asset):
@@ -35,7 +31,6 @@ class Property(Asset):
         self.rented_price = rented_price
         self.additional_data = additional_data
         self.rent_currency = rent_currency
-        self.contracts = []
 
     @property
     def total_return(self) -> float:
@@ -125,57 +120,3 @@ class Property(Asset):
 
     def __repr__(self):
         return f"Property({self._identifier}, Latest Price: {self.latest_price:,.0f} {self.currency})"
-
-
-def get_total_value(properties: List[Property], exchange: float) -> float:
-    """
-    Returns the total value of the property.
-    """
-    total = 0.0
-    sec_cur = UserStore.get_user_config(current_user.id).SECONDARY_CURRENCY
-    for property in properties:
-        if property.currency == sec_cur:
-            total += property.latest_price / exchange
-        else:
-            total += property.latest_price
-    return total
-
-
-def parse_properties(data: List[List[Any]]) -> List[Property]:
-    """
-    Function to parse account data from the provided data.
-
-    :param data: List of lists containing the account data.
-    :return: List of dictionaries with account information.
-    """
-    parsed_accounts: List[Property] = []
-    for row in data[1:]:  # Skip header row
-        if len(row) < 6:
-            continue  # Skip rows that do not have enough columns
-        account = Property(
-            country=row[0],
-            currency=row[1],
-            identifier=row[2],
-            purchase_price=float(row[3]),
-            purchase_date=row[4],
-            latest_price=float(row[5]),
-            rented_price=float(row[6]),
-            additional_data="",
-            rent_currency="USD",
-        )
-        parsed_accounts.append(account)
-
-    return parsed_accounts
-
-
-def fetch(sheet: DataSource) -> List[Property]:
-    sheet_settings = sheet.get_sheet_settings()
-
-    if "itype" not in sheet_settings or sheet_settings["itype"].lower() != "property":
-        raise ValueError(
-            "Can't resolve correct type in sheet. Expected 'property' in 'Type' column."
-        )
-
-    ac_data = sheet.get_table(sheet_settings["worksheet"])
-    accounts = parse_properties(ac_data)
-    return accounts

@@ -6,10 +6,7 @@ from sqlalchemy.orm import mapped_column
 
 from data.base import Base
 from lib.config import Config
-from lib.logger import get_logger
 from lib.util import sha256_hash
-
-logger = get_logger()
 
 
 class Account(Base):
@@ -114,15 +111,8 @@ class User(UserMixin):
         self.password = password
         self.email = email
 
-    def set_password(self, password):
-        self.password = sha256_hash(password)
-
     def check_password(self, password):
-        hashed_password = sha256_hash(password)
-        logger.warning(
-            f"Checking password for user {self.username} {self.password} against {hashed_password}"
-        )
-        return self.password == hashed_password
+        return self.password == sha256_hash(password)
 
 
 def find_user_by_username(username):

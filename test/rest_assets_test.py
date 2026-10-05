@@ -845,7 +845,6 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(session.added, [])
 
-
     def _post_payable(self, payload):
         session = SessionStub(
             {

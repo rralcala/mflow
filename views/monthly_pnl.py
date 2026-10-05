@@ -3,7 +3,6 @@ from typing import Dict, List, Tuple
 from flask_login import current_user
 
 from asset_classes.asset import Asset
-from data.exchange_rates import ExchangeRates
 from lib.user_config import UserStore
 from reports.pnl import calculate_monthly_pnl_data
 
@@ -13,7 +12,6 @@ def monthly_pnl(
     skip_one_off=False,
 ) -> Tuple[List[Dict], Dict]:
     secondary_currency = UserStore.get_user_config(current_user.id).SECONDARY_CURRENCY
-    usd_secondary = ExchangeRates.exchange_rate("USD" + secondary_currency)
     calculation = calculate_monthly_pnl_data(
         main_assets, months=12, skip_one_off=skip_one_off
     )

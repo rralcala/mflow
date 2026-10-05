@@ -145,7 +145,6 @@ CREATE TABLE IF NOT EXISTS "recurrent_transaction" (
 	"paid_with"	TEXT NOT NULL,
 	"create_date"	TEXT NOT NULL,
 	"user_id"	INTEGER NOT NULL DEFAULT 1,
-	"external_id"	TEXT NOT NULL DEFAULT ,
 	PRIMARY KEY("transaction_id" AUTOINCREMENT)
 );
 CREATE INDEX IF NOT EXISTS "account_user_id" ON "account" (

@@ -18,7 +18,7 @@ logger = logging.getLogger()
 
 
 def initialize_app() -> bool:
-    global logger, app
+    global logger
     parser = argparse.ArgumentParser(description="Process a JSON configuration file.")
 
     parser.add_argument(
@@ -50,11 +50,6 @@ def initialize_app() -> bool:
         logger.fatal(f"Error: The file '{config_file}' does not exist.")
         sys.exit(1)
 
-    # Get the absolute path of the current script
-    script_path = Path(__file__).resolve()
-    # Get the directory where the script is located
-    Config.SCRIPT_DIR = script_path.parent
-
     if not load_config(config_file, Config):
         sys.exit(1)
 
@@ -75,7 +70,6 @@ def initialize_app() -> bool:
     )
 
     engine = create_engine(f"sqlite:///{db_path.as_posix()}")
-    db = engine.connect()
     Config.DB_SESSION = sessionmaker(bind=engine)
     return debug_mode
 

@@ -5,7 +5,6 @@ from dateutil.relativedelta import relativedelta
 from flask_login import current_user
 
 from asset_classes.asset import Asset
-from data.exchange_rates import ExchangeRates
 from lib.logger import get_logger
 from lib.user_config import UserStore
 
@@ -21,7 +20,6 @@ def monthly_transactions(
     main_assets: Dict[str, List[Asset]], months=12, balance=False, skip_one_off=False
 ) -> Generator[Tuple[str, List[Dict[str, Any]]], None]:
     start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    fake_id = 0
     for _ in range(months):
         year_month = start.strftime("%Y-%m")
         transactions: List[Dict[str, Any]] = []
@@ -48,7 +46,6 @@ def monthly_transactions(
                         "currency": income[IncomeField.CURRENCY],
                     }
                 )
-                fake_id += 1
         yield year_month, transactions
         start = start + relativedelta(months=1)
 
@@ -60,7 +57,6 @@ def calculate_monthly_pnl_data(
     summary_only: bool = False,
 ) -> Dict[str, Any]:
     secondary_currency = UserStore.get_user_config(current_user.id).SECONDARY_CURRENCY
-    usd_secondary = ExchangeRates.exchange_rate("USD" + secondary_currency)
     p_totals = {"USD": 0.0, secondary_currency: 0.0}
     n_totals = {"USD": 0.0, secondary_currency: 0.0}
     monthly_data = []

@@ -14,8 +14,6 @@ class Config:
     CURRENCIES: List[str]
     DATE_FORMAT_STRING = "%Y-%m-%d"
     DB_SESSION: sessionmaker
-    LANG = "EN"
-    SCRIPT_DIR: Path
     SECRET_KEY: str
     TRADED_CRYPTO: List[str]
     TRADED_METALS: List[str]
