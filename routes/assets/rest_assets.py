@@ -329,7 +329,9 @@ def payables():
                 amount=data.get("amount"),
                 balance=data.get("balance"),
                 due_date=due_date,
-                commited=1 if data.get("paidWithAssetId") else 0,
+                commited=(
+                    1 if data.get("commited", False) else 0
+                ),
                 user_id=int(current_user.id),
                 one_off=1 if data.get("oneOff") else 0,
                 flow_class=data.get("flowClass").lower(),

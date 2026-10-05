@@ -845,7 +845,8 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(session.added, [])
 
-    def test_payables_post_success_falls_back_to_paid_with_asset_id(self):
+
+    def _post_payable(self, payload):
         session = SessionStub(
             {
                 rest_assets.Account: QueryStub(
@@ -853,19 +854,19 @@ class TestRestAssetsRoutes(unittest.TestCase):
                 ),
             }
         )
+        body = {
+            "currency": "usd",
+            "country": "us",
+            "description": "Rent",
+            "amount": 10.0,
+            "balance": 10.0,
+            "dueDate": "2026-01-01",
+            "flowClass": "Expense",
+            "targetAssetId": "acc-1",
+            **payload,
+        }
         with self.app.test_request_context(
-            "/payables",
-            method="POST",
-            json={
-                "currency": "usd",
-                "country": "us",
-                "description": "Rent",
-                "amount": 10.0,
-                "balance": 10.0,
-                "dueDate": "2026-01-01",
-                "flowClass": "Expense",
-                "paidWithAssetId": "acc-1",
-            },
+            "/payables", method="POST", json=body
         ), patch("routes.rest_assets.current_user", self.user), patch(
             "routes.rest_assets.reload_asset_store"
         ), patch(
@@ -879,9 +880,13 @@ class TestRestAssetsRoutes(unittest.TestCase):
             Config, "COUNTRIES", ["US"], create=True
         ):
             response, status = rest_assets.payables.__wrapped__()
-
         self.assertEqual(status, 201)
-        self.assertEqual(session.added[0].target_asset_id, "acc-1")
+        return session.added[0]
+
+    def test_payables_post_uses_commited_flag(self):
+        self.assertEqual(self._post_payable({"commited": True}).commited, 1)
+        self.assertEqual(self._post_payable({"commited": False}).commited, 0)
+        self.assertEqual(self._post_payable({}).commited, 0)
 
     def test_payables_get_put_bad_target(self):
         existing = SimpleNamespace(
