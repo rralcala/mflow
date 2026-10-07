@@ -111,6 +111,8 @@ CREATE TABLE IF NOT EXISTS "property" (
 	"depreciation"	TEXT NOT NULL,
 	"additional_data"	TEXT NOT NULL,
 	"rent_currency"	INTEGER NOT NULL DEFAULT 'USD',
+	"sell_by"	TEXT,
+	"target_asset_id"	TEXT,
 	PRIMARY KEY("id" AUTOINCREMENT)
 );
 CREATE TABLE IF NOT EXISTS "quotes" (

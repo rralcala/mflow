@@ -427,6 +427,108 @@ class TestRestAssetsRoutes(unittest.TestCase):
 
         self.assertEqual(status, 404)
 
+    def _post_property(self, payload, account=None):
+        session = SessionStub({rest_assets.Account: QueryStub(first_item=account)})
+        body = {
+            "country": "PY",
+            "currency": "USD",
+            "propertyName": "Duplex-3",
+            "purchasePrice": 100.0,
+            "purchaseDate": "2020-01-01",
+            "currentPrice": 120.0,
+            "rentPrice": 0.0,
+            "depreciation": 0.0,
+            "additionalData": "",
+            "rentCurrency": "USD",
+            **payload,
+        }
+        with self.app.test_request_context(
+            "/properties", method="POST", json=body
+        ), patch("routes.rest_assets.current_user", self.user), patch(
+            "routes.rest_assets.reload_asset_store"
+        ), patch(
+            "routes.rest_assets.UserStore.get_user_config",
+            return_value=SimpleNamespace(),
+        ), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_assets.properties.__wrapped__()
+        return response, status, session
+
+    def test_properties_post_with_sell_by_and_target(self):
+        usd_account = SimpleNamespace(id="acc-1", currency="USD")
+        response, status, session = self._post_property(
+            {"sellBy": "2035-06-01", "targetAssetId": "acc-1"}, usd_account
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual(session.added[0].sell_by, "2035-06-01")
+        self.assertEqual(session.added[0].target_asset_id, "acc-1")
+
+    def test_properties_post_without_sale_stores_nulls(self):
+        response, status, session = self._post_property({"sellBy": ""})
+        self.assertEqual(status, 201)
+        self.assertIsNone(session.added[0].sell_by)
+        self.assertIsNone(session.added[0].target_asset_id)
+
+    def test_properties_post_sell_by_requires_target(self):
+        response, status, session = self._post_property({"sellBy": "2035-06-01"})
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(
+            response.get_json(),
+            {"message": "A target asset is required when a sell-by date is set"},
+        )
+        self.assertEqual(session.added, [])
+
+    def test_properties_post_rejects_bad_sell_by_and_target(self):
+        _, status, _ = self._post_property(
+            {"sellBy": "someday", "targetAssetId": "acc-1"}
+        )
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        # A target in another currency is rejected like for other assets.
+        pyg_account = SimpleNamespace(id="acc-1", currency="PYG")
+        response, status, _ = self._post_property(
+            {"sellBy": "2035-06-01", "targetAssetId": "acc-1"}, pyg_account
+        )
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(response.get_json(), {"message": "Bad target asset"})
+
+    def test_properties_put_clears_sale(self):
+        existing = SimpleNamespace(
+            id=1,
+            country="PY",
+            currency="USD",
+            property_name="Duplex-1",
+            purchase_price="100",
+            purchase_date="2020-01-01",
+            current_price="120",
+            rent_price="0",
+            depreciation="0",
+            additional_data="",
+            rent_currency="USD",
+            sell_by="2035-06-01",
+            target_asset_id="acc-1",
+            to_dict=lambda: {"id": 1},
+        )
+        session = SessionStub({rest_assets.Property: QueryStub(first_item=existing)})
+        with self.app.test_request_context(
+            "/properties/1",
+            method="PUT",
+            json={"sellBy": None, "targetAssetId": None},
+        ), patch("routes.rest_assets.current_user", self.user), patch(
+            "routes.rest_assets.reload_asset_store"
+        ), patch(
+            "routes.rest_assets.UserStore.get_user_config",
+            return_value=SimpleNamespace(),
+        ), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_assets.properties_get.__wrapped__(1)
+
+        self.assertEqual(status, 200)
+        self.assertTrue(session.committed)
+        self.assertIsNone(existing.sell_by)
+        self.assertIsNone(existing.target_asset_id)
+
     def test_recurrent_transactions_get_collection(self):
         recurrent_rows = [
             SimpleNamespace(

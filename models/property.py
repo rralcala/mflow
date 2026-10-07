@@ -19,6 +19,8 @@ class Property(Base):
     depreciation = mapped_column(String(10), nullable=False)
     additional_data = mapped_column(String(255), nullable=False)
     rent_currency = mapped_column(String(3), nullable=False)
+    sell_by = mapped_column(String(20), nullable=True)
+    target_asset_id = mapped_column(String(80), nullable=True)
 
     def __str__(self):
         return self.property_name
@@ -36,4 +38,6 @@ class Property(Base):
             "depreciation": float(self.depreciation),
             "additionalData": self.additional_data,
             "rentCurrency": self.rent_currency,
+            "sellBy": self.sell_by,
+            "targetAssetId": self.target_asset_id,
         }

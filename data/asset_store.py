@@ -207,6 +207,12 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 rented_price=float(row.rent_price),
                 additional_data=row.additional_data,
                 rent_currency=row.rent_currency,
+                sell_by=(
+                    datetime.strptime(row.sell_by, Config.DATE_FORMAT_STRING)
+                    if row.sell_by
+                    else None
+                ),
+                target_asset_id=str(row.target_asset_id or ""),
             )
             assets[asset.currency].append(asset)
         return assets

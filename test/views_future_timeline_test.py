@@ -77,7 +77,14 @@ def recurrent(
     )
 
 
-def house(identifier="House-1", price=100000.0, details="", country="PY"):
+def house(
+    identifier="House-1",
+    price=100000.0,
+    details="",
+    country="PY",
+    sell_by=None,
+    target="",
+):
     return Property(
         country=country,
         currency="USD",
@@ -88,7 +95,15 @@ def house(identifier="House-1", price=100000.0, details="", country="PY"):
         rented_price=0.0,
         rent_currency="USD",
         additional_data=details,
+        sell_by=sell_by,
+        target_asset_id=target,
     )
+
+
+def rent(parent, end=datetime(2075, 1, 1)):
+    income = recurrent("Rent-In", 1000.0, flow_class="income", end=end)
+    income.parent_asset_id = parent
+    return income
 
 
 def run(assets, start=date(2030, 1, 1), end=date(2030, 12, 31), **kwargs):
@@ -190,6 +205,51 @@ class TestFutureTimeline(unittest.TestCase):
         self.assertAlmostEqual(asset_row(result, "House-1")["endValue"], 103500.0)
         self.assertEqual(asset_row(result, "House-1")["growth"], "inflation")
         self.assertAlmostEqual(asset_row(result, "Auto-Frontier")["endValue"], 20000.0)
+
+    def test_property_is_sold_at_simulated_value_into_target(self, *_):
+        sold = house(sell_by=datetime(2031, 1, 15), target="Checking")
+        result = run([account(), sold], end=date(2031, 6, 30))
+        # Twelve months of PY inflation before the January 2031 sale.
+        self.assertAlmostEqual(month(result, "2031-01")["sales"], 103500.0)
+        self.assertAlmostEqual(
+            month(result, "2031-01")["balances"]["Checking"], 104500.0
+        )
+        self.assertAlmostEqual(month(result, "2031-01")["netCashFlow"], 0.0)
+        row = asset_row(result, "House-1")
+        self.assertAlmostEqual(row["endValue"], 0.0)
+        self.assertEqual(row["soldOn"], "2031-01")
+        # Selling converts the house into cash without changing net worth.
+        self.assertAlmostEqual(
+            month(result, "2031-01")["netWorth"], month(result, "2030-12")["netWorth"]
+        )
+
+    def test_vehicle_is_sold_at_flat_value(self, *_):
+        car = house(
+            "Auto-Lynk", 25000.0, sell_by=datetime(2030, 6, 1), target="Checking"
+        )
+        result = run([account(), car], end=date(2030, 12, 31))
+        self.assertAlmostEqual(month(result, "2030-06")["sales"], 25000.0)
+        self.assertEqual(asset_row(result, "Auto-Lynk")["soldOn"], "2030-06")
+
+    def test_recurrents_linked_to_a_sold_property_stop(self, *_):
+        sold = house(sell_by=datetime(2030, 6, 15), target="Checking")
+        result = run([account(), sold, rent("House-1")], end=date(2030, 12, 31))
+        # Rent is income, so it is inflated 5 months by June.
+        self.assertAlmostEqual(
+            month(result, "2030-06")["income"], 1000.0 * 1.025 ** (5 / 12)
+        )
+        self.assertAlmostEqual(month(result, "2030-07")["income"], 0.0)
+        self.assertIn(
+            "Rent-In ends 2075-01-01 but House-1 is sold 2030-06-15; the simulation "
+            "stops it at whichever comes first.",
+            result["warnings"],
+        )
+
+    def test_matching_end_date_does_not_warn(self, *_):
+        sold = house(sell_by=datetime(2030, 6, 15), target="Checking")
+        linked = rent("House-1", end=datetime(2030, 6, 15))
+        result = run([account(), sold, linked], end=date(2030, 12, 31))
+        self.assertEqual(result["warnings"], [])
 
     def test_inflation_rates_can_be_overridden_per_country(self, *_):
         result = run([house()], inflation_rates={"PY": 0.10})

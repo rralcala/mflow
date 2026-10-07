@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from flask import Response, jsonify, request
 from flask_login import current_user, login_required
@@ -404,6 +404,21 @@ def payables_get(id):
         return jsonify(result.to_dict()), HTTPStatus.OK
 
 
+def property_sale_error(
+    session, sell_by: Optional[str], target_asset_id: Optional[str], currency: str
+) -> Optional[str]:
+    """A sell-by date needs a valid date and a target asset to receive the sale."""
+    if sell_by and not validate_date(sell_by):
+        return f"Invalid date '{sell_by}'"
+    if sell_by and not target_asset_id:
+        return "A target asset is required when a sell-by date is set"
+    if target_asset_id and not validate_target_asset(
+        session, int(current_user.id), target_asset_id, currency
+    ):
+        return "Bad target asset"
+    return None
+
+
 @assets_bp.route("/properties", methods=["GET", "POST"])
 @login_required
 def properties():
@@ -421,8 +436,18 @@ def properties():
             depreciation=data.get("depreciation"),
             additional_data=data.get("additionalData"),
             rent_currency=data.get("rentCurrency"),
+            sell_by=data.get("sellBy") or None,
+            target_asset_id=data.get("targetAssetId") or None,
         )
         with Config.DB_SESSION() as session:
+            error = property_sale_error(
+                session,
+                new_transaction.sell_by,
+                new_transaction.target_asset_id,
+                new_transaction.currency,
+            )
+            if error:
+                return error_response(error, HTTPStatus.BAD_REQUEST)
             session.add(new_transaction)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -473,6 +498,15 @@ def properties_get(id):
             result.depreciation = data.get("depreciation", result.depreciation)
             result.additional_data = data.get("additionalData", result.additional_data)
             result.rent_currency = data.get("rentCurrency", result.rent_currency)
+            result.sell_by = data.get("sellBy", result.sell_by) or None
+            result.target_asset_id = (
+                data.get("targetAssetId", result.target_asset_id) or None
+            )
+            error = property_sale_error(
+                session, result.sell_by, result.target_asset_id, result.currency
+            )
+            if error:
+                return error_response(error, HTTPStatus.BAD_REQUEST)
 
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))

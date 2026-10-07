@@ -9,6 +9,8 @@ Modeling rules:
   * Recurrent expenses/incomes and yearly (non one-off) payables grow with the
     inflation of their country. Loans and repayments are fixed contracts.
   * Housing properties grow with their country's inflation; vehicles don't.
+    A property with a sell-by date is sold then at its simulated value into
+    its target asset, and recurrents whose parent is that property stop.
   * Instruments pay ``rate`` on their cron schedule, computed on their current
     simulated value, into their target (themselves when unset, so cash-like
     sweeps compound). ``capital_rate`` appreciation is opt-in: compounding
@@ -37,7 +39,7 @@ FALLBACK_INFLATION_RATE = 0.025
 VEHICLE_PREFIXES = ("auto", "car", "moto", "vehicle")
 VEHICLE_MARKERS = ("VIN=", "Plates=")
 INFLATION_INDEXED_FLOWS = (RecurrentTypes.Expense, RecurrentTypes.Income)
-CATEGORIES = ("income", "expenses", "interest", "maturities", "transfers")
+CATEGORIES = ("income", "expenses", "interest", "maturities", "sales", "transfers")
 # Per-currency transfer totals below this (in USD) count as balanced.
 TRANSFER_TOLERANCE_USD = 1.0
 
@@ -55,6 +57,7 @@ class _Holding:
     is_fallback: bool = False
     growth: Optional[str] = None
     start_value: float = 0.0
+    sold_on: Optional[str] = None
 
 
 def _to_date(value: date | datetime | str) -> date:
@@ -133,11 +136,13 @@ class _Simulation:
         ]
         self.growth: List[Tuple[_Holding, float]] = []
         self.warnings: List[str] = []
+        self.sale_dates: Dict[str, datetime] = {}  # property id -> sell-by
         self._pending: List[Tuple[Any, _Holding]] = []
         self._seq = 0
         self._flows: Dict[str, float] = {}
         self._transfer_nets: Dict[str, float] = {}  # currency -> native total
         self._month_min: Dict[str, float] = {}
+        self._month = self.months[0]
 
     # -- setup -----------------------------------------------------------
 
@@ -194,6 +199,10 @@ class _Simulation:
                 )
                 self.targets.setdefault(asset.get_identifier(), holding.key)
                 self._pending.append((asset, holding))
+        # Recurrents linked to a property stop when it's sold.
+        for asset in assets:
+            if isinstance(asset, Property) and asset.sell_by:
+                self.sale_dates[asset.get_identifier()] = asset.sell_by
         for asset in assets:
             if isinstance(asset, (Account, Instrument)):
                 continue
@@ -313,6 +322,15 @@ class _Simulation:
             asset.start_date, datetime.combine(self.months[0], datetime.min.time())
         )
         window_end = min(asset.maturity_date, self.end_dt)
+        sale = self.sale_dates.get(asset.parent_asset_id)
+        if sale is not None:
+            if asset.maturity_date.date() != sale.date():
+                self.warnings.append(
+                    f"{asset.get_identifier()} ends {asset.maturity_date.date()} but "
+                    f"{asset.parent_asset_id} is sold {sale.date()}; the simulation "
+                    "stops it at whichever comes first."
+                )
+            window_end = min(window_end, sale)
         for run in cron_runs(asset.recurrence, window_start, window_end):
             if run < window_start:
                 continue
@@ -378,10 +396,12 @@ class _Simulation:
 
     def add_property(self, asset: Property) -> None:
         holding = self.add_holding(asset, asset.get_current_value()[0])
-        if is_vehicle(asset):
-            return
-        holding.growth = "inflation"
-        self.growth.append((holding, self.inflation(holding.country)))
+        if not is_vehicle(asset):
+            holding.growth = "inflation"
+            self.growth.append((holding, self.inflation(holding.country)))
+        if asset.sell_by:
+            target = self.resolve_target(asset)
+            self.schedule(asset.sell_by, partial(self.sell, holding, target))
 
     # -- runtime ---------------------------------------------------------
 
@@ -419,6 +439,12 @@ class _Simulation:
             self._month_min.get(target.key, target.value), target.value
         )
 
+    def sell(self, holding: _Holding, target: _Holding) -> None:
+        """Sell at the simulated value, so housing includes inflation to date."""
+        holding.sold_on = self._month.isoformat()[:7]
+        if holding.value:
+            self.transfer(holding, target, holding.value, holding.currency, "sales")
+
     def transfers_balanced(self) -> bool:
         """A month's transfers balance when each currency nets to zero, or the
         leftovers move in opposite directions across currencies. Cross-currency
@@ -453,6 +479,7 @@ class _Simulation:
         unbalanced_transfers: List[str] = []
         rows = []
         for index, month in enumerate(self.months):
+            self._month = month
             self._flows = {category: 0.0 for category in CATEGORIES}
             self._transfer_nets = {}
             self._month_min = {p.key: p.value for p in pools}
@@ -540,6 +567,7 @@ class _Simulation:
                 "country": h.country,
                 "currency": h.currency,
                 "growth": h.growth,
+                "soldOn": h.sold_on,
                 "isPool": h.is_pool,
                 "startValue": h.start_value,
                 "endValue": h.value,

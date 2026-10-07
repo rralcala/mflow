@@ -1,6 +1,6 @@
 import math
 from datetime import date, datetime
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from asset_classes.asset import Asset
 from data.exchange_rates import ExchangeRates
@@ -21,6 +21,8 @@ class Property(Asset):
         rented_price: float,
         rent_currency: str,
         additional_data: str,
+        sell_by: Optional[datetime] = None,
+        target_asset_id: str = "",
     ):
         self.country = country
         self.currency = currency
@@ -31,6 +33,9 @@ class Property(Asset):
         self.rented_price = rented_price
         self.additional_data = additional_data
         self.rent_currency = rent_currency
+        # Simulations sell the property on this date into the target asset.
+        self.sell_by = sell_by
+        self.target_asset_id = target_asset_id
 
     @property
     def total_return(self) -> float:
