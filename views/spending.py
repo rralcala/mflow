@@ -7,6 +7,7 @@ from flask_login import current_user
 from asset_classes.asset import Asset
 from asset_classes.payable import Payable
 from asset_classes.recurrent import Recurrent
+from data.constants import is_transfer
 from data.exchange_rates import ExchangeRates
 from lib.user_config import UserStore
 
@@ -17,6 +18,8 @@ def spending_analysis(main_assets: Dict[str, List[Asset]]) -> Dict[str, Any]:
     recurrents: List[Recurrent] = []
     for _, assets in main_assets.items():
         for asset in assets:
+            if is_transfer(asset):
+                continue
             if isinstance(asset, Payable):
                 if asset.one_off:
                     continue

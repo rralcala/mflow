@@ -287,6 +287,54 @@ class TestFutureTimeline(unittest.TestCase):
         result = run([account(), bill], end=date(2030, 2, 28))
         self.assertAlmostEqual(month(result, "2030-01")["expenses"], -50.0)
 
+    def test_transfer_pairs_move_value_without_income_or_expenses(self, *_):
+        out = recurrent("Sweep-Out", -200.0, flow_class="transfer")
+        into = recurrent("Sweep-In", 200.0, flow_class="transfer", target="Savings")
+        result = run(
+            [account(), account("Savings", 0.0), out, into], end=date(2031, 1, 31)
+        )
+        january = month(result, "2030-01")
+        self.assertAlmostEqual(january["balances"]["Checking"], 800.0)
+        self.assertAlmostEqual(january["balances"]["Savings"], 200.0)
+        for category in ("income", "expenses", "transfers", "netCashFlow"):
+            self.assertAlmostEqual(january[category], 0.0)
+        # Transfers are never inflated, so a year later the pair still balances.
+        self.assertAlmostEqual(
+            month(result, "2031-01")["balances"]["Savings"], 13 * 200.0
+        )
+        self.assertAlmostEqual(
+            result["summary"]["endNetWorth"], result["summary"]["startNetWorth"]
+        )
+        self.assertEqual(result["warnings"], [])
+
+    def test_unpaired_transfer_is_flagged(self, *_):
+        half = recurrent("Sweep-Out", -200.0, flow_class="transfer")
+        result = run([account(), half], end=date(2030, 3, 31))
+        self.assertAlmostEqual(month(result, "2030-01")["expenses"], 0.0)
+        self.assertAlmostEqual(month(result, "2030-01")["transfers"], -200.0)
+        self.assertIn(
+            "Transfers don't net to zero in 3 month(s), first in 2030-01: each "
+            "transfer needs a matching opposite transfer in the same month.",
+            result["warnings"],
+        )
+
+    def test_transfer_payable_is_not_an_expense(self, *_):
+        move = Payable(
+            "US",
+            "USD",
+            "Move",
+            -500.0,
+            -500.0,
+            datetime(2030, 3, 1),
+            False,
+            True,
+            "Transfer",
+            "Checking",
+        )
+        result = run([account(), move], end=date(2030, 3, 31))
+        self.assertAlmostEqual(month(result, "2030-03")["expenses"], 0.0)
+        self.assertAlmostEqual(month(result, "2030-03")["transfers"], -500.0)
+
     def test_end_before_start_is_rejected(self, *_):
         with self.assertRaises(ValueError):
             run([account()], end=date(2029, 1, 1))

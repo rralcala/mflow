@@ -13,6 +13,8 @@ Modeling rules:
     simulated value, into their target (themselves when unset, so cash-like
     sweeps compound). ``capital_rate`` appreciation is opt-in: compounding
     speculative rates for decades swamps everything else.
+  * Transfers move value between assets in pairs: they change balances but
+    are neither income nor expenses, and are never inflated.
   * Exchange rates are held constant at today's quotes.
 """
 
@@ -27,7 +29,7 @@ from asset_classes.instrument import Instrument
 from asset_classes.payable import Payable
 from asset_classes.property import Property
 from asset_classes.recurrent import Recurrent
-from data.constants import RecurrentTypes
+from data.constants import RecurrentTypes, is_transfer
 from lib.util import cron_runs
 
 DEFAULT_INFLATION_RATES: Dict[str, float] = {"US": 0.025, "UY": 0.025, "PY": 0.035}
@@ -35,7 +37,9 @@ FALLBACK_INFLATION_RATE = 0.025
 VEHICLE_PREFIXES = ("auto", "car", "moto", "vehicle")
 VEHICLE_MARKERS = ("VIN=", "Plates=")
 INFLATION_INDEXED_FLOWS = (RecurrentTypes.Expense, RecurrentTypes.Income)
-CATEGORIES = ("income", "expenses", "interest", "maturities")
+CATEGORIES = ("income", "expenses", "interest", "maturities", "transfers")
+# Transfers come in pairs that net to zero; allow for FX rounding.
+TRANSFER_TOLERANCE_USD = 1.0
 
 
 @dataclass
@@ -88,6 +92,12 @@ def market_fx_rates(assets: Dict[str, List[Any]]) -> Dict[str, float]:
             if rate:
                 rates[currency] = rate
     return rates
+
+
+def _category(asset: Any, amount: float) -> str:
+    if is_transfer(asset):
+        return "transfers"
+    return "income" if amount > 0 else "expenses"
 
 
 def _flatten(assets: Dict[str, List[Any]]) -> Iterable[Any]:
@@ -315,7 +325,7 @@ class _Simulation:
                     continue
             elif indexed:
                 amount *= self.inflation_factor(holding.country, index)
-            category = "income" if amount > 0 else "expenses"
+            category = _category(asset, amount)
             self.schedule(
                 run,
                 partial(
@@ -328,7 +338,7 @@ class _Simulation:
         if not asset.balance:
             return
         target = self.resolve_target(asset)
-        category = "income" if asset.balance > 0 else "expenses"
+        category = _category(asset, asset.balance)
         self.schedule(
             asset.due_date,
             partial(
@@ -421,6 +431,7 @@ class _Simulation:
             for p in pools
         }
         start_net_worth = self.net_worth()
+        unbalanced_transfers: List[str] = []
         rows = []
         for index, month in enumerate(self.months):
             self._flows = {category: 0.0 for category in CATEGORIES}
@@ -432,6 +443,8 @@ class _Simulation:
                     holding.value *= (1 + annual_rate) ** (1 / 12)
 
             month_str = month.isoformat()
+            if abs(self._flows["transfers"]) > TRANSFER_TOLERANCE_USD:
+                unbalanced_transfers.append(month_str[:7])
             negative = []
             for pool in pools:
                 low = min(self._month_min[pool.key], pool.value)
@@ -465,6 +478,13 @@ class _Simulation:
                     },
                     "negativePools": negative,
                 }
+            )
+
+        if unbalanced_transfers:
+            self.warnings.append(
+                f"Transfers don't net to zero in {len(unbalanced_transfers)} month(s), "
+                f"first in {unbalanced_transfers[0]}: each transfer needs a matching "
+                "opposite transfer in the same month."
             )
 
         pool_rows = []
