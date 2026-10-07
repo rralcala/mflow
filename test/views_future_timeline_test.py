@@ -12,6 +12,11 @@ from asset_classes.recurrent import Recurrent
 from views.future_timeline import future_timeline
 
 FX = {"USD": 1.0, "PYG": 7000.0}
+UNPAIRED_WARNING = (
+    "Transfers are missing their opposite side in {} month(s), first in {}: each "
+    "transfer needs an opposite transfer in the same month (same amount within a "
+    "currency, any amount across currencies)."
+)
 
 
 def account(identifier="Checking", balance=1000.0, currency="USD", country="US"):
@@ -312,11 +317,32 @@ class TestFutureTimeline(unittest.TestCase):
         result = run([account(), half], end=date(2030, 3, 31))
         self.assertAlmostEqual(month(result, "2030-01")["expenses"], 0.0)
         self.assertAlmostEqual(month(result, "2030-01")["transfers"], -200.0)
-        self.assertIn(
-            "Transfers don't net to zero in 3 month(s), first in 2030-01: each "
-            "transfer needs a matching opposite transfer in the same month.",
-            result["warnings"],
+        self.assertIn(UNPAIRED_WARNING.format(3, "2030-01"), result["warnings"])
+
+    def test_cross_currency_pair_balances_regardless_of_amounts(self, *_):
+        # 100 USD out, 800,000 PYG in: the user's own rate, not today's 7,000.
+        out = recurrent("ToPYG-Out", -100.0, flow_class="transfer")
+        into = recurrent(
+            "ToPYG-In",
+            800000.0,
+            flow_class="transfer",
+            currency="PYG",
+            country="PY",
+            target="Ahorro",
         )
+        ahorro = account("Ahorro", 0.0, currency="PYG", country="PY")
+        result = run([account(), ahorro, out, into], end=date(2030, 3, 31))
+        self.assertAlmostEqual(month(result, "2030-01")["balances"]["Checking"], 900.0)
+        self.assertAlmostEqual(month(result, "2030-01")["balances"]["Ahorro"], 800000.0)
+        self.assertEqual(result["warnings"], [])
+
+    def test_same_currency_pair_must_match_amounts(self, *_):
+        out = recurrent("Sweep-Out", -200.0, flow_class="transfer")
+        into = recurrent("Sweep-In", 150.0, flow_class="transfer", target="Savings")
+        result = run(
+            [account(), account("Savings", 0.0), out, into], end=date(2030, 1, 31)
+        )
+        self.assertIn(UNPAIRED_WARNING.format(1, "2030-01"), result["warnings"])
 
     def test_transfer_payable_is_not_an_expense(self, *_):
         move = Payable(

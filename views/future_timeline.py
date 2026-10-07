@@ -38,7 +38,7 @@ VEHICLE_PREFIXES = ("auto", "car", "moto", "vehicle")
 VEHICLE_MARKERS = ("VIN=", "Plates=")
 INFLATION_INDEXED_FLOWS = (RecurrentTypes.Expense, RecurrentTypes.Income)
 CATEGORIES = ("income", "expenses", "interest", "maturities", "transfers")
-# Transfers come in pairs that net to zero; allow for FX rounding.
+# Per-currency transfer totals below this (in USD) count as balanced.
 TRANSFER_TOLERANCE_USD = 1.0
 
 
@@ -136,6 +136,7 @@ class _Simulation:
         self._pending: List[Tuple[Any, _Holding]] = []
         self._seq = 0
         self._flows: Dict[str, float] = {}
+        self._transfer_nets: Dict[str, float] = {}  # currency -> native total
         self._month_min: Dict[str, float] = {}
 
     # -- setup -----------------------------------------------------------
@@ -410,8 +411,26 @@ class _Simulation:
             source.value -= amount
         target.value += self.convert(amount, currency, target.currency)
         self._flows[category] += self.to_usd(amount, currency)
+        if category == "transfers":
+            self._transfer_nets[currency] = (
+                self._transfer_nets.get(currency, 0.0) + amount
+            )
         self._month_min[target.key] = min(
             self._month_min.get(target.key, target.value), target.value
+        )
+
+    def transfers_balanced(self) -> bool:
+        """A month's transfers balance when each currency nets to zero, or the
+        leftovers move in opposite directions across currencies. Cross-currency
+        pairs are entered at the user's own rate, so their amounts aren't compared.
+        """
+        leftovers = [
+            net
+            for currency, net in self._transfer_nets.items()
+            if abs(self.to_usd(net, currency)) > TRANSFER_TOLERANCE_USD
+        ]
+        return not leftovers or (
+            any(net > 0 for net in leftovers) and any(net < 0 for net in leftovers)
         )
 
     def pay_yield(self, source: _Holding, target: _Holding, rate: float) -> None:
@@ -435,6 +454,7 @@ class _Simulation:
         rows = []
         for index, month in enumerate(self.months):
             self._flows = {category: 0.0 for category in CATEGORIES}
+            self._transfer_nets = {}
             self._month_min = {p.key: p.value for p in pools}
             for _, _, action in sorted(self.events[index], key=lambda e: e[:2]):
                 action()
@@ -443,7 +463,7 @@ class _Simulation:
                     holding.value *= (1 + annual_rate) ** (1 / 12)
 
             month_str = month.isoformat()
-            if abs(self._flows["transfers"]) > TRANSFER_TOLERANCE_USD:
+            if not self.transfers_balanced():
                 unbalanced_transfers.append(month_str[:7])
             negative = []
             for pool in pools:
@@ -482,9 +502,11 @@ class _Simulation:
 
         if unbalanced_transfers:
             self.warnings.append(
-                f"Transfers don't net to zero in {len(unbalanced_transfers)} month(s), "
-                f"first in {unbalanced_transfers[0]}: each transfer needs a matching "
-                "opposite transfer in the same month."
+                f"Transfers are missing their opposite side in "
+                f"{len(unbalanced_transfers)} month(s), first in "
+                f"{unbalanced_transfers[0]}: each transfer needs an opposite transfer "
+                "in the same month (same amount within a currency, any amount across "
+                "currencies)."
             )
 
         pool_rows = []
