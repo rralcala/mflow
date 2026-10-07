@@ -1,6 +1,6 @@
 import calendar
 from datetime import date, datetime
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from asset_classes.asset import Asset
 from data.exchange_rates import ExchangeRates
@@ -28,6 +28,7 @@ class Instrument(Asset):
         liquid: bool,
         capital_rate: float,
         target_asset_id: str = "",
+        sell_by: Optional[datetime] = None,
     ):
         self.symbol = symbol
         self._identifier = f"{location}_{symbol}"
@@ -45,6 +46,8 @@ class Instrument(Asset):
         self.liquid = liquid
         self.capital_rate = capital_rate
         self.target_asset_id = target_asset_id
+        # Simulations sell non-liquid instruments on this date into the target.
+        self.sell_by = sell_by
 
     def get_identifier(self) -> str:
         return self._identifier

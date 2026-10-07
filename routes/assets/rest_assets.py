@@ -144,6 +144,21 @@ def get_account(name):
     return response
 
 
+def instrument_sale_error(
+    sell_by: Optional[str], liquid: int, identifier: str, target_asset_id: str
+) -> Optional[str]:
+    """Only non-liquid instruments are sold, into a target other than themselves."""
+    if not sell_by:
+        return None
+    if not validate_date(sell_by):
+        return f"Invalid date '{sell_by}'"
+    if liquid:
+        return "Only non-liquid instruments can have a sell-by date"
+    if target_asset_id == identifier:
+        return "An instrument can't be sold into itself"
+    return None
+
+
 @assets_bp.route("/instruments", methods=["GET", "POST"])
 @assets_bp.auth_required(auth)
 def instruments():
@@ -177,7 +192,16 @@ def instruments():
                 liquid=1 if data.get("liquid") else 0,
                 capital_rate=data.get("capital_rate", 0.0),
                 target_asset_id=target_asset_id,
+                sell_by=data.get("sellBy") or None,
             )
+            error = instrument_sale_error(
+                new_transaction.sell_by,
+                new_transaction.liquid,
+                f"{new_transaction.location}_{new_transaction.symbol}",
+                target_asset_id,
+            )
+            if error:
+                return error_response(error, HTTPStatus.BAD_REQUEST)
             session.add(new_transaction)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -246,6 +270,15 @@ def instruments_get(id):
             result.liquid = 1 if data.get("liquid", result.liquid) else 0
             result.capital_rate = data.get("capital_rate", result.capital_rate)
             result.target_asset_id = target_asset_id
+            result.sell_by = data.get("sellBy", result.sell_by) or None
+            error = instrument_sale_error(
+                result.sell_by,
+                result.liquid,
+                f"{result.location}_{result.symbol}",
+                target_asset_id,
+            )
+            if error:
+                return error_response(error, HTTPStatus.BAD_REQUEST)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
         elif request.method == "DELETE":

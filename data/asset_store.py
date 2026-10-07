@@ -162,6 +162,11 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 liquid=row.liquid == 1,
                 capital_rate=float(row.capital_rate),
                 target_asset_id=str(row.target_asset_id or ""),
+                sell_by=(
+                    datetime.strptime(row.sell_by, Config.DATE_FORMAT_STRING)
+                    if row.sell_by
+                    else None
+                ),
             )
             assets[asset.currency].append(asset)
         for row in session.query(Account).filter_by(user_id=user_config.USER_ID).all():

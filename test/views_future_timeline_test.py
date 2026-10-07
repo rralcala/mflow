@@ -251,6 +251,45 @@ class TestFutureTimeline(unittest.TestCase):
         result = run([account(), sold, linked], end=date(2030, 12, 31))
         self.assertEqual(result["warnings"], [])
 
+    def test_ira_is_sold_after_its_tax_factor_into_target(self, *_):
+        ira = instrument("Citi_I5902", "USD", 10000.0, liquid=False, target="Checking")
+        ira.factor = 0.7  # Estimated early-withdrawal penalty.
+        ira.sell_by = datetime(2030, 6, 1)
+        result = run([account(), ira], end=date(2030, 12, 31))
+        self.assertAlmostEqual(month(result, "2030-06")["sales"], 7000.0)
+        self.assertAlmostEqual(month(result, "2030-06")["balances"]["Checking"], 8000.0)
+        self.assertEqual(asset_row(result, "Citi_I5902_USD")["soldOn"], "2030-06")
+        self.assertAlmostEqual(asset_row(result, "Citi_I5902_USD")["endValue"], 0.0)
+
+    def test_sold_instrument_stops_paying_dividends(self, *_):
+        bond_fund = instrument(
+            "Broker", "BND", 12000.0, rate=0.12, liquid=False, target="Checking"
+        )
+        bond_fund.sell_by = datetime(2030, 3, 15)
+        result = run([account(), bond_fund], end=date(2030, 6, 30))
+        self.assertAlmostEqual(month(result, "2030-03")["interest"], 120.0)
+        self.assertAlmostEqual(month(result, "2030-04")["interest"], 0.0)
+
+    def test_gold_sells_with_appreciation_when_enabled(self, *_):
+        gold = instrument(
+            "Citi", "IAUM", 1000.0, capital_rate=0.12, liquid=False, target="Checking"
+        )
+        gold.sell_by = datetime(2031, 1, 10)
+        result = run(
+            [account(), gold], end=date(2031, 3, 31), include_capital_growth=True
+        )
+        self.assertAlmostEqual(month(result, "2031-01")["sales"], 1120.0)
+
+    def test_instrument_sold_into_itself_is_ignored(self, *_):
+        stuck = instrument("Vault", "USD", 500.0, liquid=False, target="Vault_USD")
+        stuck.sell_by = datetime(2030, 3, 1)
+        result = run([stuck], end=date(2030, 6, 30))
+        self.assertAlmostEqual(month(result, "2030-03")["sales"], 0.0)
+        self.assertIn(
+            "Vault_USD can't be sold into itself; the sale is ignored.",
+            result["warnings"],
+        )
+
     def test_inflation_rates_can_be_overridden_per_country(self, *_):
         result = run([house()], inflation_rates={"PY": 0.10})
         self.assertAlmostEqual(asset_row(result, "House-1")["endValue"], 110000.0)

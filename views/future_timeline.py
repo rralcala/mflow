@@ -9,8 +9,9 @@ Modeling rules:
   * Recurrent expenses/incomes and yearly (non one-off) payables grow with the
     inflation of their country. Loans and repayments are fixed contracts.
   * Housing properties grow with their country's inflation; vehicles don't.
-    A property with a sell-by date is sold then at its simulated value into
-    its target asset, and recurrents whose parent is that property stop.
+  * Properties and non-liquid instruments with a sell-by date are sold then at
+    their simulated value into their target asset, and recurrents whose parent
+    is the sold asset stop.
   * Instruments pay ``rate`` on their cron schedule, computed on their current
     simulated value, into their target (themselves when unset, so cash-like
     sweeps compound). ``capital_rate`` appreciation is opt-in: compounding
@@ -201,7 +202,7 @@ class _Simulation:
                 self._pending.append((asset, holding))
         # Recurrents linked to a property stop when it's sold.
         for asset in assets:
-            if isinstance(asset, Property) and asset.sell_by:
+            if isinstance(asset, (Property, Instrument)) and asset.sell_by:
                 self.sale_dates[asset.get_identifier()] = asset.sell_by
         for asset in assets:
             if isinstance(asset, (Account, Instrument)):
@@ -260,6 +261,15 @@ class _Simulation:
         if self.include_capital_growth and asset.capital_rate:
             holding.growth = "capital"
             self.growth.append((holding, float(asset.capital_rate)))
+        if asset.sell_by:
+            # Its value already includes the factor (e.g. an IRA tax penalty).
+            target = self.resolve_target(asset)
+            if target is holding:
+                self.warnings.append(
+                    f"{holding.name} can't be sold into itself; the sale is ignored."
+                )
+            else:
+                self.schedule(asset.sell_by, partial(self.sell, holding, target))
         if not asset.rate:
             return
         first_year = cron_runs(

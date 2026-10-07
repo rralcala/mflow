@@ -898,6 +898,84 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(session.added, [])
 
+    def _post_instrument(self, payload):
+        body = {
+            "country": "US",
+            "location": "Citi_I5902",
+            "symbol": "USD",
+            "currency": "USD",
+            "factor": 0.7,
+            "qty": 1000,
+            "dividend": "",
+            "dividend_rate": 0.0,
+            "acquisition_date": "2026-01-01",
+            "acquisition_price": 1.0,
+            "liquid": False,
+            "targetAssetId": "Checking",
+            **payload,
+        }
+        # validate_target_asset accepts Checking (a USD account) and
+        # Citi_I5902_USD (a USD cash-like instrument).
+        checking = SimpleNamespace(id="Checking", currency="USD")
+        session = SessionStub(
+            {
+                rest_assets.Account: QueryStub(
+                    first_item=checking if body["targetAssetId"] == "Checking" else None
+                ),
+                rest_assets.Instrument: QueryStub(
+                    all_items=[SimpleNamespace(location="Citi_I5902", symbol="USD")]
+                ),
+            }
+        )
+        with self.app.test_request_context(
+            "/instruments", method="POST", json=body
+        ), patch("routes.rest_assets.current_user", self.user), patch(
+            "routes.rest_assets.reload_asset_store"
+        ), patch(
+            "routes.rest_assets.UserStore.get_user_config",
+            return_value=SimpleNamespace(),
+        ), patch(
+            "models.instrument.ExchangeRates.exchange_rate", return_value=1.0
+        ), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_assets.instruments.__wrapped__()
+        return response, status, session
+
+    def test_instruments_post_non_liquid_with_sell_by(self):
+        _, status, session = self._post_instrument({"sellBy": "2040-01-01"})
+        self.assertEqual(status, 201)
+        self.assertEqual(session.added[0].sell_by, "2040-01-01")
+
+    def test_instruments_post_without_sell_by_stores_null(self):
+        _, status, session = self._post_instrument({"sellBy": ""})
+        self.assertEqual(status, 201)
+        self.assertIsNone(session.added[0].sell_by)
+
+    def test_instruments_post_rejects_sell_by_on_liquid(self):
+        response, status, session = self._post_instrument(
+            {"sellBy": "2040-01-01", "liquid": True}
+        )
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(
+            response.get_json(),
+            {"message": "Only non-liquid instruments can have a sell-by date"},
+        )
+        self.assertEqual(session.added, [])
+
+    def test_instruments_post_rejects_selling_into_itself(self):
+        response, status, _ = self._post_instrument(
+            {"sellBy": "2040-01-01", "targetAssetId": "Citi_I5902_USD"}
+        )
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(
+            response.get_json(), {"message": "An instrument can't be sold into itself"}
+        )
+
+    def test_instruments_post_rejects_bad_sell_by(self):
+        _, status, _ = self._post_instrument({"sellBy": "someday"})
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+
     def test_instruments_get_put_bad_target(self):
         existing = SimpleNamespace(target_asset_id="old", currency="USD")
         session = SessionStub(
