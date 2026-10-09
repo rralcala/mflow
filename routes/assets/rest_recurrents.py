@@ -23,6 +23,15 @@ from ..security import auth
 Logger = get_logger()
 
 
+def owns_recurrent(session, identifier) -> bool:
+    return (
+        session.query(Recurrent)
+        .filter_by(user_id=int(current_user.id), identifier=identifier)
+        .first()
+        is not None
+    )
+
+
 @assets_bp.route("/recurrentTransactions", methods=["GET", "POST"])
 @assets_bp.auth_required(auth)
 def recurrent_transactions():
@@ -38,6 +47,8 @@ def recurrent_transactions():
             user_id=int(current_user.id),
         )
         with Config.DB_SESSION() as session:
+            if not owns_recurrent(session, new_transaction.parent_id):
+                return error_response("Unknown recurrent", HTTPStatus.BAD_REQUEST)
             session.add(new_transaction)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -102,12 +113,15 @@ def recurrent_transactions_get(name):
             )
         if request.method == "PUT":
             data = request.json
+            parent_id = data.get("recurrentId", result.parent_id)
+            if parent_id != result.parent_id and not owns_recurrent(session, parent_id):
+                return error_response("Unknown recurrent", HTTPStatus.BAD_REQUEST)
             result.year_month = data.get("yearMonth", result.year_month)
             result.paid_with = data.get("paidWithAssetId", result.paid_with)
             result.transaction_date = data.get(
                 "transactionDate", result.transaction_date
             )
-            result.parent_id = data.get("recurrentId", result.parent_id)
+            result.parent_id = parent_id
             result.amount = data.get("amount", result.amount)
             result.description = data.get("description", result.description)
             session.commit()

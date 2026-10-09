@@ -1136,6 +1136,102 @@ class TestRestAssetsRoutes(unittest.TestCase):
         )
         self.assertFalse(session.committed)
 
+    def test_instruments_put_ignores_id_and_user_id(self):
+        existing = instrument_row()
+        session = SessionStub(
+            {
+                rest_assets.Instrument: QueryStub(first_item=existing),
+                rest_assets.Account: QueryStub(
+                    first_item=SimpleNamespace(id="old", currency="USD")
+                ),
+            }
+        )
+        with self.app.test_request_context(
+            "/instruments/1",
+            method="PUT",
+            json={"acquisition_date": "2026-01-01", "id": 99, "user_id": 2},
+        ), patch("routes.rest_assets.current_user", self.user), patch(
+            "routes.rest_assets.reload_asset_store"
+        ), patch(
+            "routes.rest_assets.UserStore.get_user_config",
+            return_value=SimpleNamespace(),
+        ), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_assets.instruments_get.__wrapped__(1)
+
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertTrue(session.committed)
+        self.assertEqual((existing.id, existing.user_id), (1, 1))
+
+    def post_recurrent_transaction(self, owned):
+        session = SessionStub(
+            {
+                Recurrent: QueryStub(
+                    first_item=SimpleNamespace(identifier="Rent") if owned else None
+                )
+            }
+        )
+        with self.app.test_request_context(
+            "/recurrentTransactions",
+            method="POST",
+            json={
+                "recurrentId": "Rent",
+                "yearMonth": "2026-10",
+                "description": "October",
+                "amount": -100,
+                "transactionDate": "2026-10-01",
+                "paidWithAssetId": "acc-1",
+            },
+        ), patch("routes.rest_recurrents.current_user", self.user), patch(
+            "routes.rest_recurrents.reload_asset_store"
+        ), patch(
+            "routes.rest_recurrents.UserStore.get_user_config",
+            return_value=SimpleNamespace(),
+        ), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_recurrents.recurrent_transactions.__wrapped__()
+        return status, session
+
+    def test_recurrent_transactions_post_requires_own_recurrent(self):
+        status, session = self.post_recurrent_transaction(owned=False)
+
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(session.added, [])
+
+    def test_recurrent_transactions_post_own_recurrent(self):
+        status, session = self.post_recurrent_transaction(owned=True)
+
+        self.assertEqual(status, HTTPStatus.CREATED)
+        self.assertEqual(session.added[0].parent_id, "Rent")
+        self.assertEqual(session.added[0].user_id, 1)
+
+    def test_recurrent_transactions_put_rejects_foreign_recurrent(self):
+        existing = SimpleNamespace(
+            transaction_id=1, parent_id="Rent", user_id=1, to_dict=lambda: {}
+        )
+        session = SessionStub(
+            {
+                RecurrentTransaction: QueryStub(first_item=existing),
+                Recurrent: QueryStub(first_item=None),
+            }
+        )
+        with self.app.test_request_context(
+            "/recurrentTransactions/1",
+            method="PUT",
+            json={"recurrentId": "Someone-Elses"},
+        ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_recurrents.recurrent_transactions_get.__wrapped__(
+                "1"
+            )
+
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(existing.parent_id, "Rent")
+        self.assertFalse(session.committed)
+
     def test_instruments_get_put_bad_target(self):
         existing = instrument_row()
         session = SessionStub(

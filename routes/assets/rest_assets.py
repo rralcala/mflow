@@ -262,8 +262,6 @@ def instruments_get(id):
             currency = data.get("currency", result.currency)
             identifier = f"{result.location}_{result.symbol}"
             was_target_pool = result.is_target_pool == 1
-            result.id = data.get("id", result.id)
-            result.user_id = data.get("user_id", result.user_id)
             result.country = country_for_update(data, result.country)
             result.location = data.get("location", result.location)
             result.symbol = data.get("symbol", result.symbol)

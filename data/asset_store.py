@@ -125,6 +125,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 flow_class=row.flow_class,
                 rate=float(row.rate),
                 target_asset_id=str(row.target_asset_id or ""),
+                user_id=int(user_config.USER_ID),
             )
 
             assets[asset.currency].append(asset)

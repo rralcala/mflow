@@ -109,5 +109,36 @@ class TestPayableUsesBalance(unittest.TestCase):
         )
 
 
+class TestRecurrentTransactionsPerUser(unittest.TestCase):
+    def test_transactions_are_filtered_by_user(self):
+        recurrent = Recurrent(
+            identifier="Rent",
+            parent_asset_id="",
+            country="US",
+            amount=-100.0,
+            currency="USD",
+            recurrence="0 0 5 * *",
+            start=datetime(2026, 1, 1),
+            end=datetime(2027, 1, 1),
+            flow_class="loan",
+            user_id=1,
+        )
+        session = unittest.mock.MagicMock()
+        session.__enter__.return_value = session
+        query = session.query.return_value
+        query.filter_by.return_value.all.return_value = []
+        with unittest.mock.patch(
+            "asset_classes.recurrent.Config.DB_SESSION",
+            return_value=session,
+            create=True,
+        ):
+            recurrent.get_current_value()
+            recurrent.fetch_transactions(datetime(2026, 10, 1))
+
+        for call in query.filter_by.call_args_list:
+            self.assertEqual(call.kwargs["user_id"], 1)
+        self.assertEqual(query.filter_by.call_count, 2)
+
+
 if __name__ == "__main__":
     unittest.main()

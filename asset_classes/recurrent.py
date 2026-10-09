@@ -1,6 +1,6 @@
 import calendar
 from datetime import date, datetime
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from asset_classes.asset import Asset
 from data.constants import RecurrentTypes
@@ -28,8 +28,11 @@ class Recurrent(Asset):
         flow_class: str,
         rate: float = 0.0,
         target_asset_id: str = "",
+        user_id: Optional[int] = None,
     ):
         self._identifier = identifier
+        # Transactions are only read for this user.
+        self.user_id = user_id
         self.amount = amount
         self.country = country
         self.currency = currency
@@ -70,7 +73,7 @@ class Recurrent(Asset):
             with Config.DB_SESSION() as session:
                 transactions = (
                     session.query(models.RecurrentTransaction)
-                    .filter_by(parent_id=self._identifier)
+                    .filter_by(parent_id=self._identifier, user_id=self.user_id)
                     .all()
                 )
             for row in transactions:
@@ -80,7 +83,9 @@ class Recurrent(Asset):
     def fetch_transactions(self, date):
         with Config.DB_SESSION() as session:
             select_stmt = session.query(models.RecurrentTransaction).filter_by(
-                parent_id=self._identifier, year_month=date.strftime("%Y-%m")
+                parent_id=self._identifier,
+                user_id=self.user_id,
+                year_month=date.strftime("%Y-%m"),
             )
             return session.execute(select_stmt).scalars().all()
 
