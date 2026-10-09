@@ -58,14 +58,14 @@ class Account(Asset):
 
     def get_liquid_balance(self) -> Tuple[float, str]:
         if self.liquid:
-            return self.balance, self.currency
-        return 0.0, "USD"
+            return self.get_current_value()
+        return 0.0, self.currency
 
     def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str, bool]]]:
         balance = self.get_liquid_balance()
         if balance[0] == 0.0:
             return []
-        return [(datetime.today().date(), (*self.get_liquid_balance(), True))]
+        return [(datetime.today().date(), (*balance, True))]
 
     def get_currency(self) -> str:
         return self.currency

@@ -41,6 +41,16 @@ class TestAccountTimeline(unittest.TestCase):
         timeline = acc.get_timeline(datetime(2024, 6, 1))
         self.assertEqual(timeline, [])
 
+    def test_liquid_balance_applies_factor(self):
+        acc = Account("US", "Bank", "F", "USD", 1000.0, 0.7, "Savings")
+        self.assertEqual(acc.get_liquid_balance(), acc.get_current_value())
+        timeline = acc.get_timeline(datetime(2024, 6, 1))
+        self.assertAlmostEqual(timeline[0][1][0], 700.0)
+
+    def test_non_liquid_balance_keeps_currency(self):
+        acc = Account("PY", "Bank", "P", "PYG", 1000.0, 1.0, "Savings", liquid=False)
+        self.assertEqual(acc.get_liquid_balance(), (0.0, "PYG"))
+
     def test_savings_account_zero_balance(self):
         acc = Account("US", "Bank", "000", "USD", 0.0, 1.0, "Savings")
         timeline = acc.get_timeline(datetime(2024, 6, 1))
