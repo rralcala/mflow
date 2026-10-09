@@ -1,3 +1,3 @@
-from flask import Blueprint
+from apiflask import APIBlueprint
 
-assets_bp = Blueprint("assets", __name__)
+assets_bp = APIBlueprint("assets", __name__, tag="assets")

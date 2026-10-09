@@ -3,7 +3,7 @@ import logging
 import sys
 from pathlib import Path
 
-from flask import Flask
+from apiflask import APIFlask
 from flask_cors import CORS
 from flask_login import LoginManager
 from sqlalchemy import create_engine
@@ -13,7 +13,14 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from lib.config import Config, load_config
 from lib.logger import config_logging
 
-app = Flask(__name__)
+# Interactive docs/spec are only served when running with --debug. The app is
+# created at import time, before argparse runs, hence the argv check.
+app = APIFlask(
+    __name__,
+    title="mflow",
+    version="1.0",
+    enable_openapi="--debug" in sys.argv,
+)
 logger = logging.getLogger()
 
 

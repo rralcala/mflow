@@ -1,7 +1,7 @@
 from http import HTTPStatus
 
 from flask import jsonify, request
-from flask_login import current_user, login_required
+from flask_login import current_user
 
 from data.asset_store import reload_asset_store
 from lib.config import Config
@@ -11,12 +11,13 @@ from lib.util import validate_target_asset
 from models.models import Recurrent, RecurrentTransaction
 
 from ..blueprints import assets_bp
+from ..security import auth
 
 Logger = get_logger()
 
 
 @assets_bp.route("/recurrentTransactions", methods=["GET", "POST"])
-@login_required
+@assets_bp.auth_required(auth)
 def recurrent_transactions():
     if request.method == "POST":
         data = request.json
@@ -78,7 +79,7 @@ def recurrent_transactions():
 
 
 @assets_bp.route("/recurrentTransactions/<name>", methods=["GET", "PUT", "DELETE"])
-@login_required
+@assets_bp.auth_required(auth)
 def recurrent_transactions_get(name):
     with Config.DB_SESSION() as session:
         result = (
@@ -111,7 +112,7 @@ def recurrent_transactions_get(name):
 
 
 @assets_bp.route("/recurrents", methods=["GET", "POST"])
-@login_required
+@assets_bp.auth_required(auth)
 def recurrents_all():
     if request.method == "POST":
         data = request.json
@@ -163,7 +164,7 @@ def recurrents_all():
 
 
 @assets_bp.route("/recurrents/<name>", methods=["GET", "PUT", "DELETE"])
-@login_required
+@assets_bp.auth_required(auth)
 def recurrents_get(name):
     with Config.DB_SESSION() as session:
         result = (

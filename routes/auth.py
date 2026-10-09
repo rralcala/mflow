@@ -2,15 +2,17 @@ import datetime
 from http import HTTPStatus
 
 import jwt
-from flask import Blueprint, jsonify, redirect, render_template, request, url_for
-from flask_login import current_user, login_required, login_user, logout_user
+from apiflask import APIBlueprint
+from flask import jsonify, redirect, render_template, request, url_for
+from flask_login import current_user, login_user, logout_user
 
 from init import login_manager
 from lib.config import Config
 from lib.logger import get_logger
 from models.models import User, find_user_by_username
+from routes.security import auth
 
-auth_bp = Blueprint("auth", __name__)
+auth_bp = APIBlueprint("auth", __name__, tag="auth")
 
 ALGORITHM = "HS256"
 Logger = get_logger()
@@ -22,7 +24,7 @@ def unauthorized():
 
 
 @auth_bp.route("/jwt", methods=["GET"])
-@login_required
+@auth_bp.auth_required(auth)
 def jwt_token():
 
     payload = {
@@ -72,7 +74,7 @@ def rlogin():
 
 
 @auth_bp.route("/rlogout", methods=["GET"])
-@login_required
+@auth_bp.auth_required(auth)
 def rlogout():
     logout_user()
     return jsonify({"message": "Logged out"}), HTTPStatus.OK
@@ -94,6 +96,7 @@ def load_user(user_id):
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
+@auth_bp.doc(hide=True)
 def login():
     if request.method == "POST":
         req_user = request.form.get("username", "")
@@ -125,7 +128,8 @@ def login():
 
 
 @auth_bp.route("/logout")
-@login_required
+@auth_bp.doc(hide=True)
+@auth_bp.auth_required(auth)
 def logout():
     logout_user()
     return redirect(url_for("auth.login"))

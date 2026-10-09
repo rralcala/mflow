@@ -3,7 +3,7 @@ from http import HTTPStatus
 from io import StringIO
 
 from flask import Response, jsonify, request
-from flask_login import current_user, login_required
+from flask_login import current_user
 
 from data.asset_store import reload_asset_store
 from lib.config import Config
@@ -13,10 +13,11 @@ from models.bond import Bond, BondSchedule
 from models.deposit_certificate import DepositCertificate, DepositCertificateSchedule
 
 from ..blueprints import assets_bp
+from ..security import auth
 
 
 @assets_bp.route("/cdSchedulesUpload", methods=["POST"])
-@login_required
+@assets_bp.auth_required(auth)
 def cd_schedules_upload():
     f = StringIO(request.data.decode("utf-8"))
     reader = csv.DictReader(f)
@@ -39,7 +40,7 @@ def cd_schedules_upload():
 
 
 @assets_bp.route("/bondSchedulesUpload", methods=["POST"])
-@login_required
+@assets_bp.auth_required(auth)
 def bond_schedules_upload():
     f = StringIO(request.data.decode("utf-8"))
     reader = csv.DictReader(f)
@@ -62,7 +63,7 @@ def bond_schedules_upload():
 
 
 @assets_bp.route("/bondSchedules", methods=["GET", "POST"])
-@login_required
+@assets_bp.auth_required(auth)
 def bond_schedules_all():
     print(Config.__dict__)
     if request.method == "POST":
@@ -106,7 +107,7 @@ def bond_schedules_all():
 
 
 @assets_bp.route("/bondSchedules/<id>", methods=["GET", "PUT"])
-@login_required
+@assets_bp.auth_required(auth)
 def bond_schedules_get(id):
     with Config.DB_SESSION() as session:
         result = (
@@ -127,7 +128,7 @@ def bond_schedules_get(id):
 
 
 @assets_bp.route("/depositCertificateSchedules", methods=["GET", "POST"])
-@login_required
+@assets_bp.auth_required(auth)
 def deposit_certificate_schedules_all():
     if request.method == "POST":
         data = request.json
@@ -172,7 +173,7 @@ def deposit_certificate_schedules_all():
 
 
 @assets_bp.route("/depositCertificateSchedules/<id>", methods=["GET", "PUT"])
-@login_required
+@assets_bp.auth_required(auth)
 def deposit_certificate_schedules_get(id):
     with Config.DB_SESSION() as session:
         result = (
@@ -196,13 +197,13 @@ def deposit_certificate_schedules_get(id):
 
 
 @assets_bp.route("/bonds/<id>", methods=["GET", "PUT", "DELETE"])
-@login_required
+@assets_bp.auth_required(auth)
 def bonds_get(id):
     return certificate_get(Bond, request, id)
 
 
 @assets_bp.route("/depositCertificates/<int:id>", methods=["GET", "PUT", "DELETE"])
-@login_required
+@assets_bp.auth_required(auth)
 def deposit_certificates_get(id):
     return certificate_get(DepositCertificate, request, id)
 
@@ -246,13 +247,13 @@ def certificate_get(cert_type, request_input, id):
 
 
 @assets_bp.route("/bonds", methods=["GET", "POST"])
-@login_required
+@assets_bp.auth_required(auth)
 def bonds_all():
     return certificates_all(request, Bond)
 
 
 @assets_bp.route("/depositCertificates", methods=["GET", "POST"])
-@login_required
+@assets_bp.auth_required(auth)
 def deposit_certificates_all():
     return certificates_all(request, DepositCertificate)
 

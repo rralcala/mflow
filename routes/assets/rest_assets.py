@@ -2,7 +2,7 @@ from http import HTTPStatus
 from typing import Any, Dict, List, Optional
 
 from flask import Response, jsonify, request
-from flask_login import current_user, login_required
+from flask_login import current_user
 
 from data.asset_store import get_asset_store, reload_asset_store
 from lib.config import Config
@@ -17,12 +17,13 @@ from reports.list_assets import asset_data_from_asset, get_assets
 from reports.pnl import monthly_transactions as upcoming_monthly_transactions
 
 from ..blueprints import assets_bp
+from ..security import auth
 
 Logger = get_logger()
 
 
 @assets_bp.route("/accounts", methods=["GET", "POST"])
-@login_required
+@assets_bp.auth_required(auth)
 def accounts():
     if request.method == "POST":
         with Config.DB_SESSION() as session:
@@ -66,7 +67,7 @@ def accounts():
 
 
 @assets_bp.route("/assets/<identifier:id>", methods=["GET"])
-@login_required
+@assets_bp.auth_required(auth)
 def asset_get(id):
     Logger.info(f"Fetching asset with id: {id} for user: {current_user.id}")
     assets = get_asset_store(UserStore.get_user_config(current_user.id))
@@ -82,7 +83,7 @@ def asset_get(id):
 
 
 @assets_bp.route("/assets", methods=["GET"])
-@login_required
+@assets_bp.auth_required(auth)
 def assets():
     liquid_only = False
     if "liquid" in request.args:
@@ -111,7 +112,7 @@ def assets():
 
 
 @assets_bp.route("/accounts/<identifier:name>", methods=["GET", "PUT", "DELETE"])
-@login_required
+@assets_bp.auth_required(auth)
 def get_account(name):
     with Config.DB_SESSION() as session:
         result = (
@@ -141,7 +142,7 @@ def get_account(name):
 
 
 @assets_bp.route("/instruments", methods=["GET", "POST"])
-@login_required
+@assets_bp.auth_required(auth)
 def instruments():
     if request.method == "POST":
         data = request.json
@@ -204,7 +205,7 @@ def instruments():
 
 
 @assets_bp.route("/instruments/<int:id>", methods=["GET", "PUT", "DELETE"])
-@login_required
+@assets_bp.auth_required(auth)
 def instruments_get(id):
     with Config.DB_SESSION() as session:
         result = (
@@ -274,7 +275,7 @@ def load_tx() -> List[Dict[str, Any]]:
 
 
 @assets_bp.route("/monthlyTransactions", methods=["GET"])
-@login_required
+@assets_bp.auth_required(auth)
 def monthly_transactions() -> Response:
     response_items = []
     transactions = load_tx()
@@ -288,7 +289,7 @@ def monthly_transactions() -> Response:
 
 
 @assets_bp.route("/monthlyTransactions/<name>", methods=["GET"])
-@login_required
+@assets_bp.auth_required(auth)
 def monthly_transactions_get(name) -> Response:
     response = None
     for transaction in load_tx():
@@ -303,7 +304,7 @@ def monthly_transactions_get(name) -> Response:
 
 
 @assets_bp.route("/payables", methods=["GET", "POST"])
-@login_required
+@assets_bp.auth_required(auth)
 def payables():
     if request.method == "POST":
         data = request.json
@@ -365,7 +366,7 @@ def payables():
 
 
 @assets_bp.route("/payables/<int:id>", methods=["GET", "PUT", "DELETE"])
-@login_required
+@assets_bp.auth_required(auth)
 def payables_get(id):
     with Config.DB_SESSION() as session:
         result = (
@@ -420,7 +421,7 @@ def property_sale_error(
 
 
 @assets_bp.route("/properties", methods=["GET", "POST"])
-@login_required
+@assets_bp.auth_required(auth)
 def properties():
     if request.method == "POST":
         data = request.json
@@ -476,7 +477,7 @@ def properties():
 
 
 @assets_bp.route("/properties/<int:id>", methods=["GET", "PUT", "DELETE"])
-@login_required
+@assets_bp.auth_required(auth)
 def properties_get(id):
     with Config.DB_SESSION() as session:
         result = (
@@ -518,7 +519,7 @@ def properties_get(id):
 
 
 @assets_bp.route("/reload")
-@login_required
+@assets_bp.auth_required(auth)
 def reload_assets():
     reload_asset_store(UserStore.get_user_config(current_user.id))
 

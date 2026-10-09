@@ -1,8 +1,9 @@
 from datetime import date
 from http import HTTPStatus
 
-from flask import Blueprint, jsonify, request
-from flask_login import current_user, login_required
+from apiflask import APIBlueprint
+from flask import jsonify, request
+from flask_login import current_user
 
 from data.asset_store import get_asset_store
 from data.exchange_rates import ExchangeRates
@@ -10,6 +11,7 @@ from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserStore
 from lib.util import business_days_ago
+from routes.security import auth
 from views import assets_by_location as vabl
 from views import cash_flow as vcf
 from views import future_timeline as vft
@@ -21,13 +23,13 @@ from views import projection as vp
 from views import spending as vs
 from views import upcoming_payments as vup
 
-reports_bp = Blueprint("reports", __name__)
+reports_bp = APIBlueprint("reports", __name__, tag="reports")
 
 Logger = get_logger()
 
 
 @reports_bp.route("/assets_by_location", methods=["GET"])
-@login_required
+@reports_bp.auth_required(auth)
 def assets_by_location():
     user_config = UserStore.get_user_config(current_user.id)
     assets = get_asset_store(user_config)
@@ -40,7 +42,7 @@ def assets_by_location():
 
 
 @reports_bp.route("/cash_flow", methods=["GET"])
-@login_required
+@reports_bp.auth_required(auth)
 def cash_flow():
     user_config = UserStore.get_user_config(current_user.id)
     assets = get_asset_store(user_config)
@@ -53,7 +55,7 @@ def cash_flow():
 
 
 @reports_bp.route("/future_timeline", methods=["GET"])
-@login_required
+@reports_bp.auth_required(auth)
 def future_timeline():
     """Monthly simulation of every asset until the user's LAST_UNTIL date.
 
@@ -79,7 +81,7 @@ def future_timeline():
 
 
 @reports_bp.route("/exchangeRatesRefresh", methods=["GET"])
-@login_required
+@reports_bp.auth_required(auth)
 def exchange_rates_refresh():
     try:
         ExchangeRates._refresh_currency_data()
@@ -92,7 +94,7 @@ def exchange_rates_refresh():
 
 
 @reports_bp.route("/exchangeRates", methods=["GET"])
-@login_required
+@reports_bp.auth_required(auth)
 def exchange_rates():
     user_config = UserStore.get_user_config(current_user.id)
     result = []
@@ -121,7 +123,7 @@ def exchange_rates():
 
 
 @reports_bp.route("/exchangeRates/<string:name>", methods=["GET"])
-@login_required
+@reports_bp.auth_required(auth)
 def exchange_rates_get(name):
     result = ExchangeRates.exchange_rate(name)
     if result is None:
@@ -134,7 +136,7 @@ def exchange_rates_get(name):
 
 
 @reports_bp.route("/income_per_location", methods=["GET"])
-@login_required
+@reports_bp.auth_required(auth)
 def income_per_location():
     user_config = UserStore.get_user_config(current_user.id)
     assets = get_asset_store(user_config)
@@ -147,7 +149,7 @@ def income_per_location():
 
 
 @reports_bp.route("/investment_performance", methods=["GET"])
-@login_required
+@reports_bp.auth_required(auth)
 def investment_performance():
     user_config = UserStore.get_user_config(current_user.id)
     assets = get_asset_store(user_config)
@@ -160,7 +162,7 @@ def investment_performance():
 
 
 @reports_bp.route("/monthly_pnl", methods=["GET"])
-@login_required
+@reports_bp.auth_required(auth)
 def monthly_pnl():
     skip_one_off = request.args.get("oneOff", "0") == "0"
     Logger.info(
@@ -174,7 +176,7 @@ def monthly_pnl():
 
 
 @reports_bp.route("/nw_summary", methods=["GET"])
-@login_required
+@reports_bp.auth_required(auth)
 def net_worth_summary():
     user_config = UserStore.get_user_config(current_user.id)
     assets = get_asset_store(user_config)
@@ -187,7 +189,7 @@ def net_worth_summary():
 
 
 @reports_bp.route("/projection_analysis", methods=["GET"])
-@login_required
+@reports_bp.auth_required(auth)
 def projection_analysis():
     user_config = UserStore.get_user_config(current_user.id)
     assets = get_asset_store(user_config)
@@ -200,7 +202,7 @@ def projection_analysis():
 
 
 @reports_bp.route("/spending_analysis", methods=["GET"])
-@login_required
+@reports_bp.auth_required(auth)
 def spending_analysis():
     user_config = UserStore.get_user_config(current_user.id)
     assets = get_asset_store(user_config)
@@ -213,7 +215,7 @@ def spending_analysis():
 
 
 @reports_bp.route("/upcoming_payments", methods=["GET"])
-@login_required
+@reports_bp.auth_required(auth)
 def upcoming_payments_flat():
     exclude_capital = request.args.get("exclude", "1") == "1"
     user_config = UserStore.get_user_config(current_user.id)
@@ -233,7 +235,7 @@ def upcoming_payments_flat():
 
 
 @reports_bp.route("/valuation_history", methods=["GET"])
-@login_required
+@reports_bp.auth_required(auth)
 def valuation_history():
     data = vnh.nw_history()
     count = len(data)
