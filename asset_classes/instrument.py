@@ -128,10 +128,10 @@ class Instrument(Asset):
             amount, currency = balance
             timeline.append((datetime.today().date(), (amount, currency, True)))
         if self.estimated_dividend != 0.0:
+            # Same factor as get_actual_income (e.g. a tax haircut).
+            dividend = self.estimated_dividend * self.factor
             for date in cron_runs(self.dividend, datetime.today(), end):
-                timeline.append(
-                    (date.date(), (self.estimated_dividend, self.currency, False))
-                )
+                timeline.append((date.date(), (dividend, self.currency, False)))
         return timeline
 
     def get_currency(self) -> str:
