@@ -5,7 +5,7 @@ from http import HTTPStatus
 from typing import List, Optional
 
 from apiflask import abort
-from croniter import croniter
+from croniter import CroniterError, croniter
 from flask import Response, jsonify, request
 
 from lib.config import Config
@@ -191,6 +191,32 @@ def cron_runs(
             dates.append(next_run)
             next_run = run_iter.get_next(datetime)
     return dates
+
+
+def recurrence_error(cron_pattern) -> Optional[str]:
+    """Recurrents may run at most once per calendar month.
+
+    Transactions are recorded per year-month, so a pattern with several runs in
+    a month can't be reconciled. Four years of runs cover leap-year patterns;
+    the scan stops at the first month with two runs.
+    """
+    if not isinstance(cron_pattern, str) or not croniter.is_valid(cron_pattern):
+        return f"Invalid recurrence '{cron_pattern}'"
+    start = datetime(2024, 1, 1) - timedelta(seconds=1)
+    end = datetime(2028, 1, 1)
+    seen = set()
+    try:
+        run_iter = croniter(cron_pattern, start)
+        next_run = run_iter.get_next(datetime)
+        while next_run < end:
+            month = (next_run.year, next_run.month)
+            if month in seen:
+                return f"Recurrence '{cron_pattern}' runs more than once a month"
+            seen.add(month)
+            next_run = run_iter.get_next(datetime)
+    except CroniterError:  # e.g. a pattern that never matches, like Feb 30
+        return f"Invalid recurrence '{cron_pattern}'"
+    return None
 
 
 def sha256_hash(text: str) -> str:

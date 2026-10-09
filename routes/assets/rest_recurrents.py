@@ -9,8 +9,10 @@ from lib.logger import get_logger
 from lib.user_config import UserStore
 from lib.util import (
     country_for_update,
+    error_response,
     normalize_country,
     paginate,
+    recurrence_error,
     validate_target_asset,
 )
 from models.models import Recurrent, RecurrentTransaction
@@ -125,6 +127,9 @@ def recurrents_all():
         country = normalize_country(data.get("country"))
         target_asset_id = data.get("targetAssetId")
         currency = data.get("currency")
+        error = recurrence_error(data.get("recurrence"))
+        if error:
+            return error_response(error, HTTPStatus.BAD_REQUEST)
         with Config.DB_SESSION() as session:
             if not validate_target_asset(
                 session, int(current_user.id), target_asset_id, currency
@@ -184,6 +189,11 @@ def recurrents_get(name):
             return jsonify({"message": "Recurrent not found"}), HTTPStatus.NOT_FOUND
         if request.method == "PUT":
             data = request.json
+            recurrence = data.get("recurrence", result.recurrence)
+            if recurrence != result.recurrence:
+                error = recurrence_error(recurrence)
+                if error:
+                    return error_response(error, HTTPStatus.BAD_REQUEST)
             target_asset_id = data.get("targetAssetId", result.target_asset_id)
             currency = data.get("currency", result.currency)
             if not validate_target_asset(
@@ -195,7 +205,7 @@ def recurrents_get(name):
             result.country = country_for_update(data, result.country)
             result.amount = data.get("amount", result.amount)
             result.currency = currency
-            result.recurrence = data.get("recurrence", result.recurrence)
+            result.recurrence = recurrence
             result.start = data.get("start", result.start)
             result.end = data.get("end", result.end)
             result.flow_class = data.get("flowClass", result.flow_class).lower()

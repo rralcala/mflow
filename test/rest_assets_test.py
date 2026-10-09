@@ -641,6 +641,98 @@ class TestRestAssetsRoutes(unittest.TestCase):
 
         self.assertEqual(status, 404)
 
+    def test_recurrents_post_rejects_more_than_once_a_month(self):
+        session = SessionStub()
+        with self.app.test_request_context(
+            "/recurrents",
+            method="POST",
+            json={
+                "id": "Weekly",
+                "country": "US",
+                "currency": "USD",
+                "targetAssetId": "acc-1",
+                "amount": -100,
+                "recurrence": "0 0 * * 1",
+                "start": "2026-01-01",
+                "end": "2027-01-01",
+                "flowClass": "expense",
+                "rate": 0,
+            },
+        ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_recurrents.recurrents_all.__wrapped__()
+
+        self.assertEqual(status, 400)
+        self.assertIn("more than once a month", response.get_json()["message"])
+        self.assertEqual(session.added, [])
+
+    def recurrent_row(self, recurrence):
+        result = SimpleNamespace(
+            identifier="r",
+            parent_asset_id="",
+            target_asset_id="acc-1",
+            country="US",
+            amount="-100",
+            currency="USD",
+            recurrence=recurrence,
+            start="2026-01-01",
+            end="2027-01-01",
+            flow_class="expense",
+            rate="0",
+        )
+        result.to_dict = lambda: {"recurrence": result.recurrence}
+        return result
+
+    def put_recurrent(self, result, payload):
+        session = SessionStub(
+            {
+                Recurrent: QueryStub(first_item=result),
+                rest_assets.Account: QueryStub(
+                    first_item=SimpleNamespace(id="acc-1", currency="USD")
+                ),
+            }
+        )
+        with self.app.test_request_context(
+            "/recurrents/r", method="PUT", json=payload
+        ), patch("routes.rest_recurrents.current_user", self.user), patch(
+            "routes.rest_recurrents.reload_asset_store"
+        ), patch(
+            "routes.rest_recurrents.UserStore.get_user_config",
+            return_value=SimpleNamespace(),
+        ), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_recurrents.recurrents_get.__wrapped__("r")
+        return response, status, session
+
+    def test_recurrents_put_rejects_more_than_once_a_month(self):
+        result = self.recurrent_row("0 0 5 * *")
+        response, status, session = self.put_recurrent(
+            result, {"recurrence": "0 0 1,15 * *"}
+        )
+
+        self.assertEqual(status, 400)
+        self.assertEqual(result.recurrence, "0 0 5 * *")
+        self.assertFalse(session.committed)
+
+    def test_recurrents_put_accepts_monthly_change(self):
+        result = self.recurrent_row("0 0 5 * *")
+        response, status, session = self.put_recurrent(
+            result, {"recurrence": "0 0 10 * *"}
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(result.recurrence, "0 0 10 * *")
+        self.assertTrue(session.committed)
+
+    def test_recurrents_put_keeps_unchanged_legacy_recurrence(self):
+        result = self.recurrent_row("0 0 * * 1")
+        response, status, session = self.put_recurrent(result, {"amount": -50})
+
+        self.assertEqual(status, 200)
+        self.assertTrue(session.committed)
+
     def test_certificates_all_post_success_with_account_target(self):
         session = SessionStub(
             {
@@ -876,6 +968,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
             parent_asset_id="parent-1",
             identifier="r1",
             currency="USD",
+            recurrence="0 0 5 * *",
         )
         session = SessionStub(
             {

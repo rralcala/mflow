@@ -1,8 +1,9 @@
 import unittest
 import unittest.mock
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from asset_classes.account import Account
+from asset_classes.recurrent import Recurrent
 
 
 class TestAccountTimeline(unittest.TestCase):
@@ -43,6 +44,30 @@ class TestAccountTimeline(unittest.TestCase):
         acc = Account("US", "Bank", "000", "USD", 0.0, 1.0, "Savings")
         timeline = acc.get_timeline(datetime(2024, 6, 1))
         self.assertEqual(timeline, [])
+
+
+class TestRecurrentTimeline(unittest.TestCase):
+    def test_timeline_stops_at_maturity(self):
+        maturity = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        maturity += timedelta(days=62)
+        recurrent = Recurrent(
+            identifier="School",
+            parent_asset_id="",
+            country="US",
+            amount=-100.0,
+            currency="USD",
+            recurrence="0 0 5 * *",
+            start=datetime(2020, 1, 1),
+            end=maturity,
+            flow_class="expense",
+        )
+        with unittest.mock.patch.object(
+            Recurrent, "fetch_transactions", return_value=[]
+        ):
+            timeline = recurrent.get_timeline(maturity + timedelta(days=365))
+
+        self.assertTrue(timeline)
+        self.assertTrue(all(day <= maturity.date() for day, _ in timeline))
 
 
 if __name__ == "__main__":

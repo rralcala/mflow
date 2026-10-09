@@ -8,6 +8,7 @@ from lib.util import (
     business_days_ago,
     count_cron_runs,
     cron_runs,
+    recurrence_error,
     sha256_hash,
 )
 
@@ -52,6 +53,20 @@ class TestCronHelpers(unittest.TestCase):
         end = datetime(2026, 4, 5, 23, 59, 59)
 
         self.assertEqual(count_cron_runs("0 0 * * *", start, end), 5)
+
+
+class TestRecurrenceError(unittest.TestCase):
+    def test_accepts_at_most_once_a_month(self):
+        for pattern in ("0 0 5 * *", "0 0 31 * *", "0 0 30 4,10 *", "0 0 29 2 *"):
+            self.assertIsNone(recurrence_error(pattern), pattern)
+
+    def test_rejects_more_than_once_a_month(self):
+        for pattern in ("0 0 * * 1", "0 0 1,15 * *", "* * 1 * *", "0 0 29-31 * *"):
+            self.assertIn("more than once a month", recurrence_error(pattern))
+
+    def test_rejects_invalid_patterns(self):
+        for pattern in (None, "", "N", "0 0 30 2 *"):
+            self.assertIn("Invalid recurrence", recurrence_error(pattern))
 
 
 class TestSha256Hash(unittest.TestCase):

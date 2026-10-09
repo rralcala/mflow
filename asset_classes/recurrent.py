@@ -91,6 +91,8 @@ class Recurrent(Asset):
         )
         # Switch to items with balance instead of current month
         for date in cron_runs(self.recurrence, start_of_month, end):
+            if date > self.maturity_date:
+                break
             if date >= self.start_date:
                 cash_flow = self.amount
                 Logger.debug(f"Start with {cash_flow}")
