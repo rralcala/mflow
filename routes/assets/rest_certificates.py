@@ -8,7 +8,7 @@ from flask_login import current_user
 from data.asset_store import reload_asset_store
 from lib.config import Config
 from lib.user_config import UserStore
-from lib.util import type_to_str, validate_target_asset
+from lib.util import paginate, type_to_str, validate_target_asset
 from models.bond import Bond, BondSchedule
 from models.deposit_certificate import DepositCertificate, DepositCertificateSchedule
 
@@ -65,7 +65,6 @@ def bond_schedules_upload():
 @assets_bp.route("/bondSchedules", methods=["GET", "POST"])
 @assets_bp.auth_required(auth)
 def bond_schedules_all():
-    print(Config.__dict__)
     if request.method == "POST":
         data = request.json
         with Config.DB_SESSION() as session:
@@ -100,9 +99,10 @@ def bond_schedules_all():
                 post.to_dict()
                 for post in base_query.order_by(BondSchedule.date.asc()).all()
             ]
-            response = jsonify(results)
+            count = len(results)
+            response = jsonify(paginate(results))
 
-        response.headers["X-Total-Count"] = len(results)
+        response.headers["X-Total-Count"] = count
         return response, HTTPStatus.OK
 
 
@@ -166,9 +166,9 @@ def deposit_certificate_schedules_all():
                     DepositCertificateSchedule.date.asc()
                 ).all()
             ]
-
-            response = jsonify(results)
-        response.headers["X-Total-Count"] = len(results)
+            count = len(results)
+            response = jsonify(paginate(results))
+        response.headers["X-Total-Count"] = count
         return response, HTTPStatus.OK
 
 
@@ -309,7 +309,8 @@ def certificates_all(request_input, cert_type) -> tuple[Response, HTTPStatus]:
                 else:
                     rows = rows.order_by(cert_type.name.asc())
             results = [post.to_dict() for post in rows.all()]
-            response = jsonify(results)
+            count = len(results)
+            response = jsonify(paginate(results))
 
-        response.headers["X-Total-Count"] = len(results)
+        response.headers["X-Total-Count"] = count
         return response, HTTPStatus.OK

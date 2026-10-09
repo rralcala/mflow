@@ -7,7 +7,7 @@ from data.asset_store import reload_asset_store
 from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserStore
-from lib.util import validate_target_asset
+from lib.util import paginate, validate_target_asset
 from models.models import Recurrent, RecurrentTransaction
 
 from ..blueprints import assets_bp
@@ -73,8 +73,9 @@ def recurrent_transactions():
                 )
                 results.append(record)
 
-        response = jsonify(results)
-        response.headers["X-Total-Count"] = len(results)
+        count = len(results)
+        response = jsonify(paginate(results))
+        response.headers["X-Total-Count"] = count
     return response, HTTPStatus.OK
 
 
@@ -158,8 +159,9 @@ def recurrents_all():
         results = sorted(
             [post.to_dict() for post in rows], key=lambda x: x.get("id", "")
         )
-        response = jsonify(results)
-        response.headers["X-Total-Count"] = len(results)
+        count = len(results)
+        response = jsonify(paginate(results))
+        response.headers["X-Total-Count"] = count
         return response, HTTPStatus.OK
 
 

@@ -8,7 +8,7 @@ from data.asset_store import get_asset_store, reload_asset_store
 from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserStore
-from lib.util import error_response, validate_date, validate_target_asset
+from lib.util import error_response, paginate, validate_date, validate_target_asset
 from models.instrument import Instrument
 from models.models import Account
 from models.payable import Payable
@@ -56,10 +56,7 @@ def accounts():
                 sort_key = request.args["_sort"]
                 reverse = request.args.get("_order", "ASC") == "DESC"
                 results.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
-            if "_start" in request.args and "_end" in request.args:
-                start = int(request.args["_start"])
-                end = int(request.args["_end"])
-                results = results[start:end]
+            results = paginate(results)
             response = jsonify(results)
         response.headers["X-Total-Count"] = count
 
@@ -101,10 +98,7 @@ def assets():
         sort_key = request.args["_sort"]
         reverse = request.args.get("_order", "ASC") == "DESC"
         results.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
-    if "_start" in request.args and "_end" in request.args:
-        start = int(request.args["_start"])
-        end = int(request.args["_end"])
-        results = results[start:end]
+    results = paginate(results)
     response = jsonify(results)
     response.headers["X-Total-Count"] = count
 
@@ -194,10 +188,7 @@ def instruments():
                 sort_key = request.args["_sort"]
             reverse = request.args.get("_order", "ASC") == "DESC"
             results.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
-        if "_start" in request.args and "_end" in request.args:
-            start = int(request.args["_start"])
-            end = int(request.args["_end"])
-            results = results[start:end]
+        results = paginate(results)
         response = jsonify(results)
         response.headers["X-Total-Count"] = count
 
@@ -282,8 +273,9 @@ def monthly_transactions() -> Response:
     for transaction in transactions:
         if transaction.get("amount", 0.0) < 0.0:
             response_items.append(transaction)
-    response = jsonify(response_items)
-    response.headers["X-Total-Count"] = len(response_items)
+    count = len(response_items)
+    response = jsonify(paginate(response_items))
+    response.headers["X-Total-Count"] = count
     response.status_code = HTTPStatus.OK
     return response
 
@@ -354,10 +346,7 @@ def payables():
             sort_key = "dueDate"
         reverse = request.args.get("_order", "ASC") == "DESC"
         results.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
-        if "_start" in request.args and "_end" in request.args:
-            start = int(request.args["_start"])
-            end = int(request.args["_end"])
-            results = results[start:end]
+        results = paginate(results)
 
         response = jsonify(results)
         response.headers["X-Total-Count"] = count
@@ -465,10 +454,7 @@ def properties():
             sort_key = "propertyName"
         reverse = request.args.get("_order", "ASC") == "DESC"
         results.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
-        if "_start" in request.args and "_end" in request.args:
-            start = int(request.args["_start"])
-            end = int(request.args["_end"])
-            results = results[start:end]
+        results = paginate(results)
 
         response = jsonify(results)
         response.headers["X-Total-Count"] = count

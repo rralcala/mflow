@@ -4,8 +4,9 @@ from datetime import date, datetime, timedelta
 from http import HTTPStatus
 from typing import List, Optional
 
+from apiflask import abort
 from croniter import croniter
-from flask import Response, jsonify
+from flask import Response, jsonify, request
 
 
 class FormatPrinter(pprint.PrettyPrinter):
@@ -31,6 +32,26 @@ def validate_date(date_string: str, date_format="%Y-%m-%d") -> bool:
         except ValueError:
             pass
     return False
+
+
+def paginate(items):
+    """Slice a list by the request's json-server `_start` / `_end` arguments.
+
+    Callers must take the X-Total-Count value *before* calling this, since the
+    header reports the unsliced total. Non-list payloads are returned as is.
+    """
+    if not isinstance(items, list):
+        return items
+    if "_start" not in request.args and "_end" not in request.args:
+        return items
+    try:
+        start = int(request.args.get("_start", 0))
+        end = int(request.args["_end"]) if "_end" in request.args else None
+    except ValueError:
+        abort(400, "_start and _end must be integers")
+    if start < 0 or (end is not None and end < 0):
+        abort(400, "_start and _end must not be negative")
+    return items[start:end]
 
 
 def error_response(
