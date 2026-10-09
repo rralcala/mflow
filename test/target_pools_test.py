@@ -83,7 +83,9 @@ class TestValidateTargetAsset(unittest.TestCase):
 
 class TestTargetOptions(unittest.TestCase):
     def test_lists_liquid_accounts_and_target_pools_only(self):
-        self.assertFalse(is_target_option(Account("US", "Bank", "Checking", "USD", 1.0)))
+        self.assertFalse(
+            is_target_option(Account("US", "Bank", "Checking", "USD", 1.0))
+        )
         self.assertFalse(
             is_target_option(Account("US", "Bank", "Tax", "USD", 1.0, liquid=False))
         )
