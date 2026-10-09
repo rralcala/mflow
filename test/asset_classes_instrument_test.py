@@ -56,3 +56,22 @@ class TestInstrumentAssets(unittest.TestCase):
             self.assertEqual(currency, "USD")
         income, _ = voo.get_actual_income(datetime(today.year + 1, 1, 1))
         self.assertAlmostEqual(income, 2.8)
+
+    def test_returns_with_zero_acquisition_price_held_over_a_year(self):
+        old = Instrument(
+            country="US",
+            location="Gift",
+            symbol="X",
+            price=10.0,
+            factor=1.0,
+            qty=10,
+            estimated_dividend=0.0,
+            rate=0.0,
+            dividend="",
+            currency="USD",
+            acquisition_date=datetime(2020, 1, 1),
+            acquisition_price=0.0,
+            liquid=True,
+            capital_rate=0.0,
+        )
+        self.assertEqual(old.get_returns(), (100.0, 0.0))

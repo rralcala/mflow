@@ -86,7 +86,8 @@ class RecurrentTransaction(Base):
     create_date = mapped_column(
         String(35),
         nullable=False,
-        default=datetime.now().strftime(Config.DATE_FORMAT_STRING),
+        # A callable, so each row gets its own date rather than the import date.
+        default=lambda: datetime.now().strftime(Config.DATE_FORMAT_STRING),
     )
     user_id = mapped_column(Integer, nullable=False)
 

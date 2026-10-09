@@ -93,7 +93,10 @@ def market_fx_rates(assets: Dict[str, List[Any]]) -> Dict[str, float]:
     for asset in _flatten(assets):
         currency = asset.get_currency().upper()
         if currency not in rates:
-            rate = ExchangeRates.exchange_rate("USD" + currency)
+            try:
+                rate = ExchangeRates.exchange_rate("USD" + currency)
+            except ValueError:
+                continue  # The simulation warns and assumes 1:1 USD.
             if rate:
                 rates[currency] = rate
     return rates

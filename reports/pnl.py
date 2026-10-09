@@ -81,10 +81,14 @@ def calculate_monthly_pnl_data(
 
             if transaction["amount"] < 0.0:
                 month_expenses.append(transaction)
-                nsums[currency] += round(transaction["amount"], 2)
+                nsums[currency] = nsums.get(currency, 0.0) + round(
+                    transaction["amount"], 2
+                )
             elif transaction["amount"] > 0.0:
                 month_income.append(transaction)
-                psums[currency] += round(transaction["amount"], 2)
+                psums[currency] = psums.get(currency, 0.0) + round(
+                    transaction["amount"], 2
+                )
 
         p_totals[secondary_currency] += psums.get(secondary_currency, 0.0)
         n_totals[secondary_currency] += nsums.get(secondary_currency, 0.0)

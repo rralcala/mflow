@@ -48,37 +48,33 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 user_config.COINBASE_PORTFOLIO_ID,
                 user_config.CRYPTO_RATES,
             )
-        try:
-            for row in (
-                session.query(BondModel).filter_by(user_id=user_config.USER_ID).all()
+        for row in (
+            session.query(BondModel).filter_by(user_id=user_config.USER_ID).all()
+        ):
+            asset = Bond(
+                identifier=str(row.name),
+                capital=float(row.capital),
+                interest_rate=float(row.rate),
+                maturity_date=datetime.strptime(
+                    row.maturity_date, Config.DATE_FORMAT_STRING
+                ),
+                currency=str(row.currency),
+                country=str(row.country),
+                entity=str(row.entity),
+                target_asset_id=str(row.target_asset_id or ""),
+            )
+            for irow in (
+                session.query(BondScheduleModel)
+                .filter_by(user_id=user_config.USER_ID, bond_id=row.id)
+                .all()
             ):
-                asset = Bond(
-                    identifier=str(row.name),
-                    capital=float(row.capital),
-                    interest_rate=float(row.rate),
-                    maturity_date=datetime.strptime(
-                        row.maturity_date, Config.DATE_FORMAT_STRING
-                    ),
-                    currency=str(row.currency),
-                    country=str(row.country),
-                    entity=str(row.entity),
-                    target_asset_id=str(row.target_asset_id or ""),
-                )
-                for irow in (
-                    session.query(BondScheduleModel)
-                    .filter_by(user_id=user_config.USER_ID, bond_id=row.id)
-                    .all()
-                ):
-                    payment = {
-                        "date": datetime.strptime(irow.date, Config.DATE_FORMAT_STRING),
-                        "amount": float(irow.amount),
-                        "paid": irow.paid == 1,
-                    }
-                    asset.payment_schedule.append(payment)
-                assets[asset.currency].append(asset)
-        except KeyError as e:
-            Logger.error(f"Present Keys {assets.keys()} - Error loading bonds: {e}")
-            raise e
+                payment = {
+                    "date": datetime.strptime(irow.date, Config.DATE_FORMAT_STRING),
+                    "amount": float(irow.amount),
+                    "paid": irow.paid == 1,
+                }
+                asset.payment_schedule.append(payment)
+            assets.setdefault(asset.currency, []).append(asset)
 
         for row in (
             session.query(DepositCertificateModel)
@@ -108,7 +104,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                     "paid": irow.paid == 1,
                 }
                 asset.payment_schedule.append(payment)
-            assets[asset.currency].append(asset)
+            assets.setdefault(asset.currency, []).append(asset)
 
         for row in (
             session.query(Recurrent).filter_by(user_id=user_config.USER_ID).all()
@@ -128,7 +124,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 user_id=int(user_config.USER_ID),
             )
 
-            assets[asset.currency].append(asset)
+            assets.setdefault(asset.currency, []).append(asset)
 
         for row in (
             session.query(InstrumentModel).filter_by(user_id=user_config.USER_ID).all()
@@ -170,7 +166,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 ),
                 is_target_pool=row.is_target_pool == 1,
             )
-            assets[asset.currency].append(asset)
+            assets.setdefault(asset.currency, []).append(asset)
         for row in session.query(Account).filter_by(user_id=user_config.USER_ID).all():
             asset = account.Account(
                 identifier=str(row.id),
@@ -182,7 +178,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 account_type=row.account_type,
                 liquid=row.liquid == 1,
             )
-            assets[asset.currency].append(asset)
+            assets.setdefault(asset.currency, []).append(asset)
         for row in (
             session.query(PayableModel).filter_by(user_id=user_config.USER_ID).all()
         ):
@@ -198,7 +194,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 flow_class=row.flow_class,
                 target_asset_id=str(row.target_asset_id or ""),
             )
-            assets[asset.currency].append(asset)
+            assets.setdefault(asset.currency, []).append(asset)
         for row in (
             session.query(PropertyModel).filter_by(user_id=user_config.USER_ID).all()
         ):
@@ -221,5 +217,5 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 ),
                 target_asset_id=str(row.target_asset_id or ""),
             )
-            assets[asset.currency].append(asset)
+            assets.setdefault(asset.currency, []).append(asset)
         return assets

@@ -125,8 +125,9 @@ def exchange_rates():
 @reports_bp.route("/exchangeRates/<string:name>", methods=["GET"])
 @reports_bp.auth_required(auth)
 def exchange_rates_get(name):
-    result = ExchangeRates.exchange_rate(name)
-    if result is None:
+    try:
+        result = ExchangeRates.exchange_rate(name)
+    except ValueError:
         return jsonify({"message": "Exchange not found"}), HTTPStatus.NOT_FOUND
 
     return (

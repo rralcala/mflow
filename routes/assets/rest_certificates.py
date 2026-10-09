@@ -11,7 +11,9 @@ from lib.user_config import UserStore
 from lib.util import (
     country_for_update,
     normalize_country,
+    normalize_currency,
     paginate,
+    require_date,
     type_to_str,
     validate_target_asset,
 )
@@ -32,7 +34,7 @@ def cd_schedules_upload():
         for row in reader:
             new_item = DepositCertificateSchedule(
                 cd_id=int(row["iid"]),
-                date=row["date"],
+                date=require_date(row["date"], "date"),
                 user_id=int(current_user.id),
                 amount=str(float(row["amount"])),
                 paid=1 if row["paid"] == "1" else 0,
@@ -55,7 +57,7 @@ def bond_schedules_upload():
         for row in reader:
             new_item = BondSchedule(
                 bond_id=int(row["iid"]),
-                date=row["date"],
+                date=require_date(row["date"], "date"),
                 user_id=int(current_user.id),
                 amount=str(float(row["amount"])),
                 paid=1 if row["paid"] == "1" else 0,
@@ -76,7 +78,7 @@ def bond_schedules_all():
         with Config.DB_SESSION() as session:
             new_item = BondSchedule(
                 bond_id=data.get("bondId"),
-                date=data.get("transactionDate"),
+                date=require_date(data.get("transactionDate"), "transactionDate"),
                 user_id=int(current_user.id),
                 amount=data.get("amount"),
                 paid=1 if data.get("paid", False) else 0,
@@ -125,7 +127,9 @@ def bond_schedules_get(id):
             return jsonify({"message": "Bond Schedule not found"}), HTTPStatus.NOT_FOUND
         if request.method == "PUT":
             data = request.json
-            result.date = data.get("transactionDate", result.date)
+            result.date = require_date(
+                data.get("transactionDate", result.date), "transactionDate"
+            )
             result.amount = data.get("amount", result.amount)
             result.paid = 1 if data.get("paid", result.paid == 1) else 0
             session.commit()
@@ -141,7 +145,7 @@ def deposit_certificate_schedules_all():
         with Config.DB_SESSION() as session:
             new_item = DepositCertificateSchedule(
                 cd_id=data.get("cdId"),
-                date=data.get("transactionDate"),
+                date=require_date(data.get("transactionDate"), "transactionDate"),
                 user_id=int(current_user.id),
                 amount=data.get("amount"),
                 paid=1 if data.get("paid", False) else 0,
@@ -194,7 +198,9 @@ def deposit_certificate_schedules_get(id):
             )
         if request.method == "PUT":
             data = request.json
-            result.date = data.get("transactionDate", result.date)
+            result.date = require_date(
+                data.get("transactionDate", result.date), "transactionDate"
+            )
             result.amount = data.get("amount", result.amount)
             result.paid = 1 if data.get("paid", result.paid == 1) else 0
             session.commit()
@@ -229,7 +235,10 @@ def certificate_get(cert_type, request_input, id):
         elif request_input.method == "PUT":
             data = request_input.json
             target_asset_id = data.get("targetAssetId", result.target_asset_id)
-            currency = data.get("currency", result.currency)
+            currency = normalize_currency(data.get("currency", result.currency))
+            maturity_date = require_date(
+                data.get("maturityDate", result.maturity_date), "maturityDate"
+            )
             if not validate_target_asset(
                 session, int(current_user.id), target_asset_id, currency
             ):
@@ -237,7 +246,7 @@ def certificate_get(cert_type, request_input, id):
             result.name = data.get("name", result.name)
             result.capital = data.get("capital", result.capital)
             result.rate = data.get("rate", result.rate)
-            result.maturity_date = data.get("maturityDate", result.maturity_date)
+            result.maturity_date = maturity_date
             result.currency = currency
             result.entity = data.get("entity", result.entity)
             result.country = country_for_update(data, result.country)
@@ -267,10 +276,9 @@ def deposit_certificates_all():
 def certificates_all(request_input, cert_type) -> tuple[Response, HTTPStatus]:
     if request_input.method == "POST":
         data = request_input.json
-        currency = data.get("currency").upper()
+        currency = normalize_currency(data.get("currency"))
         country = normalize_country(data.get("country"))
-        if currency.lower() not in Config.CURRENCIES:
-            return jsonify({"message": "Bad currency"}), HTTPStatus.BAD_REQUEST
+        maturity_date = require_date(data.get("maturityDate"), "maturityDate")
         target_asset_id = data.get("targetAssetId")
         with Config.DB_SESSION() as session:
             if not validate_target_asset(
@@ -281,7 +289,7 @@ def certificates_all(request_input, cert_type) -> tuple[Response, HTTPStatus]:
                 name=data.get("name"),
                 capital=data.get("capital"),
                 rate=data.get("rate"),
-                maturity_date=data.get("maturityDate"),
+                maturity_date=maturity_date,
                 currency=currency,
                 entity=data.get("entity"),
                 country=country,

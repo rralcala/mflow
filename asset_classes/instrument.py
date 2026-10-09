@@ -142,16 +142,15 @@ class Instrument(Asset):
         Returns the current value and the annualized return of the asset.
         """
         holding_period_days = (datetime.now() - self.acquisition_date).days
-        if holding_period_days > 365.25:
+        if self.acquisition_price == 0:
+            annualized_return = 0.0
+        elif holding_period_days > 365.25:
             holding_period_years = holding_period_days / 365.25
             annualized_return = (
                 (self.price / self.acquisition_price) - 1
             ) / holding_period_years
         else:
-            if self.acquisition_price == 0:
-                annualized_return = 0.0
-            else:
-                annualized_return = (self.price / self.acquisition_price) - 1
+            annualized_return = (self.price / self.acquisition_price) - 1
 
         return self.get_current_value()[0], annualized_return + self.rate
 

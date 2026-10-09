@@ -3,6 +3,7 @@ from http import HTTPStatus
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from apiflask.exceptions import HTTPError
 from flask import Flask
 
 from lib.config import Config
@@ -99,6 +100,11 @@ class TestRestAssetsRoutes(unittest.TestCase):
         countries = patch.object(Config, "COUNTRIES", ["US", "PY"], create=True)
         countries.start()
         self.addCleanup(countries.stop)
+        currencies = patch.object(
+            Config, "CURRENCIES", ["usd", "usdc", "pyg"], create=True
+        )
+        currencies.start()
+        self.addCleanup(currencies.stop)
 
     def test_accounts_get(self):
         session = SessionStub(
@@ -641,6 +647,55 @@ class TestRestAssetsRoutes(unittest.TestCase):
 
         self.assertEqual(status, 404)
 
+    def post_recurrent(self, payload):
+        session = SessionStub(
+            {
+                rest_assets.Account: QueryStub(
+                    first_item=SimpleNamespace(id="acc-1", currency="USD")
+                )
+            }
+        )
+        body = {
+            "id": "Rent",
+            "country": "US",
+            "currency": "USD",
+            "targetAssetId": "acc-1",
+            "amount": -100,
+            "recurrence": "0 0 5 * *",
+            "start": "2026-01-01",
+            "end": "2027-01-01",
+            "flowClass": "expense",
+            "rate": 0,
+            **payload,
+        }
+        with self.app.test_request_context(
+            "/recurrents", method="POST", json=body
+        ), patch("routes.rest_recurrents.current_user", self.user), patch(
+            "routes.rest_recurrents.reload_asset_store"
+        ), patch(
+            "routes.rest_recurrents.UserStore.get_user_config",
+            return_value=SimpleNamespace(),
+        ), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_recurrents.recurrents_all.__wrapped__()
+        return response, status, session
+
+    def test_recurrents_post_upper_cases_currency(self):
+        _, status, session = self.post_recurrent({"currency": "usd"})
+        self.assertEqual(status, 201)
+        self.assertEqual(session.added[0].currency, "USD")
+
+    def test_recurrents_post_rejects_unknown_currency(self):
+        with self.assertRaises(HTTPError) as ctx:
+            self.post_recurrent({"currency": "eur"})
+        self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_recurrents_post_rejects_bad_dates(self):
+        for field in ("start", "end"):
+            with self.assertRaises(HTTPError):
+                self.post_recurrent({field: "01/01/2026"})
+
     def test_recurrents_post_rejects_more_than_once_a_month(self):
         session = SessionStub()
         with self.app.test_request_context(
@@ -840,7 +895,12 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(session.added, [])
 
     def test_certificate_get_put_bad_target(self):
-        existing = SimpleNamespace(target_asset_id="old", name="b1", currency="USD")
+        existing = SimpleNamespace(
+            target_asset_id="old",
+            name="b1",
+            currency="USD",
+            maturity_date="2030-01-01",
+        )
         session = SessionStub(
             {
                 rest_certificates.Bond: QueryStub(first_item=existing),
@@ -969,6 +1029,8 @@ class TestRestAssetsRoutes(unittest.TestCase):
             identifier="r1",
             currency="USD",
             recurrence="0 0 5 * *",
+            start="2026-01-01",
+            end="2027-01-01",
         )
         session = SessionStub(
             {
@@ -1020,7 +1082,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(session.added, [])
 
-    def _post_instrument(self, payload):
+    def _post_instrument(self, payload, quote=1.0):
         body = {
             "country": "US",
             "location": "Citi_I5902",
@@ -1057,7 +1119,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
             "routes.rest_assets.UserStore.get_user_config",
             return_value=SimpleNamespace(),
         ), patch(
-            "models.instrument.ExchangeRates.exchange_rate", return_value=1.0
+            "models.instrument.ExchangeRates.exchange_rate",
+            return_value=quote,
+            side_effect=None if quote else ValueError("no quote"),
         ), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
@@ -1103,6 +1167,21 @@ class TestRestAssetsRoutes(unittest.TestCase):
         response, status, _ = self._post_instrument({"targetAssetId": "Citi_I5902_USD"})
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(response.get_json(), {"message": "Bad target asset"})
+
+    def test_instruments_post_rejects_symbol_without_quote(self):
+        response, status, session = self._post_instrument(
+            {"symbol": "NOTASYM"}, quote=None
+        )
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(
+            response.get_json(), {"message": "No quote for symbol 'NOTASYM'"}
+        )
+        self.assertEqual(session.added, [])
+
+    def test_instruments_post_upper_cases_currency(self):
+        _, status, session = self._post_instrument({"currency": "usd"})
+        self.assertEqual(status, 201)
+        self.assertEqual(session.added[0].currency, "USD")
 
     def test_instruments_post_rejects_bad_sell_by(self):
         _, status, _ = self._post_instrument({"sellBy": "someday"})
@@ -1326,9 +1405,53 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(self._post_payable({"commited": False}).commited, 0)
         self.assertEqual(self._post_payable({}).commited, 0)
 
+    def test_payables_put_rejects_bad_due_date(self):
+        existing = SimpleNamespace(
+            target_asset_id="acc-1",
+            flow_class="expense",
+            currency="USD",
+            due_date="2026-12-15",
+        )
+        session = SessionStub(
+            {
+                rest_assets.Payable: QueryStub(first_item=existing),
+                rest_assets.Account: QueryStub(
+                    first_item=SimpleNamespace(id="acc-1", currency="USD")
+                ),
+            }
+        )
+        with self.app.test_request_context(
+            "/payables/1", method="PUT", json={"dueDate": "12/15/2026"}
+        ), patch("routes.rest_assets.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ), self.assertRaises(
+            HTTPError
+        ):
+            rest_assets.payables_get.__wrapped__(1)
+
+        self.assertEqual(existing.due_date, "2026-12-15")
+        self.assertFalse(session.committed)
+
+    def test_bond_schedules_upload_rejects_bad_date(self):
+        session = SessionStub()
+        csv_body = "date,amount,paid,iid\n2026-01-01,10,0,1\n01/07/2026,10,0,1\n"
+        with self.app.test_request_context(
+            "/bondSchedulesUpload", method="POST", data=csv_body
+        ), patch("routes.rest_certificates.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ), self.assertRaises(
+            HTTPError
+        ):
+            rest_certificates.bond_schedules_upload.__wrapped__()
+
+        self.assertFalse(session.committed)
+
     def test_payables_get_put_bad_target(self):
         existing = SimpleNamespace(
-            target_asset_id="old", flow_class="expense", currency="USD"
+            target_asset_id="old",
+            flow_class="expense",
+            currency="USD",
+            due_date="2030-01-01",
         )
         session = SessionStub(
             {

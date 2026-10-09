@@ -81,5 +81,26 @@ class TestTransfersAreExcludedFromReports(unittest.TestCase):
         self.assertAlmostEqual(result["total_budget"]["income"], 3000.0)
 
 
+class TestOtherCurrencies(unittest.TestCase):
+    def test_pnl_keeps_currencies_beyond_usd_and_secondary(self):
+        stable = Recurrent(
+            identifier="Stablecoin-Yield",
+            parent_asset_id="",
+            country="US",
+            amount=25.0,
+            currency="USDC",
+            recurrence="0 0 5 * *",
+            start=datetime(2020, 1, 1),
+            end=datetime(2075, 1, 1),
+            flow_class="income",
+        )
+        with patch("reports.pnl.current_user", USER), patch(
+            "reports.pnl.UserStore.get_user_config", return_value=USER_CONFIG
+        ):
+            pnl = calculate_monthly_pnl_data({"USDC": [stable]}, months=2)
+
+        self.assertEqual(pnl["monthly_data"][0]["income_sums"]["USDC"], 25.0)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -2,13 +2,18 @@ import unittest
 from datetime import date, datetime
 from unittest.mock import patch
 
+from apiflask.exceptions import HTTPError
+
+from lib.config import Config
 from lib.util import (
     PRINTER,
     FormatPrinter,
     business_days_ago,
     count_cron_runs,
     cron_runs,
+    normalize_currency,
     recurrence_error,
+    require_date,
     sha256_hash,
 )
 
@@ -102,6 +107,26 @@ class TestBusinessDayHelpers(unittest.TestCase):
     def test_business_days_ago_rejects_negative_days(self):
         with self.assertRaises(ValueError):
             business_days_ago(-1, date(2026, 4, 15))
+
+
+class TestInputValidation(unittest.TestCase):
+    def test_normalize_currency_upper_cases_known_codes(self):
+        with patch.object(Config, "CURRENCIES", ["usd", "pyg"], create=True):
+            self.assertEqual(normalize_currency(" usd "), "USD")
+            self.assertEqual(normalize_currency("PYG"), "PYG")
+
+    def test_normalize_currency_rejects_unknown_or_missing(self):
+        with patch.object(Config, "CURRENCIES", ["usd"], create=True):
+            for value in ("eur", "", None, 5):
+                with self.assertRaises(HTTPError) as ctx:
+                    normalize_currency(value)
+                self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_require_date(self):
+        self.assertEqual(require_date("2026-12-15", "dueDate"), "2026-12-15")
+        for value in ("12/15/2026", "2026-13-01", "", None):
+            with self.assertRaises(HTTPError):
+                require_date(value, "dueDate")
 
 
 if __name__ == "__main__":

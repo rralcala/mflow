@@ -5,6 +5,7 @@ from flask import Response, jsonify, request
 from flask_login import current_user
 
 from data.asset_store import get_asset_store, reload_asset_store
+from data.exchange_rates import ExchangeRates
 from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserStore
@@ -12,7 +13,9 @@ from lib.util import (
     country_for_update,
     error_response,
     normalize_country,
+    normalize_currency,
     paginate,
+    require_date,
     target_references,
     validate_date,
     validate_target_asset,
@@ -40,7 +43,7 @@ def accounts():
                 id=data.get("id"),
                 country=normalize_country(data.get("country"), required=False),
                 institution=data.get("institution"),
-                currency=data.get("currency"),
+                currency=normalize_currency(data.get("currency")),
                 balance=data.get("balance"),
                 factor=data.get("factor"),
                 account_type=data.get("accountType"),
@@ -137,7 +140,9 @@ def get_account(name):
                     data, result.country, required=False
                 )
                 result.institution = data.get("institution", result.institution)
-                result.currency = data.get("currency", result.currency)
+                result.currency = normalize_currency(
+                    data.get("currency", result.currency)
+                )
                 result.balance = data.get("balance", result.balance)
                 result.factor = data.get("factor", result.factor)
                 result.account_type = data.get("accountType", result.account_type)
@@ -174,6 +179,17 @@ def instrument_sale_error(sell_by: Optional[str], is_target_pool: int) -> Option
     return None
 
 
+def instrument_symbol_error(symbol) -> Optional[str]:
+    """Instruments are valued from quotes when assets load, so the symbol needs one."""
+    if not isinstance(symbol, str) or not symbol:
+        return "symbol is required"
+    try:
+        ExchangeRates.exchange_rate(symbol)
+    except ValueError:
+        return f"No quote for symbol '{symbol}'"
+    return None
+
+
 @assets_bp.route("/instruments", methods=["GET", "POST"])
 @assets_bp.auth_required(auth)
 def instruments():
@@ -186,7 +202,7 @@ def instruments():
                 f"Invalid date '{acquisition_date}'", HTTPStatus.BAD_REQUEST
             )
         target_asset_id = data.get("targetAssetId")
-        currency = data.get("currency")
+        currency = normalize_currency(data.get("currency"))
         with Config.DB_SESSION() as session:
             new_transaction = Instrument(
                 country=country,
@@ -211,6 +227,9 @@ def instruments():
             error = instrument_sale_error(
                 new_transaction.sell_by, new_transaction.is_target_pool
             )
+            if error:
+                return error_response(error, HTTPStatus.BAD_REQUEST)
+            error = instrument_symbol_error(new_transaction.symbol)
             if error:
                 return error_response(error, HTTPStatus.BAD_REQUEST)
             session.add(new_transaction)
@@ -259,12 +278,17 @@ def instruments_get(id):
                     f"Invalid date '{acquisition_date}'", HTTPStatus.BAD_REQUEST
                 )
             target_asset_id = data.get("targetAssetId", result.target_asset_id)
-            currency = data.get("currency", result.currency)
+            currency = normalize_currency(data.get("currency", result.currency))
             identifier = f"{result.location}_{result.symbol}"
+            symbol = data.get("symbol", result.symbol)
+            if symbol != result.symbol:
+                error = instrument_symbol_error(symbol)
+                if error:
+                    return error_response(error, HTTPStatus.BAD_REQUEST)
             was_target_pool = result.is_target_pool == 1
             result.country = country_for_update(data, result.country)
             result.location = data.get("location", result.location)
-            result.symbol = data.get("symbol", result.symbol)
+            result.symbol = symbol
             result.factor = data.get("factor", result.factor)
             result.qty = data.get("qty", result.qty)
             result.dividend = data.get("dividend", result.dividend)
@@ -360,13 +384,9 @@ def monthly_transactions_get(name) -> Response:
 def payables():
     if request.method == "POST":
         data = request.json
-        currency = data.get("currency").upper()
+        currency = normalize_currency(data.get("currency"))
         country = normalize_country(data.get("country"))
-        if currency.lower() not in Config.CURRENCIES:
-            return jsonify({"message": "Bad currency"}), HTTPStatus.BAD_REQUEST
-        due_date = data.get("dueDate")
-        if not validate_date(due_date):
-            return error_response(f"Invalid date '{due_date}'", HTTPStatus.BAD_REQUEST)
+        due_date = require_date(data.get("dueDate"), "dueDate")
         target_asset_id = data.get("targetAssetId", data.get("paidWithAssetId"))
         with Config.DB_SESSION() as session:
             if not validate_target_asset(
@@ -428,7 +448,8 @@ def payables_get(id):
             target_asset_id = data.get(
                 "targetAssetId", data.get("paidWithAssetId", result.target_asset_id)
             )
-            currency = data.get("currency", result.currency)
+            currency = normalize_currency(data.get("currency", result.currency))
+            due_date = require_date(data.get("dueDate", result.due_date), "dueDate")
             if not validate_target_asset(
                 session, int(current_user.id), target_asset_id, currency
             ):
@@ -437,7 +458,7 @@ def payables_get(id):
             result.currency = currency
             result.amount = data.get("amount", result.amount)
             result.balance = data.get("balance", result.balance)
-            result.due_date = data.get("dueDate", result.due_date)
+            result.due_date = due_date
             result.description = data.get("description", result.description)
             result.commited = 1 if data.get("commited", result.commited) else 0
             result.one_off = 1 if data.get("oneOff", result.one_off) else 0
@@ -475,15 +496,15 @@ def properties():
         new_transaction = Property(
             user_id=int(current_user.id),
             country=normalize_country(data.get("country")),
-            currency=data.get("currency"),
+            currency=normalize_currency(data.get("currency")),
             property_name=data.get("propertyName"),
             purchase_price=data.get("purchasePrice"),
-            purchase_date=data.get("purchaseDate"),
+            purchase_date=require_date(data.get("purchaseDate"), "purchaseDate"),
             current_price=data.get("currentPrice"),
             rent_price=data.get("rentPrice"),
             depreciation=data.get("depreciation"),
             additional_data=data.get("additionalData"),
-            rent_currency=data.get("rentCurrency"),
+            rent_currency=normalize_currency(data.get("rentCurrency")),
             sell_by=data.get("sellBy") or None,
             target_asset_id=data.get("targetAssetId") or None,
         )
@@ -534,15 +555,19 @@ def properties_get(id):
         if request.method == "PUT":
             data = request.json
             result.country = country_for_update(data, result.country)
-            result.currency = data.get("currency", result.currency)
+            result.currency = normalize_currency(data.get("currency", result.currency))
             result.property_name = data.get("propertyName", result.property_name)
             result.purchase_price = data.get("purchasePrice", result.purchase_price)
-            result.purchase_date = data.get("purchaseDate", result.purchase_date)
+            result.purchase_date = require_date(
+                data.get("purchaseDate", result.purchase_date), "purchaseDate"
+            )
             result.current_price = data.get("currentPrice", result.current_price)
             result.rent_price = data.get("rentPrice", result.rent_price)
             result.depreciation = data.get("depreciation", result.depreciation)
             result.additional_data = data.get("additionalData", result.additional_data)
-            result.rent_currency = data.get("rentCurrency", result.rent_currency)
+            result.rent_currency = normalize_currency(
+                data.get("rentCurrency", result.rent_currency)
+            )
             result.sell_by = data.get("sellBy", result.sell_by) or None
             result.target_asset_id = (
                 data.get("targetAssetId", result.target_asset_id) or None

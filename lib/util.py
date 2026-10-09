@@ -85,6 +85,26 @@ def country_for_update(data: dict, current: Optional[str], required: bool = True
     return normalize_country(data["country"], required)
 
 
+def normalize_currency(value) -> str:
+    """Return the upper-cased currency code if it is one of Config.CURRENCIES.
+
+    The asset store groups assets by this code, so anything else is a 400.
+    """
+    if not isinstance(value, str) or not value.strip():
+        abort(400, "currency is required")
+    currency = value.strip().upper()
+    if currency.lower() not in {c.lower() for c in Config.CURRENCIES}:
+        abort(400, f"Invalid currency '{value}'")
+    return currency
+
+
+def require_date(value, field: str) -> str:
+    """Dates are stored as YYYY-MM-DD strings and parsed when assets load."""
+    if not isinstance(value, str) or not validate_date(value):
+        abort(400, f"Invalid {field} '{value}', expected YYYY-MM-DD")
+    return value
+
+
 def error_response(
     message: str, status_code: HTTPStatus
 ) -> tuple[Response, HTTPStatus]:

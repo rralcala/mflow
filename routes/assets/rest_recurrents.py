@@ -11,8 +11,10 @@ from lib.util import (
     country_for_update,
     error_response,
     normalize_country,
+    normalize_currency,
     paginate,
     recurrence_error,
+    require_date,
     validate_target_asset,
 )
 from models.models import Recurrent, RecurrentTransaction
@@ -140,7 +142,9 @@ def recurrents_all():
         data = request.json
         country = normalize_country(data.get("country"))
         target_asset_id = data.get("targetAssetId")
-        currency = data.get("currency")
+        currency = normalize_currency(data.get("currency"))
+        start = require_date(data.get("start"), "start")
+        end = require_date(data.get("end"), "end")
         error = recurrence_error(data.get("recurrence"))
         if error:
             return error_response(error, HTTPStatus.BAD_REQUEST)
@@ -157,8 +161,8 @@ def recurrents_all():
                 amount=data.get("amount"),
                 currency=currency,
                 recurrence=data.get("recurrence"),
-                start=data.get("start"),
-                end=data.get("end"),
+                start=start,
+                end=end,
                 flow_class=data.get("flowClass").lower(),
                 rate=data.get("rate"),
                 user_id=int(current_user.id),
@@ -209,7 +213,9 @@ def recurrents_get(name):
                 if error:
                     return error_response(error, HTTPStatus.BAD_REQUEST)
             target_asset_id = data.get("targetAssetId", result.target_asset_id)
-            currency = data.get("currency", result.currency)
+            currency = normalize_currency(data.get("currency", result.currency))
+            start = require_date(data.get("start", result.start), "start")
+            end = require_date(data.get("end", result.end), "end")
             if not validate_target_asset(
                 session, int(current_user.id), target_asset_id, currency
             ):
@@ -220,8 +226,8 @@ def recurrents_get(name):
             result.amount = data.get("amount", result.amount)
             result.currency = currency
             result.recurrence = recurrence
-            result.start = data.get("start", result.start)
-            result.end = data.get("end", result.end)
+            result.start = start
+            result.end = end
             result.flow_class = data.get("flowClass", result.flow_class).lower()
             result.rate = data.get("rate", result.rate)
             session.commit()

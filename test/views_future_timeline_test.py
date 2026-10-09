@@ -9,7 +9,7 @@ from asset_classes.instrument import Instrument
 from asset_classes.payable import Payable
 from asset_classes.property import Property
 from asset_classes.recurrent import Recurrent
-from views.future_timeline import future_timeline
+from views.future_timeline import future_timeline, market_fx_rates
 
 FX = {"USD": 1.0, "PYG": 7000.0}
 UNPAIRED_WARNING = (
@@ -519,6 +519,17 @@ class TestFutureTimeline(unittest.TestCase):
     def test_end_before_start_is_rejected(self, *_):
         with self.assertRaises(ValueError):
             run([account()], end=date(2029, 1, 1))
+
+
+class TestMarketFxRates(unittest.TestCase):
+    def test_missing_quote_is_skipped(self):
+        with patch(
+            "data.exchange_rates.ExchangeRates.exchange_rate",
+            side_effect=ValueError("Exchange rate for USDEUR not found."),
+        ):
+            rates = market_fx_rates({"EUR": [account(currency="EUR")]})
+
+        self.assertEqual(rates, {"USD": 1.0})
 
 
 if __name__ == "__main__":

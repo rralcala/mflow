@@ -76,6 +76,17 @@ class TestRestReportsRoutes(unittest.TestCase):
             response.get_json(), {"message": "endDate must not be before startDate"}
         )
 
+    def test_exchange_rate_unknown_returns_404(self):
+        with self.app.test_request_context(
+            "/exchangeRates/USDEUR", method="GET"
+        ), patch(
+            "routes.rest_reports.ExchangeRates.exchange_rate",
+            side_effect=ValueError("Exchange rate for USDEUR not found."),
+        ):
+            response, status = rest_reports.exchange_rates_get.__wrapped__("USDEUR")
+
+        self.assertEqual(status, 404)
+
 
 if __name__ == "__main__":
     unittest.main()
