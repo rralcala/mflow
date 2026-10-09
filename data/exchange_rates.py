@@ -108,7 +108,7 @@ class ExchangeRates:
             if len(ExchangeRates.quote_cache) == 0:
                 ExchangeRates.fetch_from_local()
             if len(ExchangeRates.quote_cache) == 0:
-                ExchangeRates._refresh_currency_data()
+                ExchangeRates._refresh_and_store()
 
     @staticmethod
     def fetch_from_local():
@@ -142,32 +142,43 @@ class ExchangeRates:
             raise ValueError(f"Exchange rate for {currencies} not found.")
 
     @staticmethod
-    def background_refresh():
-        with FX_FETCH_LOCK:
-            if len(ExchangeRates.quote_cache) == 0:
-                ExchangeRates.fetch_from_local()
+    def _refresh_and_store():
+        """Fetch fresh quotes and record them in the DB. Caller holds FX_FETCH_LOCK."""
+        ExchangeRates._refresh_currency_data()
+        date_str = ExchangeRates.last_update.strftime(Config.DATE_FORMAT_STRING)
+        with Config.DB_SESSION() as session:
+            for key, value in ExchangeRates.quote_cache.items():
+                Logger.info(f"Adding quote to DB: {key} = {value:.2f}")
+                quote = session.scalars(
+                    select(Quote).filter_by(date=date_str, symbol=key)
+                ).one_or_none()
+                if quote is None:
+                    quote = Quote(date=date_str, symbol=key, value=f"{value:.2f}")
+                session.merge(quote)
+            session.commit()
+        with open(FX_LAST_UPDATE_FILE, "wb") as f:
+            pickle.dump(datetime.now(), f)
+        Logger.info(f"Added Quotes")
 
-            if ExchangeRates.is_stale_or_empty():
-                Logger.info("Refreshing exchange rates...")
-                ExchangeRates._refresh_currency_data()
-                with Config.DB_SESSION() as session:
-                    for key, value in ExchangeRates.get_all().items():
-                        Logger.info(f"Adding quote to DB: {key} = {value:.2f}")
-                        date_str = ExchangeRates.last_update.strftime(
-                            Config.DATE_FORMAT_STRING
-                        )
-                        quote = session.scalars(
-                            select(Quote).filter_by(date=date_str, symbol=key)
-                        ).one_or_none()
-                        if quote is None:
-                            quote = Quote(
-                                date=date_str, symbol=key, value=f"{value:.2f}"
-                            )
-                        session.merge(quote)
-                    session.commit()
-                    with open(FX_LAST_UPDATE_FILE, "wb") as f:
-                        pickle.dump(datetime.now(), f)
-                    Logger.info(f"Added Quotes")
+    @staticmethod
+    def refresh():
+        """Force a refresh, storing the new quotes like the background task does."""
+        with FX_FETCH_LOCK:
+            ExchangeRates._refresh_and_store()
+
+    @staticmethod
+    def background_refresh():
+        """Periodic refresh. Never raises, so the background thread keeps running."""
+        try:
+            with FX_FETCH_LOCK:
+                if len(ExchangeRates.quote_cache) == 0:
+                    ExchangeRates.fetch_from_local()
+
+                if ExchangeRates.is_stale_or_empty():
+                    Logger.info("Refreshing exchange rates...")
+                    ExchangeRates._refresh_and_store()
+        except Exception:
+            Logger.exception("Exchange rate refresh failed, retrying on next run")
 
     @staticmethod
     def get_all() -> dict:

@@ -84,7 +84,7 @@ def future_timeline():
 @reports_bp.auth_required(auth)
 def exchange_rates_refresh():
     try:
-        ExchangeRates._refresh_currency_data()
+        ExchangeRates.refresh()
     except Exception as e:
         return (
             jsonify({"message": f"Failed to refresh exchange rates: {str(e)}"}),

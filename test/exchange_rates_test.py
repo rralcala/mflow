@@ -1,12 +1,18 @@
+import os
+import tempfile
 import unittest
 from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import requests
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import sessionmaker
 
-from data.exchange_rates import ExchangeRates
+from data.base import Base
+from data.exchange_rates import FX_FETCH_LOCK, ExchangeRates
 from lib.config import Config
+from models.quotes import Quote
 
 
 class _SessionContext:
@@ -163,12 +169,86 @@ class TestExchangeRates(unittest.TestCase):
 
         self.assertEqual(result, [("USDEUR", 0.9123), ("BTCUSD", 66000.13)])
 
+    def _quotes_db(self):
+        engine = create_engine("sqlite://")
+        Base.metadata.create_all(engine, tables=[Quote.__table__])
+        return sessionmaker(bind=engine)
+
+    def _stored_quotes(self, db_session):
+        with db_session() as session:
+            return {(q.date, q.symbol): q.value for q in session.scalars(select(Quote))}
+
+    def _fake_refresh(self):
+        ExchangeRates.quote_cache = {"USDEUR": 0.91, "BTCUSD": 67000.0}
+        ExchangeRates.last_update = datetime(2026, 10, 9, 12, 0, 0)
+
+    def _patch_store(self, db_session):
+        fd, last_update_file = tempfile.mkstemp()
+        os.close(fd)
+        self.addCleanup(os.remove, last_update_file)
+        return (
+            patch.object(Config, "DB_SESSION", db_session, create=True),
+            patch("data.exchange_rates.FX_LAST_UPDATE_FILE", last_update_file),
+        )
+
+    def test_refresh_stores_quotes_in_db(self):
+        db_session = self._quotes_db()
+        db_patch, file_patch = self._patch_store(db_session)
+
+        with db_patch, file_patch, patch.object(
+            ExchangeRates, "_refresh_currency_data", side_effect=self._fake_refresh
+        ):
+            ExchangeRates.refresh()
+
+        self.assertEqual(
+            self._stored_quotes(db_session),
+            {
+                ("2026-10-09", "USDEUR"): "0.91",
+                ("2026-10-09", "BTCUSD"): "67000.00",
+            },
+        )
+
+    def test_ensure_currency_data_stores_quotes_when_fetching(self):
+        db_session = self._quotes_db()
+        db_patch, file_patch = self._patch_store(db_session)
+
+        with db_patch, file_patch, patch(
+            "data.exchange_rates.FX_FETCH_LOCK", _UnlockedLock()
+        ), patch.object(ExchangeRates, "fetch_from_local"), patch.object(
+            ExchangeRates, "_refresh_currency_data", side_effect=self._fake_refresh
+        ):
+            ExchangeRates.ensure_currency_data()
+
+        self.assertIn(("2026-10-09", "USDEUR"), self._stored_quotes(db_session))
+
+    def test_background_refresh_stores_quotes_when_stale(self):
+        db_session = self._quotes_db()
+        db_patch, file_patch = self._patch_store(db_session)
+
+        with db_patch, file_patch, patch.object(
+            ExchangeRates, "fetch_from_local"
+        ), patch.object(
+            ExchangeRates, "_refresh_currency_data", side_effect=self._fake_refresh
+        ):
+            ExchangeRates.background_refresh()
+
+        self.assertIn(("2026-10-09", "BTCUSD"), self._stored_quotes(db_session))
+
+    def test_background_refresh_does_not_raise_when_fetch_fails(self):
+        with patch.object(ExchangeRates, "fetch_from_local"), patch.object(
+            ExchangeRates,
+            "_refresh_currency_data",
+            side_effect=requests.RequestException("network down"),
+        ) as refresh:
+            ExchangeRates.background_refresh()
+
+        refresh.assert_called_once()
+        self.assertFalse(FX_FETCH_LOCK.locked())
+
     def test_ensure_currency_data_returns_immediately_when_locked(self):
         with patch("data.exchange_rates.FX_FETCH_LOCK", _LockedLock()), patch.object(
             ExchangeRates, "fetch_from_local"
-        ) as from_local, patch.object(
-            ExchangeRates, "_refresh_currency_data"
-        ) as refresh:
+        ) as from_local, patch.object(ExchangeRates, "_refresh_and_store") as refresh:
             ExchangeRates.ensure_currency_data()
 
         from_local.assert_not_called()
@@ -179,9 +259,7 @@ class TestExchangeRates(unittest.TestCase):
 
         with patch("data.exchange_rates.FX_FETCH_LOCK", _UnlockedLock()), patch.object(
             ExchangeRates, "fetch_from_local"
-        ) as from_local, patch.object(
-            ExchangeRates, "_refresh_currency_data"
-        ) as refresh:
+        ) as from_local, patch.object(ExchangeRates, "_refresh_and_store") as refresh:
             ExchangeRates.ensure_currency_data()
 
         from_local.assert_called_once()
@@ -195,9 +273,7 @@ class TestExchangeRates(unittest.TestCase):
 
         with patch("data.exchange_rates.FX_FETCH_LOCK", _UnlockedLock()), patch.object(
             ExchangeRates, "fetch_from_local", side_effect=populate_cache
-        ) as from_local, patch.object(
-            ExchangeRates, "_refresh_currency_data"
-        ) as refresh:
+        ) as from_local, patch.object(ExchangeRates, "_refresh_and_store") as refresh:
             ExchangeRates.ensure_currency_data()
 
         from_local.assert_called_once()
