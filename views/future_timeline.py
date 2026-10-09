@@ -138,6 +138,7 @@ class _Simulation:
         self.growth: List[Tuple[_Holding, float]] = []
         self.warnings: List[str] = []
         self.sale_dates: Dict[str, datetime] = {}  # property id -> sell-by
+        self.non_pool_instruments: set = set()  # holding keys
         self._pending: List[Tuple[Any, _Holding]] = []
         self._seq = 0
         self._flows: Dict[str, float] = {}
@@ -200,6 +201,8 @@ class _Simulation:
                 )
                 self.targets.setdefault(asset.get_identifier(), holding.key)
                 self._pending.append((asset, holding))
+                if not asset.is_target_pool:
+                    self.non_pool_instruments.add(holding.key)
         # Recurrents linked to a property stop when it's sold.
         for asset in assets:
             if isinstance(asset, (Property, Instrument)) and asset.sell_by:
@@ -228,6 +231,11 @@ class _Simulation:
         target_id = getattr(asset, "target_asset_id", "") or ""
         if target_id in self.targets:
             holding = self.holdings[self.targets[target_id]]
+            if holding.key in self.non_pool_instruments:
+                self.warnings.append(
+                    f"{asset.get_identifier()} targets {target_id}, which isn't "
+                    "marked as a target pool."
+                )
         elif not target_id and default is not None:
             holding = default
         else:
@@ -264,7 +272,12 @@ class _Simulation:
         if asset.sell_by:
             # Its value already includes the factor (e.g. an IRA tax penalty).
             target = self.resolve_target(asset)
-            if target is holding:
+            if asset.is_target_pool:
+                self.warnings.append(
+                    f"{holding.name} is a target pool and can't be sold; "
+                    "the sale is ignored."
+                )
+            elif target is holding:
                 self.warnings.append(
                     f"{holding.name} can't be sold into itself; the sale is ignored."
                 )

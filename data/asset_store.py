@@ -167,6 +167,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                     if row.sell_by
                     else None
                 ),
+                is_target_pool=row.is_target_pool == 1,
             )
             assets[asset.currency].append(asset)
         for row in session.query(Account).filter_by(user_id=user_config.USER_ID).all():

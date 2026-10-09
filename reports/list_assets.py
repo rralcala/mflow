@@ -42,14 +42,24 @@ def asset_data_from_asset(asset: Asset) -> Dict[str, Any]:
     }
 
 
+def is_target_option(asset: Asset) -> bool:
+    """Assets offered as targets: liquid accounts and target-pool instruments."""
+    type_name = type(asset).__name__
+    #if type_name == "Account":
+    #    return asset.is_liquid()
+    return type_name == "Instrument" and asset.is_target_pool
+
+
 def get_assets(
-    assets: Dict[str, List[Asset]], liquid_only: bool
+    assets: Dict[str, List[Asset]], liquid_only: bool, target_pools_only: bool = False
 ) -> List[Dict[str, Any]]:
     response = []
     for currency, sub in assets.items():
         for asset in sub:
             liquid = asset.is_liquid()
             if liquid_only and not liquid:
+                continue
+            if target_pools_only and not is_target_option(asset):
                 continue
             type_name = type(asset).__name__
             if type_name == "Payable" and not asset.commited:

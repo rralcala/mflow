@@ -39,6 +39,33 @@ class QueryStub:
         return self._scalar_value
 
 
+def instrument_row(**overrides):
+    """An Instrument model row with every field the PUT route reads."""
+    fields = dict(
+        id=1,
+        user_id=1,
+        country="US",
+        location="Citi",
+        symbol="VOO",
+        factor="1",
+        qty="1",
+        dividend="",
+        dividend_rate="0",
+        currency="USD",
+        acquisition_date="2026-01-01",
+        acquisition_price="1",
+        liquid=0,
+        capital_rate="0",
+        target_asset_id="old",
+        sell_by=None,
+        is_target_pool=0,
+    )
+    fields.update(overrides)
+    row = SimpleNamespace(**fields)
+    row.to_dict = lambda: {"id": row.id}
+    return row
+
+
 class SessionStub:
     def __init__(self, query_map=None):
         self.query_map = query_map or {}
@@ -776,7 +803,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
             {
                 rest_assets.Account: QueryStub(first_item=None),
                 rest_assets.Instrument: QueryStub(
-                    all_items=[SimpleNamespace(location="NYSE", symbol="USD")]
+                    all_items=[
+                        SimpleNamespace(location="NYSE", symbol="USD", is_target_pool=1)
+                    ]
                 ),
             }
         )
@@ -952,32 +981,70 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(status, 201)
         self.assertIsNone(session.added[0].sell_by)
 
-    def test_instruments_post_rejects_sell_by_on_liquid(self):
-        response, status, session = self._post_instrument(
+    def test_instruments_post_liquid_with_sell_by(self):
+        _, status, session = self._post_instrument(
             {"sellBy": "2040-01-01", "liquid": True}
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual(session.added[0].sell_by, "2040-01-01")
+
+    def test_instruments_post_rejects_sell_by_on_target_pool(self):
+        response, status, session = self._post_instrument(
+            {"sellBy": "2040-01-01", "isTargetPool": True}
         )
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(
             response.get_json(),
-            {"message": "Only non-liquid instruments can have a sell-by date"},
+            {"message": "Target pools can't have a sell-by date"},
         )
         self.assertEqual(session.added, [])
 
-    def test_instruments_post_rejects_selling_into_itself(self):
-        response, status, _ = self._post_instrument(
-            {"sellBy": "2040-01-01", "targetAssetId": "Citi_I5902_USD"}
+    def test_instruments_post_target_pool_can_target_itself(self):
+        _, status, session = self._post_instrument(
+            {"targetAssetId": "Citi_I5902_USD", "isTargetPool": True}
         )
+        self.assertEqual(status, 201)
+        self.assertEqual(session.added[0].is_target_pool, 1)
+
+    def test_instruments_post_rejects_non_pool_targeting_itself(self):
+        response, status, _ = self._post_instrument({"targetAssetId": "Citi_I5902_USD"})
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
-        self.assertEqual(
-            response.get_json(), {"message": "An instrument can't be sold into itself"}
-        )
+        self.assertEqual(response.get_json(), {"message": "Bad target asset"})
 
     def test_instruments_post_rejects_bad_sell_by(self):
         _, status, _ = self._post_instrument({"sellBy": "someday"})
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
 
+    def test_instruments_put_blocks_unflagging_a_referenced_pool(self):
+        existing = instrument_row(location="Puente", symbol="USD", is_target_pool=1)
+        referencing = SimpleNamespace(identifier="Mirador-MJ")
+        session = SessionStub(
+            {
+                rest_assets.Instrument: QueryStub(first_item=existing),
+                Recurrent: QueryStub(all_items=[referencing]),
+            }
+        )
+        with self.app.test_request_context(
+            "/instruments/1",
+            method="PUT",
+            json={"acquisition_date": "2026-01-01", "isTargetPool": False},
+        ), patch("routes.rest_assets.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_assets.instruments_get.__wrapped__(1)
+
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(
+            response.get_json(),
+            {
+                "message": "Puente_USD is still the target of Mirador-MJ; "
+                "retarget them first"
+            },
+        )
+        self.assertFalse(session.committed)
+
     def test_instruments_get_put_bad_target(self):
-        existing = SimpleNamespace(target_asset_id="old", currency="USD")
+        existing = instrument_row()
         session = SessionStub(
             {
                 rest_assets.Instrument: QueryStub(first_item=existing),

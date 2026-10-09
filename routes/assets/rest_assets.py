@@ -13,6 +13,7 @@ from lib.util import (
     error_response,
     normalize_country,
     paginate,
+    target_references,
     validate_date,
     validate_target_asset,
 )
@@ -93,8 +94,14 @@ def assets():
     if "liquid" in request.args:
         liquid_only = request.args.get("liquid", False) == "true"
 
+    target_pools_only = request.args.get("targetPool") == "true"
+
     user_config = UserStore.get_user_config(current_user.id)
-    results = get_assets(get_asset_store(user_config), liquid_only=liquid_only)
+    results = get_assets(
+        get_asset_store(user_config),
+        liquid_only=liquid_only,
+        target_pools_only=target_pools_only,
+    )
 
     if "id" in request.args:
         ids = set(request.args.getlist("id"))
@@ -144,18 +151,26 @@ def get_account(name):
     return response
 
 
-def instrument_sale_error(
-    sell_by: Optional[str], liquid: int, identifier: str, target_asset_id: str
-) -> Optional[str]:
-    """Only non-liquid instruments are sold, into a target other than themselves."""
+def instrument_target_ok(session, row: Instrument, target_asset_id: str) -> bool:
+    """A target pool may target itself (e.g. a sweep compounding its interest);
+    it's checked against the submitted row because it may not be saved yet."""
+    if target_asset_id == f"{row.location}_{row.symbol}":
+        return bool(row.is_target_pool) and (
+            str(row.symbol).upper() == str(row.currency).upper()
+        )
+    return validate_target_asset(
+        session, int(current_user.id), target_asset_id, row.currency
+    )
+
+
+def instrument_sale_error(sell_by: Optional[str], is_target_pool: int) -> Optional[str]:
+    """Any instrument can be sold except target pools, which hold others' cash."""
     if not sell_by:
         return None
     if not validate_date(sell_by):
         return f"Invalid date '{sell_by}'"
-    if liquid:
-        return "Only non-liquid instruments can have a sell-by date"
-    if target_asset_id == identifier:
-        return "An instrument can't be sold into itself"
+    if is_target_pool:
+        return "Target pools can't have a sell-by date"
     return None
 
 
@@ -173,10 +188,6 @@ def instruments():
         target_asset_id = data.get("targetAssetId")
         currency = data.get("currency")
         with Config.DB_SESSION() as session:
-            if not validate_target_asset(
-                session, int(current_user.id), target_asset_id, currency
-            ):
-                return error_response("Bad target asset", HTTPStatus.BAD_REQUEST)
             new_transaction = Instrument(
                 country=country,
                 location=data.get("location"),
@@ -193,12 +204,12 @@ def instruments():
                 capital_rate=data.get("capital_rate", 0.0),
                 target_asset_id=target_asset_id,
                 sell_by=data.get("sellBy") or None,
+                is_target_pool=1 if data.get("isTargetPool") else 0,
             )
+            if not instrument_target_ok(session, new_transaction, target_asset_id):
+                return error_response("Bad target asset", HTTPStatus.BAD_REQUEST)
             error = instrument_sale_error(
-                new_transaction.sell_by,
-                new_transaction.liquid,
-                f"{new_transaction.location}_{new_transaction.symbol}",
-                target_asset_id,
+                new_transaction.sell_by, new_transaction.is_target_pool
             )
             if error:
                 return error_response(error, HTTPStatus.BAD_REQUEST)
@@ -249,10 +260,8 @@ def instruments_get(id):
                 )
             target_asset_id = data.get("targetAssetId", result.target_asset_id)
             currency = data.get("currency", result.currency)
-            if not validate_target_asset(
-                session, int(current_user.id), target_asset_id, currency
-            ):
-                return error_response("Bad target asset", HTTPStatus.BAD_REQUEST)
+            identifier = f"{result.location}_{result.symbol}"
+            was_target_pool = result.is_target_pool == 1
             result.id = data.get("id", result.id)
             result.user_id = data.get("user_id", result.user_id)
             result.country = country_for_update(data, result.country)
@@ -271,12 +280,22 @@ def instruments_get(id):
             result.capital_rate = data.get("capital_rate", result.capital_rate)
             result.target_asset_id = target_asset_id
             result.sell_by = data.get("sellBy", result.sell_by) or None
-            error = instrument_sale_error(
-                result.sell_by,
-                result.liquid,
-                f"{result.location}_{result.symbol}",
-                target_asset_id,
+            result.is_target_pool = (
+                1 if data.get("isTargetPool", result.is_target_pool) else 0
             )
+            if was_target_pool and not result.is_target_pool:
+                references = target_references(
+                    session, int(current_user.id), identifier
+                )
+                if references:
+                    return error_response(
+                        f"{identifier} is still the target of "
+                        f"{', '.join(references)}; retarget them first",
+                        HTTPStatus.BAD_REQUEST,
+                    )
+            if not instrument_target_ok(session, result, target_asset_id):
+                return error_response("Bad target asset", HTTPStatus.BAD_REQUEST)
+            error = instrument_sale_error(result.sell_by, result.is_target_pool)
             if error:
                 return error_response(error, HTTPStatus.BAD_REQUEST)
             session.commit()

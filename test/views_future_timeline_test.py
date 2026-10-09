@@ -290,6 +290,29 @@ class TestFutureTimeline(unittest.TestCase):
             result["warnings"],
         )
 
+    def test_targeting_a_non_pool_instrument_warns(self, *_):
+        broker = instrument("Broker", "USD", 1000.0)
+        result = run([broker, recurrent(target="Broker_USD")], end=date(2030, 1, 31))
+        self.assertIn(
+            "Rent targets Broker_USD, which isn't marked as a target pool.",
+            result["warnings"],
+        )
+        pool = instrument("Sweep", "USD", 1000.0)
+        pool.is_target_pool = True
+        result = run([pool, recurrent(target="Sweep_USD")], end=date(2030, 1, 31))
+        self.assertEqual(result["warnings"], [])
+
+    def test_target_pool_is_never_sold(self, *_):
+        pool = instrument("Sweep", "USD", 1000.0, target="Checking")
+        pool.is_target_pool = True
+        pool.sell_by = datetime(2030, 3, 1)
+        result = run([account(), pool], end=date(2030, 6, 30))
+        self.assertAlmostEqual(month(result, "2030-03")["sales"], 0.0)
+        self.assertIn(
+            "Sweep_USD is a target pool and can't be sold; the sale is ignored.",
+            result["warnings"],
+        )
+
     def test_inflation_rates_can_be_overridden_per_country(self, *_):
         result = run([house()], inflation_rates={"PY": 0.10})
         self.assertAlmostEqual(asset_row(result, "House-1")["endValue"], 110000.0)

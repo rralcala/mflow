@@ -112,6 +112,7 @@ def validate_target_asset(
     `symbol` (e.g. a high-yield savings sweep with symbol "USD"), not by its
     `currency` column -- that column is the currency used to buy/sell the
     instrument itself (e.g. the dividend/purchase currency of an AAPL position).
+    Only instruments marked `is_target_pool` can be targets.
     """
     from models.instrument import Instrument
     from models.models import Account
@@ -127,8 +128,38 @@ def validate_target_asset(
     return any(
         f"{row.location}_{row.symbol}" == target_asset_id
         and row.symbol.upper() == source_currency
+        and row.is_target_pool == 1
         for row in session.query(Instrument).filter_by(user_id=user_id).all()
     )
+
+
+def target_references(session, user_id: int, target_asset_id: str) -> List[str]:
+    """Identifiers of the assets whose cash flows use target_asset_id."""
+    from models.bond import Bond
+    from models.deposit_certificate import DepositCertificate
+    from models.instrument import Instrument
+    from models.models import Recurrent
+    from models.payable import Payable
+    from models.property import Property
+
+    labels = {
+        Bond: lambda row: row.name,
+        DepositCertificate: lambda row: row.name,
+        Recurrent: lambda row: row.identifier,
+        Payable: lambda row: row.description,
+        Property: lambda row: row.property_name,
+        Instrument: lambda row: f"{row.location}_{row.symbol}",
+    }
+    references = []
+    for model, label in labels.items():
+        for row in (
+            session.query(model)
+            .filter_by(user_id=user_id, target_asset_id=target_asset_id)
+            .all()
+        ):
+            references.append(label(row))
+    # A pool that compounds into itself doesn't count as a reference to it.
+    return sorted(ref for ref in references if ref != target_asset_id)
 
 
 def type_to_str(type_obj) -> str:

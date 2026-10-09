@@ -24,6 +24,8 @@ class Instrument(Base):
     capital_rate = mapped_column(String(80), nullable=False)
     target_asset_id = mapped_column(String(80), nullable=True)
     sell_by = mapped_column(String(20), nullable=True)
+    # Whether other assets can draw from or deposit into this instrument.
+    is_target_pool = mapped_column(Integer, nullable=False, default=0)
 
     def __str__(self):
         return str(self.id)
@@ -53,4 +55,5 @@ class Instrument(Base):
             "capital_rate": float(self.capital_rate),
             "targetAssetId": self.target_asset_id,
             "sellBy": self.sell_by,
+            "isTargetPool": self.is_target_pool == 1,
         }

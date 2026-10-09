@@ -29,6 +29,7 @@ class Instrument(Asset):
         capital_rate: float,
         target_asset_id: str = "",
         sell_by: Optional[datetime] = None,
+        is_target_pool: bool = False,
     ):
         self.symbol = symbol
         self._identifier = f"{location}_{symbol}"
@@ -48,6 +49,8 @@ class Instrument(Asset):
         self.target_asset_id = target_asset_id
         # Simulations sell non-liquid instruments on this date into the target.
         self.sell_by = sell_by
+        # Only target pools may receive or fund other assets' cash flows.
+        self.is_target_pool = is_target_pool
 
     def get_identifier(self) -> str:
         return self._identifier

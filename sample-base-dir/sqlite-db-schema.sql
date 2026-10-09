@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS "instrument" (
 	"capital_rate"	TEXT NOT NULL DEFAULT 0,
 	"target_asset_id"	TEXT,
 	"sell_by"	TEXT,
+	"is_target_pool"	INTEGER NOT NULL DEFAULT 0,
 	PRIMARY KEY("id")
 );
 CREATE TABLE IF NOT EXISTS "payable" (
