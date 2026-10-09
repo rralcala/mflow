@@ -21,6 +21,8 @@ class Account(Base):
     account_type = mapped_column(String(35), nullable=False)
     liquid = mapped_column(Integer(), nullable=False)
     user_id = mapped_column(Integer, nullable=False)
+    transfer_by = mapped_column(String(20), nullable=True)
+    target_asset_id = mapped_column(String(80), nullable=True)
 
     def __str__(self):
         return self.id
@@ -35,6 +37,8 @@ class Account(Base):
             "factor": float(self.factor),
             "accountType": self.account_type,
             "liquid": self.liquid == 1,
+            "transferBy": self.transfer_by,
+            "targetAssetId": self.target_asset_id,
         }
 
 

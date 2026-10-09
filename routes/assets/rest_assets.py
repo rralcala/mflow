@@ -18,6 +18,7 @@ from lib.util import (
     require_date,
     target_references,
     validate_date,
+    validate_pool_target,
     validate_target_asset,
 )
 from models.instrument import Instrument
@@ -31,6 +32,23 @@ from ..blueprints import assets_bp
 from ..security import auth
 
 Logger = get_logger()
+
+
+def account_transfer_error(
+    session, transfer_by: Optional[str], target_asset_id: Optional[str], currency: str
+) -> Optional[str]:
+    """A transfer-by date needs a valid date and a target pool in the same currency."""
+    if not transfer_by:
+        return None
+    if not validate_date(transfer_by):
+        return f"Invalid date '{transfer_by}'"
+    if not target_asset_id:
+        return "A target pool is required when a transfer-by date is set"
+    if not validate_pool_target(
+        session, int(current_user.id), target_asset_id, currency
+    ):
+        return "The target must be a target pool in the account's currency"
+    return None
 
 
 @assets_bp.route("/accounts", methods=["GET", "POST"])
@@ -49,7 +67,17 @@ def accounts():
                 account_type=data.get("accountType"),
                 liquid=1 if data.get("liquid") else 0,
                 user_id=int(current_user.id),
+                transfer_by=data.get("transferBy") or None,
+                target_asset_id=data.get("targetAssetId") or None,
             )
+            error = account_transfer_error(
+                session,
+                new_transaction.transfer_by,
+                new_transaction.target_asset_id,
+                new_transaction.currency,
+            )
+            if error:
+                return error_response(error, HTTPStatus.BAD_REQUEST)
             session.add(new_transaction)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -147,6 +175,15 @@ def get_account(name):
                 result.factor = data.get("factor", result.factor)
                 result.account_type = data.get("accountType", result.account_type)
                 result.liquid = 1 if data.get("liquid", result.liquid) else 0
+                result.transfer_by = data.get("transferBy", result.transfer_by) or None
+                result.target_asset_id = (
+                    data.get("targetAssetId", result.target_asset_id) or None
+                )
+                error = account_transfer_error(
+                    session, result.transfer_by, result.target_asset_id, result.currency
+                )
+                if error:
+                    return error_response(error, HTTPStatus.BAD_REQUEST)
                 session.commit()
             elif request.method == "DELETE":
                 session.delete(result)

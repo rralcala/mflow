@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS "account" (
 	"account_type"	TEXT NOT NULL,
 	"liquid"	INTEGER NOT NULL,
 	"user_id"	INTEGER NOT NULL DEFAULT 1,
+	"transfer_by"	TEXT,
+	"target_asset_id"	TEXT,
 	PRIMARY KEY("id")
 );
 CREATE TABLE IF NOT EXISTS "bond" (

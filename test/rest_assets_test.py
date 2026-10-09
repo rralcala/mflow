@@ -67,6 +67,27 @@ def instrument_row(**overrides):
     return row
 
 
+def account_row(**overrides):
+    """An Account model row with every field the PUT route reads."""
+    fields = dict(
+        id="OldBank",
+        country="US",
+        institution="Bank",
+        currency="USD",
+        balance="100",
+        factor="1",
+        account_type="Checking",
+        liquid=1,
+        user_id=1,
+        transfer_by=None,
+        target_asset_id=None,
+    )
+    fields.update(overrides)
+    row = SimpleNamespace(**fields)
+    row.to_dict = lambda: {"id": row.id}
+    return row
+
+
 class SessionStub:
     def __init__(self, query_map=None):
         self.query_map = query_map or {}
@@ -563,6 +584,111 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(session.committed)
         self.assertIsNone(existing.sell_by)
+        self.assertIsNone(existing.target_asset_id)
+
+    def _post_account(self, payload):
+        session = SessionStub(
+            {
+                rest_assets.Instrument: QueryStub(
+                    all_items=[
+                        SimpleNamespace(
+                            location="Sweep", symbol="USD", is_target_pool=1
+                        ),
+                        SimpleNamespace(
+                            location="Broker", symbol="USD", is_target_pool=0
+                        ),
+                    ]
+                )
+            }
+        )
+        body = {
+            "id": "OldBank",
+            "country": "US",
+            "institution": "Bank",
+            "currency": "USD",
+            "balance": 100,
+            "factor": 1,
+            "accountType": "Checking",
+            "liquid": True,
+            **payload,
+        }
+        with self.app.test_request_context(
+            "/accounts", method="POST", json=body
+        ), patch("routes.rest_assets.current_user", self.user), patch(
+            "routes.rest_assets.reload_asset_store"
+        ), patch(
+            "routes.rest_assets.UserStore.get_user_config",
+            return_value=SimpleNamespace(),
+        ), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_assets.accounts.__wrapped__()
+        return response, status, session
+
+    def test_accounts_post_with_transfer_into_pool(self):
+        _, status, session = self._post_account(
+            {"transferBy": "2030-01-01", "targetAssetId": "Sweep_USD"}
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual(session.added[0].transfer_by, "2030-01-01")
+        self.assertEqual(session.added[0].target_asset_id, "Sweep_USD")
+
+    def test_accounts_post_without_transfer_stores_nulls(self):
+        _, status, session = self._post_account({"transferBy": ""})
+        self.assertEqual(status, 201)
+        self.assertIsNone(session.added[0].transfer_by)
+        self.assertIsNone(session.added[0].target_asset_id)
+
+    def test_accounts_post_transfer_rules(self):
+        cases = [
+            (
+                {"transferBy": "2030-01-01"},
+                "A target pool is required when a transfer-by date is set",
+            ),
+            (
+                {"transferBy": "2030-01-01", "targetAssetId": "Broker_USD"},
+                "The target must be a target pool in the account's currency",
+            ),
+            (
+                {
+                    "transferBy": "2030-01-01",
+                    "targetAssetId": "Sweep_USD",
+                    "currency": "PYG",
+                },
+                "The target must be a target pool in the account's currency",
+            ),
+            (
+                {"transferBy": "someday", "targetAssetId": "Sweep_USD"},
+                "Invalid date 'someday'",
+            ),
+        ]
+        for payload, message in cases:
+            with self.subTest(payload=payload):
+                response, status, session = self._post_account(payload)
+                self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+                self.assertEqual(response.get_json(), {"message": message})
+                self.assertEqual(session.added, [])
+
+    def test_accounts_put_clears_transfer(self):
+        existing = account_row(transfer_by="2030-01-01", target_asset_id="Sweep_USD")
+        session = SessionStub({rest_assets.Account: QueryStub(first_item=existing)})
+        with self.app.test_request_context(
+            "/accounts/OldBank",
+            method="PUT",
+            json={"transferBy": None, "targetAssetId": None},
+        ), patch("routes.rest_assets.current_user", self.user), patch(
+            "routes.rest_assets.reload_asset_store"
+        ), patch(
+            "routes.rest_assets.UserStore.get_user_config",
+            return_value=SimpleNamespace(),
+        ), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_assets.get_account.__wrapped__("OldBank")
+
+        self.assertEqual(status, 200)
+        self.assertTrue(session.committed)
+        self.assertIsNone(existing.transfer_by)
         self.assertIsNone(existing.target_asset_id)
 
     def test_recurrent_transactions_get_collection(self):

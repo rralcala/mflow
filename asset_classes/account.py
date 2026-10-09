@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from asset_classes.asset import Asset
 
@@ -17,6 +17,8 @@ class Account(Asset):
         factor: float = 1.0,
         account_type: str = "Savings",
         liquid: bool = True,
+        transfer_by: Optional[datetime] = None,
+        target_asset_id: str = "",
     ):
         self.country = country
         self.institution = institution
@@ -26,6 +28,9 @@ class Account(Asset):
         self.factor = factor
         self.account_type = account_type
         self.liquid = liquid
+        # Simulations move the whole balance into the target pool on this date.
+        self.transfer_by = transfer_by
+        self.target_asset_id = target_asset_id
 
     def get_identifier(self) -> str:
         return self._identifier

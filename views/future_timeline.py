@@ -19,6 +19,8 @@ Modeling rules:
     speculative rates for decades swamps everything else.
   * Transfers move value between assets in pairs: they change balances but
     are neither income nor expenses, and are never inflated.
+  * Accounts with a transfer-by date move their whole balance into their target
+    pool then; later flows aimed at the account go to that pool instead.
   * Exchange rates are held constant at today's quotes.
 """
 
@@ -60,6 +62,9 @@ class _Holding:
     growth: Optional[str] = None
     start_value: float = 0.0
     sold_on: Optional[str] = None
+    # Once an account is transferred, flows aimed at it go to this pool instead.
+    forward_to: Optional["_Holding"] = None
+    transferred_on: Optional[str] = None
 
 
 def _to_date(value: date | datetime | str) -> date:
@@ -228,6 +233,9 @@ class _Simulation:
                 )
         for asset, holding in self._pending:
             self.add_instrument(asset, holding)
+        for asset in assets:
+            if isinstance(asset, Account) and asset.transfer_by:
+                self.add_account_transfer(asset)
 
     def resolve_target(
         self, asset: Any, default: Optional[_Holding] = None
@@ -446,6 +454,27 @@ class _Simulation:
     def to_usd(self, amount: float, currency: str) -> float:
         return amount / self.rate(currency)
 
+    def add_account_transfer(self, asset: Account) -> None:
+        holding = self.holdings[self.targets[asset.get_identifier()]]
+        target = self.resolve_target(asset)
+        if target is holding:
+            self.warnings.append(
+                f"{holding.name} can't be transferred into itself; ignored."
+            )
+            return
+        self.schedule(
+            asset.transfer_by, partial(self.transfer_account, holding, target)
+        )
+
+    def transfer_account(self, holding: _Holding, target: _Holding) -> None:
+        """Move the whole balance as a balanced pair of transfers, then close."""
+        amount = holding.value
+        if amount:
+            self.transfer(None, holding, -amount, holding.currency, "transfers")
+            self.transfer(None, target, amount, holding.currency, "transfers")
+        holding.forward_to = target
+        holding.transferred_on = self._month.isoformat()[:7]
+
     def transfer(
         self,
         source: Optional[_Holding],
@@ -454,6 +483,8 @@ class _Simulation:
         currency: str,
         category: str,
     ) -> None:
+        while target.forward_to is not None:
+            target = target.forward_to
         if source is not None:
             source.value -= amount
         target.value += self.convert(amount, currency, target.currency)
@@ -595,6 +626,8 @@ class _Simulation:
                 "currency": h.currency,
                 "growth": h.growth,
                 "soldOn": h.sold_on,
+                "transferredOn": h.transferred_on,
+                "transferredTo": h.forward_to.name if h.forward_to else None,
                 "isPool": h.is_pool,
                 "startValue": h.start_value,
                 "endValue": h.value,

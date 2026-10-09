@@ -313,6 +313,40 @@ class TestFutureTimeline(unittest.TestCase):
             result["warnings"],
         )
 
+    def test_account_balance_moves_into_target_pool(self, *_):
+        sweep = instrument("Sweep", "USD", 0.0)
+        sweep.is_target_pool = True
+        old = account("OldBank", 2500.0)
+        old.transfer_by = datetime(2030, 4, 10)
+        old.target_asset_id = "Sweep_USD"
+        result = run([sweep, old], end=date(2030, 6, 30))
+        april = month(result, "2030-04")
+        self.assertAlmostEqual(april["balances"]["Sweep_USD"], 2500.0)
+        self.assertAlmostEqual(asset_row(result, "OldBank")["endValue"], 0.0)
+        for category in ("income", "expenses", "transfers", "netCashFlow"):
+            self.assertAlmostEqual(april[category], 0.0)
+        self.assertAlmostEqual(
+            result["summary"]["endNetWorth"], result["summary"]["startNetWorth"]
+        )
+        self.assertEqual(asset_row(result, "OldBank")["transferredOn"], "2030-04")
+        self.assertEqual(asset_row(result, "OldBank")["transferredTo"], "Sweep_USD")
+        self.assertEqual(result["warnings"], [])
+
+    def test_flows_aimed_at_a_transferred_account_go_to_the_pool(self, *_):
+        sweep = instrument("Sweep", "USD", 0.0)
+        sweep.is_target_pool = True
+        old = account("OldBank", 1000.0)
+        old.transfer_by = datetime(2030, 1, 1)
+        old.target_asset_id = "Sweep_USD"
+        rent_out = recurrent(target="OldBank")  # -100 on the 5th
+        result = run([sweep, old, rent_out], end=date(2030, 2, 28))
+        # January's rent, then February's (one month of US inflation).
+        self.assertAlmostEqual(
+            month(result, "2030-02")["balances"]["Sweep_USD"],
+            1000.0 - 100.0 - 100.0 * 1.025 ** (1 / 12),
+        )
+        self.assertAlmostEqual(month(result, "2030-02")["balances"]["OldBank"], 0.0)
+
     def test_inflation_rates_can_be_overridden_per_country(self, *_):
         result = run([house()], inflation_rates={"PY": 0.10})
         self.assertAlmostEqual(asset_row(result, "House-1")["endValue"], 110000.0)

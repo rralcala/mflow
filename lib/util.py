@@ -134,7 +134,6 @@ def validate_target_asset(
     instrument itself (e.g. the dividend/purchase currency of an AAPL position).
     Only instruments marked `is_target_pool` can be targets.
     """
-    from models.instrument import Instrument
     from models.models import Account
 
     if not target_asset_id or not source_currency:
@@ -145,9 +144,20 @@ def validate_target_asset(
     )
     if account:
         return account.currency.upper() == source_currency
+    return validate_pool_target(session, user_id, target_asset_id, source_currency)
+
+
+def validate_pool_target(
+    session, user_id: int, target_asset_id: str, source_currency: str
+) -> bool:
+    """Whether target_asset_id is a target-pool instrument holding the currency."""
+    from models.instrument import Instrument
+
+    if not target_asset_id or not source_currency:
+        return False
     return any(
         f"{row.location}_{row.symbol}" == target_asset_id
-        and row.symbol.upper() == source_currency
+        and row.symbol.upper() == source_currency.upper()
         and row.is_target_pool == 1
         for row in session.query(Instrument).filter_by(user_id=user_id).all()
     )
@@ -158,11 +168,12 @@ def target_references(session, user_id: int, target_asset_id: str) -> List[str]:
     from models.bond import Bond
     from models.deposit_certificate import DepositCertificate
     from models.instrument import Instrument
-    from models.models import Recurrent
+    from models.models import Account, Recurrent
     from models.payable import Payable
     from models.property import Property
 
     labels = {
+        Account: lambda row: row.id,
         Bond: lambda row: row.name,
         DepositCertificate: lambda row: row.name,
         Recurrent: lambda row: row.identifier,

@@ -177,6 +177,12 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 factor=float(row.factor),
                 account_type=row.account_type,
                 liquid=row.liquid == 1,
+                transfer_by=(
+                    datetime.strptime(row.transfer_by, Config.DATE_FORMAT_STRING)
+                    if row.transfer_by
+                    else None
+                ),
+                target_asset_id=str(row.target_asset_id or ""),
             )
             assets.setdefault(asset.currency, []).append(asset)
         for row in (
