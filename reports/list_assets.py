@@ -45,7 +45,7 @@ def asset_data_from_asset(asset: Asset) -> Dict[str, Any]:
 def is_target_option(asset: Asset) -> bool:
     """Assets offered as targets: liquid accounts and target-pool instruments."""
     type_name = type(asset).__name__
-    #if type_name == "Account":
+    # if type_name == "Account":
     #    return asset.is_liquid()
     return type_name == "Instrument" and asset.is_target_pool
 
