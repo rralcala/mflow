@@ -8,6 +8,7 @@ Instrument identifier). Pools are what the user has to keep above zero.
 Modeling rules:
   * Recurrent expenses/incomes and yearly (non one-off) payables grow with the
     inflation of their country. Loans and repayments are fixed contracts.
+  * Payables only use their balance; their amount is informational.
   * Housing properties grow with their country's inflation; vehicles don't.
   * Properties and non-liquid instruments with a sell-by date are sold then at
     their simulated value into their target asset, and recurrents whose parent
@@ -407,7 +408,7 @@ class _Simulation:
                 break
             if when < self.start_dt:
                 continue  # Overdue occurrence is already the original due date.
-            amount = asset.amount
+            amount = asset.balance
             if indexed:
                 amount *= self.inflation_factor(holding.country, index)
             self.schedule(

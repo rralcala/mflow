@@ -12,6 +12,7 @@ class Payable(Base):
     country = mapped_column(String(2), nullable=False)
     currency = mapped_column(String(3), nullable=False)
     description = mapped_column(String(255), nullable=False)
+    # Informational only; calculations use balance.
     amount = mapped_column(String(80), nullable=False)
     due_date = mapped_column(String(20), nullable=False)
     commited = mapped_column(Integer, nullable=False)

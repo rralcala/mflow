@@ -3,6 +3,7 @@ import unittest.mock
 from datetime import date, datetime, timedelta
 
 from asset_classes.account import Account
+from asset_classes.payable import Payable
 from asset_classes.recurrent import Recurrent
 
 
@@ -68,6 +69,34 @@ class TestRecurrentTimeline(unittest.TestCase):
 
         self.assertTrue(timeline)
         self.assertTrue(all(day <= maturity.date() for day, _ in timeline))
+
+
+class TestPayableUsesBalance(unittest.TestCase):
+    def setUp(self):
+        self.payable = Payable(
+            "US",
+            "USD",
+            "Tuition",
+            -9000.0,
+            -1000.0,
+            datetime(2030, 7, 7),
+            True,
+            True,
+            "expense",
+        )
+
+    def test_budget_is_balance_in_due_month(self):
+        self.assertEqual(
+            self.payable.get_budgeted_income(datetime(2030, 7, 1)), (-1000.0, "USD")
+        )
+        self.assertEqual(
+            self.payable.get_budgeted_income(datetime(2030, 8, 1)), (0.0, "USD")
+        )
+
+    def test_actual_income_ignores_amount(self):
+        self.assertEqual(
+            self.payable.get_actual_income(datetime(2030, 7, 1)), (0.0, "USD")
+        )
 
 
 if __name__ == "__main__":

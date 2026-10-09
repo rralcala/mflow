@@ -5,7 +5,7 @@ Backend for a personal cash flow tracker. It records assets and recurring expens
 ## Features
 
 - Track investments, accounts, property, bonds and certificates of deposit.
-- Track one-off and yearly payables, and recurring income and expenses (cron-style schedules).
+- Track one-off and yearly payables, and recurring income and expenses (cron-style schedules). A payable's `balance` is what the projections use; its `amount` is informational.
 - Fetch quotes for stocks, metals and crypto (yfinance, Coinbase) and convert between currencies.
 - Build a long-term cash flow estimate (see `GET /future_timeline`).
 

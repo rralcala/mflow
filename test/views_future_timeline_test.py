@@ -364,6 +364,39 @@ class TestFutureTimeline(unittest.TestCase):
         )
         self.assertAlmostEqual(asset_row(result, "Tuition")["endValue"], 0.0)
 
+    def test_payable_uses_balance_not_amount(self, *_):
+        tuition = Payable(
+            "US",
+            "USD",
+            "Tuition",
+            -9000.0,
+            -1000.0,
+            datetime(2030, 7, 7),
+            False,
+            False,
+            "loan",
+            "Checking",
+        )
+        result = run([account(balance=5000.0), tuition], end=date(2031, 12, 31))
+        self.assertAlmostEqual(month(result, "2030-07")["expenses"], -1000.0)
+        self.assertAlmostEqual(month(result, "2031-07")["expenses"], -1000.0)
+
+    def test_payable_with_zero_balance_has_no_flows(self, *_):
+        paid = Payable(
+            "US",
+            "USD",
+            "Paid",
+            -9000.0,
+            0.0,
+            datetime(2030, 7, 7),
+            False,
+            False,
+            "expense",
+            "Checking",
+        )
+        result = run([account(balance=5000.0), paid], end=date(2031, 12, 31))
+        self.assertAlmostEqual(sum(m["expenses"] for m in result["months"]), 0.0)
+
     def test_one_off_payable_happens_once(self, *_):
         fee = Payable(
             "US",

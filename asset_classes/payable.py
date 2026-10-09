@@ -5,6 +5,13 @@ from asset_classes.asset import Asset
 
 
 class Payable(Asset):
+    """A single future-dated payment, repeated yearly unless one_off.
+
+    Only `balance` (what is still owed or due) is used in calculations.
+    `amount` is informational: it documents the full size of the payment,
+    which can be much larger than what's left once part of it is paid.
+    """
+
     def __init__(
         self,
         country: str,
@@ -49,7 +56,7 @@ class Payable(Asset):
 
         balance = 0.0
         if date.month == today.month and date.year == today.year:
-            balance = self.amount
+            balance = self.balance
 
         return balance, self.currency
 
@@ -63,9 +70,8 @@ class Payable(Asset):
         return balance, self.currency
 
     def get_actual_income(self, year_month, include_capital=True):
-        budget, currency = self.get_budgeted_income(year_month)
-        balance, _ = self.get_income_balance(year_month)
-        return (budget - balance), currency
+        """Payments made so far aren't tracked: amount is informational only."""
+        return 0.0, self.currency
 
     def get_liquid_balance(self) -> Tuple[float, str]:
         """
