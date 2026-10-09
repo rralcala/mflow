@@ -11,6 +11,7 @@ NEGATIVES = "negatives"
 
 class Config:
     BASE_PATH: Path
+    COUNTRIES: List[str]
     CURRENCIES: List[str]
     DATE_FORMAT_STRING = "%Y-%m-%d"
     DB_SESSION: sessionmaker
@@ -42,3 +43,14 @@ def load_config(config_file: Path, dest) -> bool:
         logging.fatal("Not enough permissions to open %s", config_file)
         return False
     return True
+
+
+# Keys that must be present in the main config.json for the API to work.
+REQUIRED_KEYS = ("COUNTRIES",)
+
+
+def missing_required_keys(config) -> List[str]:
+    """Names of REQUIRED_KEYS that are absent from, or not a list in, `config`."""
+    return [
+        key for key in REQUIRED_KEYS if not isinstance(getattr(config, key, None), list)
+    ]

@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import jwt
 from apiflask import APIFlask
@@ -12,8 +13,14 @@ from routes.security import auth
 
 class TestDualAuth(unittest.TestCase):
     def setUp(self):
-        Config.SECRET_KEY = "unit-test-secret"
-        Config.USERS = {"1": {"username": "u", "name": "u", "password": "x"}}
+        # Patched (not assigned) so the shared Config class is restored afterwards.
+        for name, value in {
+            "SECRET_KEY": "unit-test-secret-key-at-least-32-bytes-long",
+            "USERS": {"1": {"username": "u", "name": "u", "password": "x"}},
+        }.items():
+            patcher = patch.object(Config, name, value, create=True)
+            patcher.start()
+            self.addCleanup(patcher.stop)
         self.app = APIFlask(__name__)
         self.app.secret_key = Config.SECRET_KEY
         lm = LoginManager(self.app)

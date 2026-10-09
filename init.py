@@ -10,7 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from lib.config import Config, load_config
+from lib.config import Config, load_config, missing_required_keys
 from lib.logger import config_logging
 
 # Interactive docs/spec are only served when running with --debug. The app is
@@ -58,6 +58,11 @@ def initialize_app() -> bool:
         sys.exit(1)
 
     if not load_config(config_file, Config):
+        sys.exit(1)
+
+    missing = missing_required_keys(Config)
+    if missing:
+        logger.fatal(f"Error: '{config_file}' is missing required key(s): {missing}")
         sys.exit(1)
 
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)

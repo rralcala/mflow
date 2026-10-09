@@ -1,6 +1,7 @@
 {
   "DATE_FORMAT_STRING": "%Y-%m-%d",
   "YEAR": 365.25,
+  "COUNTRIES": ["US"],
   "DB_SECRET_KEY": "CHANGE_ME",
   "USERS": 
     { "1": {

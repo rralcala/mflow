@@ -8,7 +8,13 @@ from flask_login import current_user
 from data.asset_store import reload_asset_store
 from lib.config import Config
 from lib.user_config import UserStore
-from lib.util import paginate, type_to_str, validate_target_asset
+from lib.util import (
+    country_for_update,
+    normalize_country,
+    paginate,
+    type_to_str,
+    validate_target_asset,
+)
 from models.bond import Bond, BondSchedule
 from models.deposit_certificate import DepositCertificate, DepositCertificateSchedule
 
@@ -234,7 +240,7 @@ def certificate_get(cert_type, request_input, id):
             result.maturity_date = data.get("maturityDate", result.maturity_date)
             result.currency = currency
             result.entity = data.get("entity", result.entity)
-            result.country = data.get("country", result.country)
+            result.country = country_for_update(data, result.country)
             result.target_asset_id = target_asset_id
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -262,11 +268,9 @@ def certificates_all(request_input, cert_type) -> tuple[Response, HTTPStatus]:
     if request_input.method == "POST":
         data = request_input.json
         currency = data.get("currency").upper()
-        country = data.get("country").upper()
+        country = normalize_country(data.get("country"))
         if currency.lower() not in Config.CURRENCIES:
             return jsonify({"message": "Bad currency"}), HTTPStatus.BAD_REQUEST
-        if country not in Config.COUNTRIES:
-            return jsonify({"message": "Bad Country"}), HTTPStatus.BAD_REQUEST
         target_asset_id = data.get("targetAssetId")
         with Config.DB_SESSION() as session:
             if not validate_target_asset(

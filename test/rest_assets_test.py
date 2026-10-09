@@ -69,6 +69,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
     def setUp(self):
         self.app = Flask(__name__)
         self.user = SimpleNamespace(id="1")
+        countries = patch.object(Config, "COUNTRIES", ["US", "PY"], create=True)
+        countries.start()
+        self.addCleanup(countries.stop)
 
     def test_accounts_get(self):
         session = SessionStub(

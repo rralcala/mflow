@@ -8,7 +8,14 @@ from data.asset_store import get_asset_store, reload_asset_store
 from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserStore
-from lib.util import error_response, paginate, validate_date, validate_target_asset
+from lib.util import (
+    country_for_update,
+    error_response,
+    normalize_country,
+    paginate,
+    validate_date,
+    validate_target_asset,
+)
 from models.instrument import Instrument
 from models.models import Account
 from models.payable import Payable
@@ -30,7 +37,7 @@ def accounts():
             data = request.json
             new_transaction = Account(
                 id=data.get("id"),
-                country=data.get("country"),
+                country=normalize_country(data.get("country"), required=False),
                 institution=data.get("institution"),
                 currency=data.get("currency"),
                 balance=data.get("balance"),
@@ -119,7 +126,9 @@ def get_account(name):
         else:
             if request.method == "PUT":
                 data = request.json
-                result.country = data.get("country", result.country)
+                result.country = country_for_update(
+                    data, result.country, required=False
+                )
                 result.institution = data.get("institution", result.institution)
                 result.currency = data.get("currency", result.currency)
                 result.balance = data.get("balance", result.balance)
@@ -140,6 +149,7 @@ def get_account(name):
 def instruments():
     if request.method == "POST":
         data = request.json
+        country = normalize_country(data.get("country"))
         acquisition_date = data.get("acquisition_date")
         if not validate_date(acquisition_date):
             return error_response(
@@ -153,7 +163,7 @@ def instruments():
             ):
                 return error_response("Bad target asset", HTTPStatus.BAD_REQUEST)
             new_transaction = Instrument(
-                country=data.get("country"),
+                country=country,
                 location=data.get("location"),
                 symbol=data.get("symbol"),
                 currency=currency,
@@ -221,7 +231,7 @@ def instruments_get(id):
                 return error_response("Bad target asset", HTTPStatus.BAD_REQUEST)
             result.id = data.get("id", result.id)
             result.user_id = data.get("user_id", result.user_id)
-            result.country = data.get("country", result.country)
+            result.country = country_for_update(data, result.country)
             result.location = data.get("location", result.location)
             result.symbol = data.get("symbol", result.symbol)
             result.factor = data.get("factor", result.factor)
@@ -301,11 +311,9 @@ def payables():
     if request.method == "POST":
         data = request.json
         currency = data.get("currency").upper()
-        country = data.get("country").upper()
+        country = normalize_country(data.get("country"))
         if currency.lower() not in Config.CURRENCIES:
             return jsonify({"message": "Bad currency"}), HTTPStatus.BAD_REQUEST
-        if country not in Config.COUNTRIES:
-            return jsonify({"message": "Bad Country"}), HTTPStatus.BAD_REQUEST
         due_date = data.get("dueDate")
         if not validate_date(due_date):
             return error_response(f"Invalid date '{due_date}'", HTTPStatus.BAD_REQUEST)
@@ -375,7 +383,7 @@ def payables_get(id):
                 session, int(current_user.id), target_asset_id, currency
             ):
                 return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
-            result.country = data.get("country", result.country)
+            result.country = country_for_update(data, result.country)
             result.currency = currency
             result.amount = data.get("amount", result.amount)
             result.balance = data.get("balance", result.balance)
@@ -416,7 +424,7 @@ def properties():
         data = request.json
         new_transaction = Property(
             user_id=int(current_user.id),
-            country=data.get("country"),
+            country=normalize_country(data.get("country")),
             currency=data.get("currency"),
             property_name=data.get("propertyName"),
             purchase_price=data.get("purchasePrice"),
@@ -475,7 +483,7 @@ def properties_get(id):
             return jsonify({"message": "Property not found"}), HTTPStatus.NOT_FOUND
         if request.method == "PUT":
             data = request.json
-            result.country = data.get("country", result.country)
+            result.country = country_for_update(data, result.country)
             result.currency = data.get("currency", result.currency)
             result.property_name = data.get("propertyName", result.property_name)
             result.purchase_price = data.get("purchasePrice", result.purchase_price)

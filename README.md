@@ -28,7 +28,7 @@ The server reads everything from a base directory. `sample-base-dir/` shows the 
 
 ```
 <base>/
-  config.json            # global config: SECRET_KEY, users, currencies, traded symbols
+  config.json            # global config: SECRET_KEY, users, COUNTRIES (required list of allowed country codes), currencies, traded symbols
   mydatabase.db          # SQLite database (schema in sample-base-dir/sqlite-db-schema.sql)
   user-<id>/config.json  # per-user config (Coinbase keys, target estate, default currency, ...)
 ```

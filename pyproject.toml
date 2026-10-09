@@ -1,0 +1,7 @@
+[tool.isort]
+profile = "black"
+skip = [".venv"]
+
+[tool.coverage.run]
+source = ["."]
+omit = [".venv/*", "test/*", "scripts/*", "discover_portfolios.py"]

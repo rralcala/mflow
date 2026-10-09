@@ -7,7 +7,12 @@ from data.asset_store import reload_asset_store
 from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserStore
-from lib.util import paginate, validate_target_asset
+from lib.util import (
+    country_for_update,
+    normalize_country,
+    paginate,
+    validate_target_asset,
+)
 from models.models import Recurrent, RecurrentTransaction
 
 from ..blueprints import assets_bp
@@ -117,6 +122,7 @@ def recurrent_transactions_get(name):
 def recurrents_all():
     if request.method == "POST":
         data = request.json
+        country = normalize_country(data.get("country"))
         target_asset_id = data.get("targetAssetId")
         currency = data.get("currency")
         with Config.DB_SESSION() as session:
@@ -128,7 +134,7 @@ def recurrents_all():
                 identifier=data.get("id"),
                 parent_asset_id=data.get("assetId"),
                 target_asset_id=target_asset_id,
-                country=data.get("country"),
+                country=country,
                 amount=data.get("amount"),
                 currency=currency,
                 recurrence=data.get("recurrence"),
@@ -186,7 +192,7 @@ def recurrents_get(name):
                 return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
             result.parent_asset_id = data.get("assetId", result.parent_asset_id)
             result.target_asset_id = target_asset_id
-            result.country = data.get("country", result.country)
+            result.country = country_for_update(data, result.country)
             result.amount = data.get("amount", result.amount)
             result.currency = currency
             result.recurrence = data.get("recurrence", result.recurrence)

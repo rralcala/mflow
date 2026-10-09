@@ -8,6 +8,8 @@ from apiflask import abort
 from croniter import croniter
 from flask import Response, jsonify, request
 
+from lib.config import Config
+
 
 class FormatPrinter(pprint.PrettyPrinter):
     def __init__(self, formats, **kwargs):
@@ -52,6 +54,35 @@ def paginate(items):
     if start < 0 or (end is not None and end < 0):
         abort(400, "_start and _end must not be negative")
     return items[start:end]
+
+
+def normalize_country(value, required: bool = True) -> Optional[str]:
+    """Return the upper-cased country code if it is one of Config.COUNTRIES.
+
+    Anything else (missing, not a string, unknown code) is a 400 for the client,
+    never a 500. With required=False a missing/empty value yields None.
+    """
+    if value is None or value == "":
+        if required:
+            abort(400, "country is required")
+        return None
+    if not isinstance(value, str):
+        abort(400, "country must be a string")
+    country = value.strip().upper()
+    if country not in {c.upper() for c in Config.COUNTRIES}:
+        abort(400, f"Invalid country '{value}'")
+    return country
+
+
+def country_for_update(data: dict, current: Optional[str], required: bool = True):
+    """Country to store on a PUT: unchanged unless the payload changes it.
+
+    A value equal to the stored one is accepted as is, so records holding a legacy
+    country can still be edited; any new value is validated.
+    """
+    if "country" not in data or data["country"] == current:
+        return current
+    return normalize_country(data["country"], required)
 
 
 def error_response(
