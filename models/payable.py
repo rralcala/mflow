@@ -17,7 +17,6 @@ class Payable(Base):
     due_date = mapped_column(String(20), nullable=False)
     commited = mapped_column(Integer, nullable=False)
     balance = mapped_column(String(80), nullable=True)
-    one_off = mapped_column(Integer, nullable=False, default=0)
     flow_class = mapped_column(String(20), nullable=True)
     target_asset_id = mapped_column(String(80), nullable=True)
 
@@ -34,7 +33,6 @@ class Payable(Base):
             "dueDate": self.due_date,
             "commited": self.commited == 1,
             "balance": float(self.balance),
-            "oneOff": self.one_off == 1,
             "flowClass": self.flow_class,
             "targetAssetId": self.target_asset_id,
         }

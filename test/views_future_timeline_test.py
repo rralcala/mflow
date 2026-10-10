@@ -394,28 +394,6 @@ class TestFutureTimeline(unittest.TestCase):
         self.assertAlmostEqual(pool["endBalance"], -100.0)
         self.assertIn("Rent targets unknown asset 'Missing'.", result["warnings"])
 
-    def test_regular_payable_repeats_yearly_with_inflation(self, *_):
-        tuition = Payable(
-            "US",
-            "USD",
-            "Tuition",
-            -1000.0,
-            -1000.0,
-            datetime(2030, 7, 7),
-            True,
-            False,
-            "expense",
-            "Checking",
-        )
-        result = run([account(balance=5000.0), tuition], end=date(2031, 12, 31))
-        self.assertAlmostEqual(asset_row(result, "Tuition")["startValue"], -1000.0)
-        self.assertAlmostEqual(month(result, "2030-07")["expenses"], -1000.0)
-        # Amounts are in today's money, inflated 18 months from the start.
-        self.assertAlmostEqual(
-            month(result, "2031-07")["expenses"], -1000.0 * 1.025**1.5
-        )
-        self.assertAlmostEqual(asset_row(result, "Tuition")["endValue"], 0.0)
-
     def test_payable_uses_balance_not_amount(self, *_):
         tuition = Payable(
             "US",
@@ -425,13 +403,11 @@ class TestFutureTimeline(unittest.TestCase):
             -1000.0,
             datetime(2030, 7, 7),
             False,
-            False,
             "loan",
             "Checking",
         )
         result = run([account(balance=5000.0), tuition], end=date(2031, 12, 31))
         self.assertAlmostEqual(month(result, "2030-07")["expenses"], -1000.0)
-        self.assertAlmostEqual(month(result, "2031-07")["expenses"], -1000.0)
 
     def test_payable_with_zero_balance_has_no_flows(self, *_):
         paid = Payable(
@@ -442,14 +418,13 @@ class TestFutureTimeline(unittest.TestCase):
             0.0,
             datetime(2030, 7, 7),
             False,
-            False,
             "expense",
             "Checking",
         )
         result = run([account(balance=5000.0), paid], end=date(2031, 12, 31))
         self.assertAlmostEqual(sum(m["expenses"] for m in result["months"]), 0.0)
 
-    def test_one_off_payable_happens_once(self, *_):
+    def test_payable_happens_once(self, *_):
         fee = Payable(
             "US",
             "USD",
@@ -457,7 +432,6 @@ class TestFutureTimeline(unittest.TestCase):
             -1000.0,
             -1000.0,
             datetime(2030, 7, 7),
-            True,
             True,
             "expense",
             "Checking",
@@ -467,22 +441,6 @@ class TestFutureTimeline(unittest.TestCase):
         self.assertAlmostEqual(month(result, "2031-07")["expenses"], 0.0)
         self.assertAlmostEqual(month(result, "2031-12")["balances"]["Checking"], 4000.0)
 
-    def test_regular_loan_payable_is_not_inflated(self, *_):
-        installment = Payable(
-            "US",
-            "USD",
-            "Installment",
-            -1000.0,
-            -1000.0,
-            datetime(2030, 7, 7),
-            False,
-            False,
-            "Loan",
-            "Checking",
-        )
-        result = run([account(balance=5000.0), installment], end=date(2031, 12, 31))
-        self.assertAlmostEqual(month(result, "2031-07")["expenses"], -1000.0)
-
     def test_overdue_payable_lands_in_first_month(self, *_):
         bill = Payable(
             "US",
@@ -491,7 +449,6 @@ class TestFutureTimeline(unittest.TestCase):
             -50.0,
             -50.0,
             datetime(2029, 11, 1),
-            False,
             False,
             "expense",
             "Checking",
@@ -560,7 +517,6 @@ class TestFutureTimeline(unittest.TestCase):
             -500.0,
             datetime(2030, 3, 1),
             False,
-            True,
             "Transfer",
             "Checking",
         )

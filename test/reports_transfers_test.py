@@ -41,7 +41,6 @@ def assets():
                 -200.0,
                 datetime.now(),
                 False,
-                False,
                 "transfer",
             ),
         ],
@@ -64,6 +63,20 @@ class TestTransfersAreExcludedFromReports(unittest.TestCase):
             for t in month["income"] + month["expenses"]
         }
         self.assertEqual(ids, {"Rent", "Salary"})
+
+    def test_pnl_can_skip_one_off_payables(self):
+        upfront = Payable(
+            "US", "USD", "Upfront", -700.0, -700.0, datetime.now(), False, "expense"
+        )
+        with patch("reports.pnl.current_user", USER), patch(
+            "reports.pnl.UserStore.get_user_config", return_value=USER_CONFIG
+        ):
+            included = calculate_monthly_pnl_data({"USD": [upfront]}, months=1)
+            skipped = calculate_monthly_pnl_data(
+                {"USD": [upfront]}, months=1, skip_one_off=True
+            )
+        self.assertAlmostEqual(included["n_totals"]["USD"], -700.0)
+        self.assertAlmostEqual(skipped["n_totals"]["USD"], 0.0)
 
     def test_monthly_transactions_still_list_transfers(self):
         _, transactions = next(monthly_transactions(assets(), months=1))

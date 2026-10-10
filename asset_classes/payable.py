@@ -5,7 +5,7 @@ from asset_classes.asset import Asset
 
 
 class Payable(Asset):
-    """A single future-dated payment, repeated yearly unless one_off.
+    """A single future-dated payment; it happens once, on its due date.
 
     Only `balance` (what is still owed or due) is used in calculations.
     `amount` is informational: it documents the full size of the payment,
@@ -21,7 +21,6 @@ class Payable(Asset):
         balance: float,
         due_date: datetime,
         commited: bool,
-        one_off: bool,
         flow_class: str,
         target_asset_id: str = "",
     ):
@@ -33,7 +32,6 @@ class Payable(Asset):
         self.balance = balance
         self.due_date = due_date
         self.commited = commited
-        self.one_off = one_off
         self.target_asset_id = target_asset_id
 
     def get_identifier(self) -> str:

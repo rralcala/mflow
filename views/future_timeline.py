@@ -7,9 +7,9 @@ Instrument identifier). Pools are what the user has to keep above zero.
 
 Modeling rules:
   * Recurrents marked ``inflation`` grow with the inflation of their country;
-    the rest stay at their fixed amount. Yearly (non one-off) payables grow
-    too, unless they're loans or repayments.
-  * Payables only use their balance; their amount is informational.
+    the rest stay at their fixed amount.
+  * Payables happen once, on their due date, and only use their balance; their
+    amount is informational.
   * Housing properties grow with their country's inflation; vehicles don't.
   * Properties and non-liquid instruments with a sell-by date are sold then at
     their simulated value into their target asset, and recurrents whose parent
@@ -42,9 +42,6 @@ from lib.util import cron_runs
 FALLBACK_INFLATION_RATE = 0.025
 VEHICLE_PREFIXES = ("auto", "car", "moto", "vehicle")
 VEHICLE_MARKERS = ("VIN=", "Plates=")
-# Yearly payables are inflated for these flow classes; recurrents use their
-# own inflation flag instead.
-INFLATION_INDEXED_FLOWS = (RecurrentTypes.Expense, RecurrentTypes.Income)
 CATEGORIES = ("income", "expenses", "interest", "maturities", "sales", "transfers")
 # Per-currency transfer totals below this (in USD) count as balanced.
 TRANSFER_TOLERANCE_USD = 1.0
@@ -75,13 +72,6 @@ def _to_date(value: date | datetime | str) -> date:
     if isinstance(value, datetime):
         return value.date()
     return value
-
-
-def _safe_replace_year(value: datetime, year: int) -> datetime:
-    try:
-        return value.replace(year=year)
-    except ValueError:
-        return value.replace(year=year, day=28)
 
 
 def is_vehicle(asset: Property) -> bool:
@@ -406,30 +396,6 @@ class _Simulation:
                 category,
             ),
         )
-        if asset.one_off:
-            return
-        # Regular payables are expected to come back every year, inflation
-        # adjusted unless they are fixed contracts like loans.
-        flow_class = (asset.flow_class or RecurrentTypes.Expense).lower()
-        indexed = flow_class in INFLATION_INDEXED_FLOWS
-        year = asset.due_date.year + 1
-        while year <= self.end_dt.year:
-            when = _safe_replace_year(asset.due_date, year)
-            year += 1
-            index = self.month_index(when)
-            if index is None:
-                break
-            if when < self.start_dt:
-                continue  # Overdue occurrence is already the original due date.
-            amount = asset.balance
-            if indexed:
-                amount *= self.inflation_factor(holding.country, index)
-            self.schedule(
-                when,
-                partial(
-                    self.transfer, None, target, amount, holding.currency, category
-                ),
-            )
 
     def add_property(self, asset: Property) -> None:
         holding = self.add_holding(asset, asset.get_current_value()[0])

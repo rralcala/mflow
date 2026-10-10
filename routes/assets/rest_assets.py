@@ -439,7 +439,6 @@ def payables():
                 due_date=due_date,
                 commited=(1 if data.get("commited", False) else 0),
                 user_id=int(current_user.id),
-                one_off=1 if data.get("oneOff") else 0,
                 flow_class=data.get("flowClass").lower(),
                 target_asset_id=target_asset_id,
             )
@@ -498,7 +497,6 @@ def payables_get(id):
             result.due_date = due_date
             result.description = data.get("description", result.description)
             result.commited = 1 if data.get("commited", result.commited) else 0
-            result.one_off = 1 if data.get("oneOff", result.one_off) else 0
             result.flow_class = data.get("flowClass", result.flow_class).lower()
             result.target_asset_id = target_asset_id
             session.commit()

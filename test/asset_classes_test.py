@@ -91,7 +91,6 @@ class TestPayableUsesBalance(unittest.TestCase):
             -1000.0,
             datetime(2030, 7, 7),
             True,
-            True,
             "expense",
         )
 

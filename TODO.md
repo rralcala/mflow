@@ -26,7 +26,6 @@ From the 2026-10-09 backend review. Already fixed: recurrent timelines past matu
 
 - [ ] **`projection_analysis` reads another user's data and crashes easily** (`views/projection.py:39`). `session.query(Recurrent).get(DEFAULT_VAR_ID)` isn't filtered by user, and user 2's config points at `CostoFijo-PY`, which belongs to user 1. It also fails if the recurrent doesn't exist (`None.to_dict()`), raises `KeyError` when that recurrent is in USD (`exchange_for` only has the secondary currency), and divides by zero when `LAST_UNTIL` is less than a month away (`/ runway`, line 56).
 - [ ] **`recurrent.identifier` and `account.id` are global primary keys.** Two users can't use the same name: the second POST returns 500 (`UNIQUE constraint failed`), which also tells one user that another user has an asset with that name. A duplicate within your own account also returns 500 instead of 409. Fixing it properly needs a composite key `(user_id, identifier)` and a migration.
-- [ ] **Yearly payables only count in their due-date year** for `spending_analysis`, `monthly_pnl` and `projection_analysis` (`Payable.get_budgeted_income`, `asset_classes/payable.py:54`). The future-timeline simulation repeats them every year. Decide whether `due_date` is meant to roll forward when paid, or whether budgets should repeat yearly when `one_off` is false.
 
 ### Medium
 

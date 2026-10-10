@@ -197,7 +197,6 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 due_date=datetime.strptime(row.due_date, Config.DATE_FORMAT_STRING),
                 commited=row.commited == 1,
                 balance=float(row.balance),
-                one_off=row.one_off == 1,
                 flow_class=row.flow_class,
                 target_asset_id=str(row.target_asset_id or ""),
             )

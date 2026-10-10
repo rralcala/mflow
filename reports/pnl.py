@@ -5,6 +5,7 @@ from dateutil.relativedelta import relativedelta
 from flask_login import current_user
 
 from asset_classes.asset import Asset
+from asset_classes.payable import Payable
 from data.constants import is_transfer
 from lib.logger import get_logger
 from lib.user_config import UserStore
@@ -31,8 +32,8 @@ def monthly_transactions(
         for assets in main_assets.values():
 
             for asset in assets:
-                # If skip one offs and asset has one_off set to True, skip it
-                if skip_one_off and getattr(asset, "one_off", False):
+                # Payables are one-off payments, not part of the monthly run rate.
+                if skip_one_off and isinstance(asset, Payable):
                     continue
                 if skip_transfers and is_transfer(asset):
                     continue

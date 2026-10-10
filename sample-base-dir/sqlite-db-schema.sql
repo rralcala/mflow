@@ -97,7 +97,6 @@ CREATE TABLE IF NOT EXISTS "payable" (
 	"amount"	TEXT NOT NULL,
 	"commited"	INTEGER NOT NULL,
 	"balance"	TEXT NOT NULL DEFAULT amount,
-	"one_off"	INTEGER NOT NULL DEFAULT 0,
 	"flow_class"	TEXT NOT NULL DEFAULT 'expense',
 	"target_asset_id"	TEXT,
 	PRIMARY KEY("id" AUTOINCREMENT)
