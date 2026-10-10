@@ -139,6 +139,7 @@ CREATE TABLE IF NOT EXISTS "recurrent" (
 	"rate"	TEXT NOT NULL,
 	"user_Id"	INTEGER NOT NULL DEFAULT 1,
 	"target_asset_id"	TEXT,
+	"inflation"	INTEGER NOT NULL DEFAULT 0,
 	PRIMARY KEY("identifier")
 );
 CREATE TABLE IF NOT EXISTS "recurrent_transaction" (

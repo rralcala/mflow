@@ -122,6 +122,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 rate=float(row.rate),
                 target_asset_id=str(row.target_asset_id or ""),
                 user_id=int(user_config.USER_ID),
+                inflation=row.inflation == 1,
             )
 
             assets.setdefault(asset.currency, []).append(asset)

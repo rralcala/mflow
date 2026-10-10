@@ -166,6 +166,7 @@ def recurrents_all():
                 flow_class=data.get("flowClass").lower(),
                 rate=data.get("rate"),
                 user_id=int(current_user.id),
+                inflation=1 if data.get("inflation") else 0,
             )
             session.add(new_transaction)
             session.commit()
@@ -230,6 +231,7 @@ def recurrents_get(name):
             result.end = end
             result.flow_class = data.get("flowClass", result.flow_class).lower()
             result.rate = data.get("rate", result.rate)
+            result.inflation = 1 if data.get("inflation", result.inflation) else 0
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
         elif request.method == "DELETE":

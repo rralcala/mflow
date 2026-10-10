@@ -57,6 +57,8 @@ class Recurrent(Base):
     flow_class = mapped_column(String(20), nullable=False)
     rate = mapped_column(String(20), nullable=False)
     user_id = mapped_column(Integer, nullable=False)
+    # Whether simulations grow the amount with the country's inflation.
+    inflation = mapped_column(Integer, nullable=False, default=0)
 
     def __str__(self):
         return self.identifier
@@ -74,6 +76,7 @@ class Recurrent(Base):
             "end": self.end,
             "flowClass": self.flow_class,
             "rate": float(self.rate),
+            "inflation": self.inflation == 1,
         }
 
 

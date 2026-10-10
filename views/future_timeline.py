@@ -6,8 +6,9 @@ the *target pool* named by the asset's ``target_asset_id`` (an Account id or an
 Instrument identifier). Pools are what the user has to keep above zero.
 
 Modeling rules:
-  * Recurrent expenses/incomes and yearly (non one-off) payables grow with the
-    inflation of their country. Loans and repayments are fixed contracts.
+  * Recurrents marked ``inflation`` grow with the inflation of their country;
+    the rest stay at their fixed amount. Yearly (non one-off) payables grow
+    too, unless they're loans or repayments.
   * Payables only use their balance; their amount is informational.
   * Housing properties grow with their country's inflation; vehicles don't.
   * Properties and non-liquid instruments with a sell-by date are sold then at
@@ -41,6 +42,8 @@ from lib.util import cron_runs
 FALLBACK_INFLATION_RATE = 0.025
 VEHICLE_PREFIXES = ("auto", "car", "moto", "vehicle")
 VEHICLE_MARKERS = ("VIN=", "Plates=")
+# Yearly payables are inflated for these flow classes; recurrents use their
+# own inflation flag instead.
 INFLATION_INDEXED_FLOWS = (RecurrentTypes.Expense, RecurrentTypes.Income)
 CATEGORIES = ("income", "expenses", "interest", "maturities", "sales", "transfers")
 # Per-currency transfer totals below this (in USD) count as balanced.
@@ -351,7 +354,7 @@ class _Simulation:
             return
         target = self.resolve_target(asset)
         source = holding if is_contract else None
-        indexed = asset.flow_class in INFLATION_INDEXED_FLOWS
+        indexed = asset.inflation
         window_start = max(
             asset.start_date, datetime.combine(self.months[0], datetime.min.time())
         )

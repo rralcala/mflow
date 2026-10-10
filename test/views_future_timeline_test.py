@@ -62,6 +62,7 @@ def recurrent(
     country="US",
     start=datetime(2020, 1, 1),
     end=datetime(2075, 1, 1),
+    inflation=False,
 ):
     return Recurrent(
         identifier=identifier,
@@ -74,6 +75,7 @@ def recurrent(
         end=end,
         flow_class=flow_class,
         target_asset_id=target,
+        inflation=inflation,
     )
 
 
@@ -101,7 +103,7 @@ def house(
 
 
 def rent(parent, end=datetime(2075, 1, 1)):
-    income = recurrent("Rent-In", 1000.0, flow_class="income", end=end)
+    income = recurrent("Rent-In", 1000.0, flow_class="income", end=end, inflation=True)
     income.parent_asset_id = parent
     return income
 
@@ -134,11 +136,21 @@ class TestFutureTimeline(unittest.TestCase):
         self.assertEqual(result["summary"]["months"], len(result["months"]))
 
     def test_recurrent_expense_draws_from_target_and_inflates(self, *_):
-        result = run([account(), recurrent()], end=date(2031, 1, 31))
+        result = run([account(), recurrent(inflation=True)], end=date(2031, 1, 31))
         self.assertAlmostEqual(month(result, "2030-01")["balances"]["Checking"], 900.0)
         self.assertAlmostEqual(month(result, "2030-01")["expenses"], -100.0)
         # Twelve months later the expense grew by one year of US inflation.
         self.assertAlmostEqual(month(result, "2031-01")["expenses"], -102.5)
+
+    def test_inflation_follows_the_flag_not_the_flow_class(self, *_):
+        flat_expense = recurrent("Flat", -100.0)
+        indexed_loan = recurrent("Indexed", -100.0, flow_class="loan", inflation=True)
+        result = run(
+            [account(balance=10000.0), flat_expense, indexed_loan],
+            end=date(2031, 1, 31),
+        )
+        # 2031-01: the flat expense stays at 100, the indexed loan grows 2.5%.
+        self.assertAlmostEqual(month(result, "2031-01")["expenses"], -100.0 - 102.5)
 
     def test_loans_are_not_inflated_and_pay_down_the_liability(self, *_):
         loan = recurrent(
@@ -344,7 +356,7 @@ class TestFutureTimeline(unittest.TestCase):
         old = account("OldBank", 1000.0)
         old.transfer_by = datetime(2030, 1, 1)
         old.target_asset_id = "Sweep_USD"
-        rent_out = recurrent(target="OldBank")  # -100 on the 5th
+        rent_out = recurrent(target="OldBank", inflation=True)  # -100 on the 5th
         result = run([sweep, old, rent_out], end=date(2030, 2, 28))
         # January's rent, then February's (one month of US inflation).
         self.assertAlmostEqual(

@@ -29,6 +29,7 @@ class Recurrent(Asset):
         rate: float = 0.0,
         target_asset_id: str = "",
         user_id: Optional[int] = None,
+        inflation: bool = False,
     ):
         self._identifier = identifier
         # Transactions are only read for this user.
@@ -43,6 +44,8 @@ class Recurrent(Asset):
         self.flow_class = flow_class
         self.parent_asset_id = parent_asset_id
         self.target_asset_id = target_asset_id
+        # Simulations grow the amount with inflation only when this is set.
+        self.inflation = inflation
 
     def get_identifier(self) -> str:
         return self._identifier

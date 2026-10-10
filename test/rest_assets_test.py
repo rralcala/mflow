@@ -861,6 +861,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
             end="2027-01-01",
             flow_class="expense",
             rate="0",
+            inflation=0,
         )
         result.to_dict = lambda: {"recurrence": result.recurrence}
         return result
@@ -886,6 +887,21 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ):
             response, status = rest_recurrents.recurrents_get.__wrapped__("r")
         return response, status, session
+
+    def test_recurrents_put_sets_and_keeps_inflation(self):
+        result = self.recurrent_row("0 0 5 * *")
+        _, status, session = self.put_recurrent(result, {"inflation": True})
+        self.assertEqual(status, 200)
+        self.assertTrue(session.committed)
+        self.assertEqual(result.inflation, 1)
+
+        # Omitting the field keeps the stored value.
+        _, status, _ = self.put_recurrent(result, {"amount": "-120"})
+        self.assertEqual(status, 200)
+        self.assertEqual(result.inflation, 1)
+
+        _, status, _ = self.put_recurrent(result, {"inflation": False})
+        self.assertEqual(result.inflation, 0)
 
     def test_recurrents_put_rejects_more_than_once_a_month(self):
         result = self.recurrent_row("0 0 5 * *")
@@ -1114,6 +1130,8 @@ class TestRestAssetsRoutes(unittest.TestCase):
 
         self.assertEqual(status, 201)
         self.assertEqual(session.added[0].target_asset_id, "NYSE_USD")
+        # Inflation is opt-in: no flag in the payload means a fixed amount.
+        self.assertEqual(session.added[0].inflation, 0)
 
     def test_recurrents_all_post_bad_target_instrument_currency_mismatch(self):
         session = SessionStub(
