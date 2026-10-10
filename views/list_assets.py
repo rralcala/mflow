@@ -5,6 +5,7 @@ from dateutil.relativedelta import relativedelta
 from flask_login import current_user
 
 from asset_classes.asset import Asset
+from asset_classes.recurrent import Recurrent
 from data.exchange_rates import ExchangeRates
 from lib.config import NEGATIVES, POSITIVES, Config
 from lib.logger import get_logger
@@ -14,15 +15,29 @@ from reports.list_assets import net_worth
 Logger = get_logger()
 
 
+def income_location(asset: Asset, by_id: Dict[str, Asset]) -> str:
+    """A Recurrent attached to a parent asset is reported under the parent."""
+    if isinstance(asset, Recurrent):
+        parent = by_id.get(asset.parent_asset_id)
+        if parent is not None and parent is not asset:
+            return parent.get_location()[1]
+    return asset.get_location()[1]
+
+
 def list_income(assets: Dict[str, List[Asset]]) -> Dict[str, float]:
     grand_total, b, c = net_worth(assets)
     total_fixed = 0.0
     tot_per_market = {}
     tot_per_location = {}
     inc_per_location = {}
+    by_id = {}
+    for sub in assets.values():
+        for asset in sub:
+            by_id[asset.get_identifier()] = asset
 
     for currency, asset_list in assets.items():
         for asset in asset_list:
+            location = income_location(asset, by_id)
             income_avg = 0.0
             for month in range(0, 12):
                 income, currency = asset.get_budgeted_income(
@@ -42,12 +57,12 @@ def list_income(assets: Dict[str, List[Asset]]) -> Dict[str, float]:
             total_fixed += usd_income
             tot_per_market.setdefault(asset.get_market(), 0.0)
             tot_per_market[asset.get_market()] += usd_value
-            tot_per_location.setdefault(asset.get_location()[1], 0.0)
-            tot_per_location[asset.get_location()[1]] += usd_value
-            inc_per_location.setdefault(asset.get_location()[1], 0.0)
-            inc_per_location[
-                asset.get_location()[1]
-            ] += usd_income * ExchangeRates.exchange_rate("USDPYG")
+            tot_per_location.setdefault(location, 0.0)
+            tot_per_location[location] += usd_value
+            inc_per_location.setdefault(location, 0.0)
+            inc_per_location[location] += usd_income * ExchangeRates.exchange_rate(
+                "USDPYG"
+            )
 
     ret = 0.0
     for current_value, current_return, _, _ in b:
