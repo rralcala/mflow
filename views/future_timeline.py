@@ -38,7 +38,6 @@ from asset_classes.recurrent import Recurrent
 from data.constants import RecurrentTypes, is_transfer
 from lib.util import cron_runs
 
-DEFAULT_INFLATION_RATES: Dict[str, float] = {"US": 0.025, "UY": 0.025, "PY": 0.035}
 FALLBACK_INFLATION_RATE = 0.025
 VEHICLE_PREFIXES = ("auto", "car", "moto", "vehicle")
 VEHICLE_MARKERS = ("VIN=", "Plates=")
@@ -690,7 +689,7 @@ def future_timeline(
     simulation = _Simulation(
         start,
         end,
-        {**DEFAULT_INFLATION_RATES, **(inflation_rates or {})},
+        (inflation_rates or {}),
         fx_rates if fx_rates is not None else market_fx_rates(assets),
         include_capital_growth,
     )

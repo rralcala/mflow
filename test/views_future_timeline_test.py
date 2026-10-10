@@ -201,14 +201,20 @@ class TestFutureTimeline(unittest.TestCase):
 
     def test_housing_follows_inflation_but_vehicles_do_not(self, *_):
         car = house("Auto-Frontier", 20000.0, "Brand=Nissan,\nVIN=123")
-        result = run([house(), car])
+        result = run(
+            [house(), car], inflation_rates={"US": 0.025, "UY": 0.025, "PY": 0.035}
+        )
         self.assertAlmostEqual(asset_row(result, "House-1")["endValue"], 103500.0)
         self.assertEqual(asset_row(result, "House-1")["growth"], "inflation")
         self.assertAlmostEqual(asset_row(result, "Auto-Frontier")["endValue"], 20000.0)
 
     def test_property_is_sold_at_simulated_value_into_target(self, *_):
         sold = house(sell_by=datetime(2031, 1, 15), target="Checking")
-        result = run([account(), sold], end=date(2031, 6, 30))
+        result = run(
+            [account(), sold],
+            end=date(2031, 6, 30),
+            inflation_rates={"US": 0.025, "UY": 0.025, "PY": 0.035},
+        )
         # Twelve months of PY inflation before the January 2031 sale.
         self.assertAlmostEqual(month(result, "2031-01")["sales"], 103500.0)
         self.assertAlmostEqual(
@@ -348,7 +354,7 @@ class TestFutureTimeline(unittest.TestCase):
         self.assertAlmostEqual(month(result, "2030-02")["balances"]["OldBank"], 0.0)
 
     def test_inflation_rates_can_be_overridden_per_country(self, *_):
-        result = run([house()], inflation_rates={"PY": 0.10})
+        result = run([house()], inflation_rates={"PY": 0.10, "US": 0.025})
         self.assertAlmostEqual(asset_row(result, "House-1")["endValue"], 110000.0)
         self.assertEqual(result["inflationRates"]["US"], 0.025)
 
