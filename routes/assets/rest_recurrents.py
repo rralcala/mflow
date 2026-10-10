@@ -15,6 +15,7 @@ from lib.util import (
     paginate,
     recurrence_error,
     require_date,
+    target_country_error,
     validate_target_asset,
 )
 from models.models import Recurrent, RecurrentTransaction
@@ -153,6 +154,11 @@ def recurrents_all():
                 session, int(current_user.id), target_asset_id, currency
             ):
                 return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
+            error = target_country_error(
+                session, int(current_user.id), target_asset_id, country
+            )
+            if error:
+                return error_response(error, HTTPStatus.BAD_REQUEST)
             new_transaction = Recurrent(
                 identifier=data.get("id"),
                 parent_asset_id=data.get("assetId"),
@@ -217,13 +223,19 @@ def recurrents_get(name):
             currency = normalize_currency(data.get("currency", result.currency))
             start = require_date(data.get("start", result.start), "start")
             end = require_date(data.get("end", result.end), "end")
+            country = country_for_update(data, result.country)
             if not validate_target_asset(
                 session, int(current_user.id), target_asset_id, currency
             ):
                 return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
+            error = target_country_error(
+                session, int(current_user.id), target_asset_id, country
+            )
+            if error:
+                return error_response(error, HTTPStatus.BAD_REQUEST)
             result.parent_asset_id = data.get("assetId", result.parent_asset_id)
             result.target_asset_id = target_asset_id
-            result.country = country_for_update(data, result.country)
+            result.country = country
             result.amount = data.get("amount", result.amount)
             result.currency = currency
             result.recurrence = recurrence

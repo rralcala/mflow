@@ -163,6 +163,35 @@ def validate_pool_target(
     )
 
 
+def target_country(session, user_id: int, target_asset_id: str) -> Optional[str]:
+    """Country of a target asset (an Account or an Instrument), if found."""
+    from models.instrument import Instrument
+    from models.models import Account
+
+    account = (
+        session.query(Account).filter_by(user_id=user_id, id=target_asset_id).first()
+    )
+    if account:
+        return account.country
+    for row in session.query(Instrument).filter_by(user_id=user_id).all():
+        if f"{row.location}_{row.symbol}" == target_asset_id:
+            return row.country
+    return None
+
+
+def target_country_error(
+    session, user_id: int, target_asset_id: str, country: str
+) -> Optional[str]:
+    """Flows must stay in their country: the target has to be in the same one."""
+    found = target_country(session, user_id, target_asset_id)
+    if (found or "").upper() != (country or "").upper():
+        return (
+            f"Target asset {target_asset_id} is in {found or 'no country'}, "
+            f"but the recurrent is in {country}"
+        )
+    return None
+
+
 def target_references(session, user_id: int, target_asset_id: str) -> List[str]:
     """Identifiers of the assets whose cash flows use target_asset_id."""
     from models.bond import Bond

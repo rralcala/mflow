@@ -513,7 +513,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         return response, status, session
 
     def test_properties_post_with_sell_by_and_target(self):
-        usd_account = SimpleNamespace(id="acc-1", currency="USD")
+        usd_account = SimpleNamespace(id="acc-1", currency="USD", country="US")
         response, status, session = self._post_property(
             {"sellBy": "2035-06-01", "targetAssetId": "acc-1"}, usd_account
         )
@@ -777,7 +777,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         session = SessionStub(
             {
                 rest_assets.Account: QueryStub(
-                    first_item=SimpleNamespace(id="acc-1", currency="USD")
+                    first_item=SimpleNamespace(id="acc-1", currency="USD", country="US")
                 )
             }
         )
@@ -806,6 +806,32 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ):
             response, status = rest_recurrents.recurrents_all.__wrapped__()
         return response, status, session
+
+    def test_recurrents_post_rejects_target_in_another_country(self):
+        response, status, session = self.post_recurrent({"country": "PY"})
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(
+            response.get_json(),
+            {"message": "Target asset acc-1 is in US, but the recurrent is in PY"},
+        )
+        self.assertEqual(session.added, [])
+
+    def test_recurrents_put_rejects_moving_away_from_target_country(self):
+        result = self.recurrent_row("0 0 5 * *")
+        response, status, session = self.put_recurrent(result, {"country": "PY"})
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(
+            response.get_json(),
+            {"message": "Target asset acc-1 is in US, but the recurrent is in PY"},
+        )
+        self.assertEqual(result.country, "US")
+        self.assertFalse(session.committed)
+
+    def test_recurrents_put_accepts_target_in_same_country(self):
+        result = self.recurrent_row("0 0 5 * *")
+        _, status, session = self.put_recurrent(result, {"country": "us"})
+        self.assertEqual(status, 200)
+        self.assertTrue(session.committed)
 
     def test_recurrents_post_upper_cases_currency(self):
         _, status, session = self.post_recurrent({"currency": "usd"})
@@ -871,7 +897,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
             {
                 Recurrent: QueryStub(first_item=result),
                 rest_assets.Account: QueryStub(
-                    first_item=SimpleNamespace(id="acc-1", currency="USD")
+                    first_item=SimpleNamespace(id="acc-1", currency="USD", country="US")
                 ),
             }
         )
@@ -934,7 +960,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         session = SessionStub(
             {
                 rest_assets.Account: QueryStub(
-                    first_item=SimpleNamespace(id="acc-1", currency="USD")
+                    first_item=SimpleNamespace(id="acc-1", currency="USD", country="US")
                 ),
             }
         )
@@ -1098,7 +1124,12 @@ class TestRestAssetsRoutes(unittest.TestCase):
                 rest_assets.Account: QueryStub(first_item=None),
                 rest_assets.Instrument: QueryStub(
                     all_items=[
-                        SimpleNamespace(location="NYSE", symbol="USD", is_target_pool=1)
+                        SimpleNamespace(
+                            country="US",
+                            location="NYSE",
+                            symbol="USD",
+                            is_target_pool=1,
+                        )
                     ]
                 ),
             }
@@ -1138,7 +1169,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
             {
                 rest_assets.Account: QueryStub(first_item=None),
                 rest_assets.Instrument: QueryStub(
-                    all_items=[SimpleNamespace(location="NYSE", symbol="AAPL")]
+                    all_items=[
+                        SimpleNamespace(country="US", location="NYSE", symbol="AAPL")
+                    ]
                 ),
             }
         )
@@ -1172,6 +1205,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
             parent_asset_id="parent-1",
             identifier="r1",
             currency="USD",
+            country="US",
             recurrence="0 0 5 * *",
             start="2026-01-01",
             end="2027-01-01",
@@ -1511,7 +1545,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         session = SessionStub(
             {
                 rest_assets.Account: QueryStub(
-                    first_item=SimpleNamespace(id="acc-1", currency="USD")
+                    first_item=SimpleNamespace(id="acc-1", currency="USD", country="US")
                 ),
             }
         )
@@ -1560,7 +1594,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
             {
                 rest_assets.Payable: QueryStub(first_item=existing),
                 rest_assets.Account: QueryStub(
-                    first_item=SimpleNamespace(id="acc-1", currency="USD")
+                    first_item=SimpleNamespace(id="acc-1", currency="USD", country="US")
                 ),
             }
         )
