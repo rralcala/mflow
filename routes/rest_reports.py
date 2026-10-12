@@ -20,6 +20,7 @@ from views import investment_performance as vip
 from views import list_assets as vla
 from views import monthly_pnl as vmpnl
 from views import projection as vp
+from views import recurrent_history as vrh
 from views import spending as vs
 from views import upcoming_payments as vup
 
@@ -199,6 +200,30 @@ def projection_analysis():
 
     response = jsonify(data)
     response.headers["X-Total-Count"] = count
+    return response, HTTPStatus.OK
+
+
+@reports_bp.route("/recurrent_history", methods=["GET"])
+@reports_bp.auth_required(auth)
+def recurrent_history():
+    """Recorded transactions per recurrent and month, with statistics.
+
+    Optional query args: startYearMonth and endYearMonth (YYYY-MM, defaulting
+    to the twelve months ending with the current one) and flowClass.
+    """
+    default_start, default_end = vrh.default_range(date.today())
+    try:
+        data = vrh.recurrent_history(
+            int(current_user.id),
+            request.args.get("startYearMonth") or default_start,
+            request.args.get("endYearMonth") or default_end,
+            flow_class=request.args.get("flowClass") or None,
+        )
+    except ValueError as exc:
+        return jsonify({"message": str(exc)}), HTTPStatus.BAD_REQUEST
+
+    response = jsonify(data)
+    response.headers["X-Total-Count"] = len(data["recurrents"])
     return response, HTTPStatus.OK
 
 
