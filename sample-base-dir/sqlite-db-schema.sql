@@ -151,7 +151,18 @@ CREATE TABLE IF NOT EXISTS "recurrent_transaction" (
 	"paid_with"	TEXT NOT NULL,
 	"create_date"	TEXT NOT NULL,
 	"user_id"	INTEGER NOT NULL DEFAULT 1,
+	"import_hash"	TEXT,
 	PRIMARY KEY("transaction_id" AUTOINCREMENT)
+);
+CREATE TABLE IF NOT EXISTS "ignored_transaction" (
+	"id"	INTEGER,
+	"user_id"	INTEGER NOT NULL,
+	"import_hash"	TEXT NOT NULL,
+	"transaction_date"	TEXT NOT NULL,
+	"description"	TEXT NOT NULL,
+	"amount"	TEXT NOT NULL,
+	"create_date"	TEXT NOT NULL,
+	PRIMARY KEY("id" AUTOINCREMENT)
 );
 CREATE INDEX IF NOT EXISTS "account_user_id" ON "account" (
 	"user_id"
@@ -187,10 +198,18 @@ CREATE INDEX IF NOT EXISTS "recurrent_transaction_user_parent" ON "recurrent_tra
 	"parent_id",
 	"user_id"
 );
+CREATE UNIQUE INDEX IF NOT EXISTS "recurrent_transaction_user_import_hash" ON "recurrent_transaction" (
+	"user_id",
+	"import_hash"
+);
 CREATE INDEX IF NOT EXISTS "recurrent_user_id" ON "recurrent" (
 	"user_Id"
 );
 CREATE INDEX IF NOT EXISTS "user_id" ON "account" (
 	"user_id"
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "ignored_transaction_user_import_hash" ON "ignored_transaction" (
+	"user_id",
+	"import_hash"
 );
 COMMIT;

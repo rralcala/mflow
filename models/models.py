@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from flask_login import UserMixin
-from sqlalchemy import Integer, String
+from sqlalchemy import Index, Integer, String
 from sqlalchemy.orm import mapped_column
 
 from data.base import Base
@@ -82,6 +82,14 @@ class Recurrent(Base):
 
 class RecurrentTransaction(Base):
     __tablename__ = "recurrent_transaction"
+    __table_args__ = (
+        Index(
+            "recurrent_transaction_user_import_hash",
+            "user_id",
+            "import_hash",
+            unique=True,
+        ),
+    )
 
     transaction_id = mapped_column(Integer, primary_key=True)
     parent_id = mapped_column(String(80), nullable=False)
@@ -97,6 +105,8 @@ class RecurrentTransaction(Base):
         default=lambda: datetime.now().strftime(Config.DATE_FORMAT_STRING),
     )
     user_id = mapped_column(Integer, nullable=False)
+    # Set on bulk imports so the same source row can't be loaded twice.
+    import_hash = mapped_column(String(64), nullable=True)
 
     def to_dict(self):
         return {
@@ -108,7 +118,35 @@ class RecurrentTransaction(Base):
             "transactionDate": self.transaction_date,
             "paidWithAssetId": self.paid_with,
             "createDate": self.create_date,
+            "importHash": self.import_hash,
         }
+
+
+class IgnoredTransaction(Base):
+    """A bulk-import row the user chose to skip, kept so later imports skip it too."""
+
+    __tablename__ = "ignored_transaction"
+    __table_args__ = (
+        Index(
+            "ignored_transaction_user_import_hash",
+            "user_id",
+            "import_hash",
+            unique=True,
+        ),
+    )
+
+    id = mapped_column(Integer, primary_key=True)
+    user_id = mapped_column(Integer, nullable=False)
+    import_hash = mapped_column(String(64), nullable=False)
+    # The source row, so it can be shown again when the file is re-uploaded.
+    transaction_date = mapped_column(String(35), nullable=False)
+    description = mapped_column(String(200), nullable=False)
+    amount = mapped_column(String(20), nullable=False)
+    create_date = mapped_column(
+        String(35),
+        nullable=False,
+        default=lambda: datetime.now().strftime(Config.DATE_FORMAT_STRING),
+    )
 
 
 class User(UserMixin):
