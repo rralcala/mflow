@@ -1,4 +1,8 @@
 import unittest
+from datetime import datetime
+from io import BytesIO
+
+import openpyxl
 
 from lib.parsers import (
     ParsedTransaction,
@@ -7,6 +11,7 @@ from lib.parsers import (
     get_parser,
     transaction_hashes,
 )
+from lib.parsers.cuenta_continental import CuentaContinentalParser
 from lib.parsers.generic_csv import GenericCsvParser
 
 
@@ -103,6 +108,103 @@ class TestGenericCsvParser(unittest.TestCase):
             self.parse("  \n")
         with self.assertRaisesRegex(ParseError, "UTF-8"):
             GenericCsvParser().parse(b"\xff\xfe\x00", "x.csv")
+
+
+HEADER = ["DIACONT", "FECHA", "DESCRIP", "DEBE", "HABER", "SALDO", "FECHAMOVI"]
+
+
+def workbook(rows, header=HEADER, title_rows=()):
+    book = openpyxl.Workbook()
+    sheet = book.active
+    for row in [*title_rows, header, *rows]:
+        sheet.append(row)
+    buffer = BytesIO()
+    book.save(buffer)
+    return buffer.getvalue()
+
+
+class TestCuentaContinentalParser(unittest.TestCase):
+    def parse(self, content):
+        return CuentaContinentalParser().parse(content, "Extracto Cuenta.xlsx")
+
+    def test_registered(self):
+        parser = get_parser("cuenta_continental")
+        self.assertEqual(parser.name, "Cuenta-Continental")
+        self.assertTrue(parser.accepts("Extracto Cuenta.XLSX"))
+        self.assertFalse(parser.accepts("extracto.csv"))
+
+    def test_debe_is_spending_and_haber_income(self):
+        rows = self.parse(
+            workbook(
+                [
+                    [
+                        "01",
+                        "10:14",
+                        "TRF.INTRBN  IN",
+                        " ",
+                        200000,
+                        "884.742",
+                        datetime(2026, 10, 1),
+                    ],
+                    [
+                        "02",
+                        "09:05",
+                        "Mov.POS.:SHOP",
+                        1400000,
+                        " ",
+                        "1.000",
+                        datetime(2026, 10, 2),
+                    ],
+                    # The bank's footer row has no date.
+                    [None, None, "TOTAL", None, None, None, None],
+                ]
+            )
+        )
+        self.assertEqual(
+            rows,
+            [
+                ParsedTransaction(
+                    transaction_date="2026-10-01",
+                    description="TRF.INTRBN IN",
+                    amount=200000.0,
+                    year_month="2026-10",
+                ),
+                ParsedTransaction(
+                    transaction_date="2026-10-02",
+                    description="Mov.POS.:SHOP",
+                    amount=-1400000.0,
+                    year_month="2026-10",
+                ),
+            ],
+        )
+
+    def test_text_amounts_dates_and_title_rows(self):
+        (row,) = self.parse(
+            workbook(
+                [["01", "", "Cambio", "1.234.567,50", "", "", "31/10/2026"]],
+                title_rows=[["Extracto de cuenta"], []],
+            )
+        )
+        self.assertEqual((row.transaction_date, row.amount), ("2026-10-31", -1234567.5))
+
+    def test_errors(self):
+        cases = {
+            "Missing header row": workbook([], header=["FECHA", "DESCRIP"]),
+            "Line 2: expected either DEBE or HABER": workbook(
+                [["01", "", "x", 1, 2, "", datetime(2026, 10, 1)]]
+            ),
+            "Line 2: invalid HABER 'abc'": workbook(
+                [["01", "", "x", " ", "abc", "", datetime(2026, 10, 1)]]
+            ),
+            "Line 2: invalid FECHAMOVI '2026-13-01'": workbook(
+                [["01", "", "x", 1, " ", "", "2026-13-01"]]
+            ),
+        }
+        for message, content in cases.items():
+            with self.assertRaisesRegex(ParseError, message):
+                self.parse(content)
+        with self.assertRaisesRegex(ParseError, "not a valid .xlsx"):
+            self.parse(b"transactionDate,description,amount\n")
 
 
 class TestTransactionHashes(unittest.TestCase):

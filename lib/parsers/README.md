@@ -60,3 +60,4 @@ or `ignored` (which can still be imported, removing the ignore record).
 | id | Input |
 |---|---|
 | `generic_csv` | CSV/TSV/TXT with a header row using the `recurrentTransactions` field names: `transactionDate`, `description`, `amount` (required), `yearMonth`, `recurrentId`, `paidWithAssetId` (optional). |
+| `cuenta_continental` | Banco Continental account statement (`.xlsx`): `FECHAMOVI` is the date, `DESCRIP` the description, `DEBE` a negative amount and `HABER` a positive one. Rows without a date (the `TOTAL` footer) are skipped. |
