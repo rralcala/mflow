@@ -105,6 +105,8 @@ def recurrent_history(
                 "currency": recurrent.currency if recurrent else None,
                 "flowClass": recurrent.flow_class if recurrent else None,
                 "missing": recurrent is None,
+                # The recurrent's stored amount; months are compared against it.
+                "target": float(recurrent.amount) if recurrent else None,
                 "values": [0.0] * len(months),
                 "transactions": 0,
             },

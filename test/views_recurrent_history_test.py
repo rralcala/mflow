@@ -88,13 +88,19 @@ class TestRecurrentHistory(unittest.TestCase):
         self.assertEqual(list(rows), ["Food", "Gone", "Power", "Rent"])
         self.assertEqual(rows["Food"]["months"], [-150.0, 0.0, -300.0])
         self.assertEqual(rows["Rent"]["months"], [0.0, 1000.0, 1000.0])
+        keys = ("currency", "flowClass", "missing", "target")
         self.assertEqual(
-            {key: rows["Food"][key] for key in ("currency", "flowClass", "missing")},
-            {"currency": "PYG", "flowClass": "expense", "missing": False},
+            {key: rows["Food"][key] for key in keys},
+            {
+                "currency": "PYG",
+                "flowClass": "expense",
+                "missing": False,
+                "target": -100.0,
+            },
         )
         self.assertEqual(
-            {key: rows["Gone"][key] for key in ("currency", "flowClass", "missing")},
-            {"currency": None, "flowClass": None, "missing": True},
+            {key: rows["Gone"][key] for key in keys},
+            {"currency": None, "flowClass": None, "missing": True, "target": None},
         )
 
     def test_stats_count_empty_months_as_zero(self):
