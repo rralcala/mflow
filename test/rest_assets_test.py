@@ -423,6 +423,46 @@ class TestRestAssetsRoutes(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
 
+    def test_dashboard_budgets(self):
+        class FakeRecurrent:
+            def __init__(self, identifier):
+                self.identifier = identifier
+
+            def get_identifier(self):
+                return self.identifier
+
+            def get_income_balance(self, month):
+                return -750.0, "PYG"
+
+            def get_budgeted_income(self, month):
+                return -1000.0, "PYG"
+
+        user_config = SimpleNamespace(
+            DASHBOARD_RECURRENTS=[
+                {"id": "Groceries", "label": "groceries"},
+                {"id": "Missing"},
+                {"id": "Rent"},
+            ]
+        )
+        store = {"PYG": [FakeRecurrent("Groceries"), FakeRecurrent("Rent")]}
+        with self.app.test_request_context("/dashboardBudgets", method="GET"), patch(
+            "routes.rest_assets.current_user", self.user
+        ), patch(
+            "routes.rest_assets.UserStore.get_user_config", return_value=user_config
+        ), patch(
+            "routes.rest_assets.get_asset_store", return_value=store
+        ):
+            response = rest_assets.dashboard_budgets.__wrapped__()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["X-Total-Count"], "2")
+        items = response.get_json()
+        self.assertEqual([i["id"] for i in items], ["Groceries", "Rent"])
+        self.assertEqual([i["label"] for i in items], ["groceries", "Rent"])
+        self.assertEqual(items[0]["amount"], -750.0)
+        self.assertEqual(items[0]["budget"], -1000.0)
+        self.assertEqual(items[0]["currency"], "PYG")
+
     def test_payables_get_collection(self):
         session = SessionStub(
             {

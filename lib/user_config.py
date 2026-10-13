@@ -18,6 +18,9 @@ class UserConfig:
         self.COINBASE_API_SECRET = ""
         self.COINBASE_PORTFOLIO_ID = ""
         self.CRYPTO_RATES: Dict  # Staking { "USDC": "0.035" }
+        # Recurrents whose remaining monthly budget shows on the dashboard,
+        # e.g. [{"id": "Discretionary", "label": "discretionary"}].
+        self.DASHBOARD_RECURRENTS: List[Dict[str, str]] = []
         self.ASSETS: Dict[str, List[Asset]] = {}
 
 

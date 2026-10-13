@@ -1,3 +1,4 @@
+from datetime import datetime
 from http import HTTPStatus
 from typing import Any, Dict, List, Optional
 
@@ -413,6 +414,42 @@ def monthly_transactions_get(name) -> Response:
     if not response:
         response = jsonify({"message": "Transaction not found"})
         response.status_code = HTTPStatus.NOT_FOUND
+    return response
+
+
+@assets_bp.route("/dashboardBudgets", methods=["GET"])
+@assets_bp.auth_required(auth)
+def dashboard_budgets() -> Response:
+    """Remaining budget this month for the user's DASHBOARD_RECURRENTS."""
+    user_config = UserStore.get_user_config(current_user.id)
+    assets = {
+        asset.get_identifier(): asset
+        for currency_assets in get_asset_store(user_config).values()
+        for asset in currency_assets
+    }
+    month = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    response_items = []
+    for entry in user_config.DASHBOARD_RECURRENTS:
+        asset = assets.get(entry["id"])
+        if asset is None:
+            Logger.warning("Dashboard recurrent %s not found", entry["id"])
+            continue
+        amount, currency = asset.get_income_balance(month)
+        budget, _ = asset.get_budgeted_income(month)
+        response_items.append(
+            {
+                "id": entry["id"],
+                "label": entry.get("label", entry["id"]),
+                "amount": amount,
+                "budget": budget,
+                "currency": currency,
+                "yearMonth": month.strftime("%Y-%m"),
+            }
+        )
+    count = len(response_items)
+    response = jsonify(paginate(response_items))
+    response.headers["X-Total-Count"] = count
+    response.status_code = HTTPStatus.OK
     return response
 
 
