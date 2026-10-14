@@ -32,12 +32,6 @@ class TestNormalizeCountry(CountryTestCase):
                 normalize_country(value)
             self.assertEqual(ctx.exception.status_code, 400)
 
-    def test_optional_allows_missing_but_not_unknown(self):
-        self.assertIsNone(normalize_country(None, required=False))
-        self.assertIsNone(normalize_country("", required=False))
-        with self.assertRaises(HTTPError):
-            normalize_country("ZZ", required=False)
-
     def test_update_keeps_current_unless_changed(self):
         self.assertEqual(country_for_update({}, "XX"), "XX")
         # Unchanged legacy value does not block editing the record.
@@ -101,6 +95,31 @@ class TestRoutesRejectBadCountry(CountryTestCase):
             "rest_certificates",
             {"currency": "usd", "country": 7},
         )
+
+    def test_account_missing_country(self):
+        # The account table's country column is NOT NULL.
+        for payload in ({"id": "a"}, {"id": "a", "country": None}):
+            with self.subTest(payload=payload):
+                self.assert_400(
+                    "/accounts",
+                    rest_assets.accounts.__wrapped__,
+                    "rest_assets",
+                    payload,
+                )
+
+    def test_account_put_cannot_clear_country(self):
+        existing = SimpleNamespace(id="a", country="US")
+        session = SessionStub({Account: QueryStub(first_item=existing)})
+        with self.app.test_request_context(
+            "/accounts/a", method="PUT", json={"country": ""}
+        ), patch("routes.rest_assets.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ), self.assertRaises(
+            HTTPError
+        ) as ctx:
+            rest_assets.get_account.__wrapped__("a")
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertFalse(session.committed)
 
     def test_account_unknown_country(self):
         self.assert_400(

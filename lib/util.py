@@ -1,4 +1,5 @@
 import hashlib
+import math
 import pprint
 from datetime import date, datetime, timedelta
 from http import HTTPStatus
@@ -8,6 +9,7 @@ from apiflask import abort
 from croniter import CroniterError, croniter
 from flask import Response, jsonify, request
 
+from data.constants import FLOW_CLASSES
 from lib.config import Config
 
 
@@ -56,16 +58,14 @@ def paginate(items):
     return items[start:end]
 
 
-def normalize_country(value, required: bool = True) -> Optional[str]:
+def normalize_country(value) -> str:
     """Return the upper-cased country code if it is one of Config.COUNTRIES.
 
     Anything else (missing, not a string, unknown code) is a 400 for the client,
-    never a 500. With required=False a missing/empty value yields None.
+    never a 500.
     """
     if value is None or value == "":
-        if required:
-            abort(400, "country is required")
-        return None
+        abort(400, "country is required")
     if not isinstance(value, str):
         abort(400, "country must be a string")
     country = value.strip().upper()
@@ -74,7 +74,7 @@ def normalize_country(value, required: bool = True) -> Optional[str]:
     return country
 
 
-def country_for_update(data: dict, current: Optional[str], required: bool = True):
+def country_for_update(data: dict, current: Optional[str]):
     """Country to store on a PUT: unchanged unless the payload changes it.
 
     A value equal to the stored one is accepted as is, so records holding a legacy
@@ -82,7 +82,7 @@ def country_for_update(data: dict, current: Optional[str], required: bool = True
     """
     if "country" not in data or data["country"] == current:
         return current
-    return normalize_country(data["country"], required)
+    return normalize_country(data["country"])
 
 
 def normalize_currency(value) -> str:
@@ -103,6 +103,57 @@ def require_date(value, field: str) -> str:
     if not isinstance(value, str) or not validate_date(value):
         abort(400, f"Invalid {field} '{value}', expected YYYY-MM-DD")
     return value
+
+
+def require_number(value, field: str) -> str:
+    """Numeric columns are strings that load_assets and to_dict() pass to float().
+
+    Anything but a finite number (missing, null, a boolean, "abc", "nan") would
+    save and then break every report, so it's a 400. Returns the stored form.
+    """
+    number = math.nan
+    if isinstance(value, (int, float, str)) and not isinstance(value, bool):
+        try:
+            number = float(value)
+        except ValueError:
+            pass
+    if not math.isfinite(number):
+        abort(400, f"Invalid {field} '{value}', expected a number")
+    return str(number)
+
+
+NO_DIVIDEND = "N"
+
+
+def require_dividend(value) -> str:
+    """An instrument's dividend schedule: NO_DIVIDEND or a cron pattern.
+
+    load_assets divides the dividend rate by the year's payouts, so the pattern
+    must parse and actually fire; "0 0 30 2 *" passes croniter.is_valid but
+    raises once runs are listed.
+    """
+    pattern = value.strip() if isinstance(value, str) else None
+    if pattern and pattern.upper() == NO_DIVIDEND:
+        return NO_DIVIDEND
+    error = f"Invalid dividend '{value}', expected {NO_DIVIDEND} or a cron pattern"
+    if not pattern or not croniter.is_valid(pattern):
+        abort(400, error)
+    try:
+        croniter(pattern, datetime.now()).get_next(datetime)
+    except CroniterError:  # never matches
+        abort(400, error)
+    return pattern
+
+
+def normalize_flow_class(value) -> str:
+    """Reports compare flow classes against RecurrentTypes in lower case."""
+    flow_class = value.strip().lower() if isinstance(value, str) else None
+    if flow_class not in FLOW_CLASSES:
+        abort(
+            400,
+            f"Invalid flowClass '{value}', expected one of {', '.join(FLOW_CLASSES)}",
+        )
+    return flow_class
 
 
 def error_response(

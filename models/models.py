@@ -13,7 +13,7 @@ class Account(Base):
     __tablename__ = "account"
 
     id = mapped_column(String(80), primary_key=True)
-    country = mapped_column(String(2), nullable=True)
+    country = mapped_column(String(2), nullable=False)
     institution = mapped_column(String(80), nullable=False)
     currency = mapped_column(String(3), nullable=False)
     balance = mapped_column(String(20), nullable=False)

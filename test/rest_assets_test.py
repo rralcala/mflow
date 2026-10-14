@@ -50,7 +50,7 @@ def instrument_row(**overrides):
         symbol="VOO",
         factor="1",
         qty="1",
-        dividend="",
+        dividend="N",
         dividend_rate="0",
         currency="USD",
         acquisition_date="2026-01-01",
@@ -1108,6 +1108,8 @@ class TestRestAssetsRoutes(unittest.TestCase):
             name="b1",
             currency="USD",
             maturity_date="2030-01-01",
+            capital="1000",
+            rate="0.05",
         )
         session = SessionStub(
             {
@@ -1249,6 +1251,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
             recurrence="0 0 5 * *",
             start="2026-01-01",
             end="2027-01-01",
+            amount="-100",
+            rate="0",
+            flow_class="expense",
         )
         session = SessionStub(
             {
@@ -1285,7 +1290,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
                 "currency": "USD",
                 "factor": 1.0,
                 "qty": 1,
-                "dividend": "",
+                "dividend": "N",
                 "dividend_rate": 0.0,
                 "acquisition_date": "2026-01-01",
                 "acquisition_price": 100.0,
@@ -1308,7 +1313,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
             "currency": "USD",
             "factor": 0.7,
             "qty": 1000,
-            "dividend": "",
+            "dividend": "N",
             "dividend_rate": 0.0,
             "acquisition_date": "2026-01-01",
             "acquisition_price": 1.0,
@@ -1460,6 +1465,43 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(status, HTTPStatus.OK)
         self.assertTrue(session.committed)
         self.assertEqual((existing.id, existing.user_id), (1, 1))
+
+    def test_instruments_post_dividend_schedule(self):
+        for dividend, stored in (
+            ("N", "N"),
+            (" n ", "N"),
+            ("0 0 1 1,4,7,10 *", "0 0 1 1,4,7,10 *"),
+        ):
+            with self.subTest(dividend=dividend):
+                _, status, session = self._post_instrument({"dividend": dividend})
+                self.assertEqual(status, 201)
+                self.assertEqual(session.added[0].dividend, stored)
+
+    def test_instruments_post_rejects_bad_dividend(self):
+        # "0 0 30 2 *" parses but never fires, which load_assets can't handle.
+        for dividend in ("", None, "monthly", "0 0 30 2 *"):
+            with self.subTest(dividend=dividend), self.assertRaises(HTTPError) as ctx:
+                self._post_instrument({"dividend": dividend})
+            self.assertEqual(ctx.exception.status_code, 400)
+            self.assertIn("dividend", ctx.exception.message)
+
+    def test_instruments_put_rejects_bad_dividend(self):
+        session = SessionStub(
+            {rest_assets.Instrument: QueryStub(first_item=instrument_row())}
+        )
+        with self.app.test_request_context(
+            "/instruments/1",
+            method="PUT",
+            json={"acquisition_date": "2026-01-01", "dividend": "quarterly"},
+        ), patch("routes.rest_assets.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ), self.assertRaises(
+            HTTPError
+        ) as ctx:
+            rest_assets.instruments_get.__wrapped__(1)
+
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertFalse(session.committed)
 
     def post_recurrent_transaction(self, owned, account=None, **extra):
         session = SessionStub(
@@ -1712,6 +1754,8 @@ class TestRestAssetsRoutes(unittest.TestCase):
             flow_class="expense",
             currency="USD",
             due_date="2030-01-01",
+            amount="10",
+            balance="10",
         )
         session = SessionStub(
             {

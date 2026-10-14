@@ -25,7 +25,9 @@ Follow-ups from the Flask → APIFlask migration.
 
 ### Medium
 
-- [ ] **Numeric fields aren't validated.** `amount`, `balance`, `qty`, `factor`, `capital`, `rate`, prices and so on are saved as given, and `load_assets` calls `float()` on them. A missing or non-numeric value saves, the request returns 500, and every report fails after the next restart (the same pattern the date checks fixed). Missing `flowClass` on payable and recurrent POST crashes on `.lower()` (`rest_assets.py:406`, `rest_recurrents.py:166`).
+- [x] **Numeric fields aren't validated.** `amount`, `balance`, `qty`, `factor`, `capital`, `rate`, prices and so on are saved as given, and `load_assets` calls `float()` on them. A missing or non-numeric value saves, the request returns 500, and every report fails after the next restart (the same pattern the date checks fixed). Missing `flowClass` on payable and recurrent POST crashes on `.lower()` (`rest_assets.py:406`, `rest_recurrents.py:166`).
+- [x] **Instrument `dividend` isn't validated.** `load_assets` hands any value longer than 5 characters to croniter (`data/asset_store.py:138`), so an invalid pattern saves and every report raises `CroniterBadCronError` after the next reload. Validate it like `recurrence` (empty, or a valid cron pattern).
+- [x] **`account.country` is optional in the model and route but `NOT NULL` in the database.** An account POST without a country passes validation (`normalize_country(..., required=False)`) and then fails at insert with a 500. Either require it or migrate the column.
 - [ ] **Hardcoded `USDPYG`** in `list_income` (`views/list_assets.py:50`); use the user's `SECONDARY_CURRENCY`.
 - [ ] **Changes can leave dangling targets or orphans.**
   - Deleting an account or instrument, or changing an instrument's location or symbol, doesn't check `target_references`. Changing an account's currency while other assets target it breaks the same-currency rule.

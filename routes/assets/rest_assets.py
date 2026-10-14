@@ -15,8 +15,11 @@ from lib.util import (
     error_response,
     normalize_country,
     normalize_currency,
+    normalize_flow_class,
     paginate,
     require_date,
+    require_dividend,
+    require_number,
     target_references,
     validate_date,
     validate_pool_target,
@@ -60,11 +63,11 @@ def accounts():
             data = request.json
             new_transaction = Account(
                 id=data.get("id"),
-                country=normalize_country(data.get("country"), required=False),
+                country=normalize_country(data.get("country")),
                 institution=data.get("institution"),
                 currency=normalize_currency(data.get("currency")),
-                balance=data.get("balance"),
-                factor=data.get("factor"),
+                balance=require_number(data.get("balance"), "balance"),
+                factor=require_number(data.get("factor"), "factor"),
                 account_type=data.get("accountType"),
                 liquid=1 if data.get("liquid") else 0,
                 user_id=int(current_user.id),
@@ -165,15 +168,17 @@ def get_account(name):
         else:
             if request.method == "PUT":
                 data = request.json
-                result.country = country_for_update(
-                    data, result.country, required=False
-                )
+                result.country = country_for_update(data, result.country)
                 result.institution = data.get("institution", result.institution)
                 result.currency = normalize_currency(
                     data.get("currency", result.currency)
                 )
-                result.balance = data.get("balance", result.balance)
-                result.factor = data.get("factor", result.factor)
+                result.balance = require_number(
+                    data.get("balance", result.balance), "balance"
+                )
+                result.factor = require_number(
+                    data.get("factor", result.factor), "factor"
+                )
                 result.account_type = data.get("accountType", result.account_type)
                 result.liquid = 1 if data.get("liquid", result.liquid) else 0
                 result.transfer_by = data.get("transferBy", result.transfer_by) or None
@@ -247,15 +252,21 @@ def instruments():
                 location=data.get("location"),
                 symbol=data.get("symbol"),
                 currency=currency,
-                factor=data.get("factor"),
-                qty=data.get("qty"),
-                dividend=data.get("dividend"),
-                dividend_rate=data.get("dividend_rate"),
+                factor=require_number(data.get("factor"), "factor"),
+                qty=require_number(data.get("qty"), "qty"),
+                dividend=require_dividend(data.get("dividend")),
+                dividend_rate=require_number(
+                    data.get("dividend_rate"), "dividend_rate"
+                ),
                 user_id=int(current_user.id),
                 acquisition_date=acquisition_date,
-                acquisition_price=data.get("acquisition_price"),
+                acquisition_price=require_number(
+                    data.get("acquisition_price"), "acquisition_price"
+                ),
                 liquid=1 if data.get("liquid") else 0,
-                capital_rate=data.get("capital_rate", 0.0),
+                capital_rate=require_number(
+                    data.get("capital_rate", 0.0), "capital_rate"
+                ),
                 target_asset_id=target_asset_id,
                 sell_by=data.get("sellBy") or None,
                 is_target_pool=1 if data.get("isTargetPool") else 0,
@@ -327,17 +338,22 @@ def instruments_get(id):
             result.country = country_for_update(data, result.country)
             result.location = data.get("location", result.location)
             result.symbol = symbol
-            result.factor = data.get("factor", result.factor)
-            result.qty = data.get("qty", result.qty)
-            result.dividend = data.get("dividend", result.dividend)
-            result.dividend_rate = data.get("dividend_rate", result.dividend_rate)
+            result.factor = require_number(data.get("factor", result.factor), "factor")
+            result.qty = require_number(data.get("qty", result.qty), "qty")
+            result.dividend = require_dividend(data.get("dividend", result.dividend))
+            result.dividend_rate = require_number(
+                data.get("dividend_rate", result.dividend_rate), "dividend_rate"
+            )
             result.currency = currency
             result.acquisition_date = acquisition_date
-            result.acquisition_price = data.get(
-                "acquisition_price", result.acquisition_price
+            result.acquisition_price = require_number(
+                data.get("acquisition_price", result.acquisition_price),
+                "acquisition_price",
             )
             result.liquid = 1 if data.get("liquid", result.liquid) else 0
-            result.capital_rate = data.get("capital_rate", result.capital_rate)
+            result.capital_rate = require_number(
+                data.get("capital_rate", result.capital_rate), "capital_rate"
+            )
             result.target_asset_id = target_asset_id
             result.sell_by = data.get("sellBy", result.sell_by) or None
             result.is_target_pool = (
@@ -461,6 +477,9 @@ def payables():
         currency = normalize_currency(data.get("currency"))
         country = normalize_country(data.get("country"))
         due_date = require_date(data.get("dueDate"), "dueDate")
+        amount = require_number(data.get("amount"), "amount")
+        balance = require_number(data.get("balance"), "balance")
+        flow_class = normalize_flow_class(data.get("flowClass"))
         target_asset_id = data.get("targetAssetId", data.get("paidWithAssetId"))
         with Config.DB_SESSION() as session:
             if not validate_target_asset(
@@ -471,12 +490,12 @@ def payables():
                 country=country,
                 currency=currency,
                 description=data.get("description"),
-                amount=data.get("amount"),
-                balance=data.get("balance"),
+                amount=amount,
+                balance=balance,
                 due_date=due_date,
                 commited=(1 if data.get("commited", False) else 0),
                 user_id=int(current_user.id),
-                flow_class=data.get("flowClass").lower(),
+                flow_class=flow_class,
                 target_asset_id=target_asset_id,
             )
             session.add(new_transaction)
@@ -523,18 +542,21 @@ def payables_get(id):
             )
             currency = normalize_currency(data.get("currency", result.currency))
             due_date = require_date(data.get("dueDate", result.due_date), "dueDate")
+            amount = require_number(data.get("amount", result.amount), "amount")
+            balance = require_number(data.get("balance", result.balance), "balance")
+            flow_class = normalize_flow_class(data.get("flowClass", result.flow_class))
             if not validate_target_asset(
                 session, int(current_user.id), target_asset_id, currency
             ):
                 return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
             result.country = country_for_update(data, result.country)
             result.currency = currency
-            result.amount = data.get("amount", result.amount)
-            result.balance = data.get("balance", result.balance)
+            result.amount = amount
+            result.balance = balance
             result.due_date = due_date
             result.description = data.get("description", result.description)
             result.commited = 1 if data.get("commited", result.commited) else 0
-            result.flow_class = data.get("flowClass", result.flow_class).lower()
+            result.flow_class = flow_class
             result.target_asset_id = target_asset_id
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -570,11 +592,11 @@ def properties():
             country=normalize_country(data.get("country")),
             currency=normalize_currency(data.get("currency")),
             property_name=data.get("propertyName"),
-            purchase_price=data.get("purchasePrice"),
+            purchase_price=require_number(data.get("purchasePrice"), "purchasePrice"),
             purchase_date=require_date(data.get("purchaseDate"), "purchaseDate"),
-            current_price=data.get("currentPrice"),
-            rent_price=data.get("rentPrice"),
-            depreciation=data.get("depreciation"),
+            current_price=require_number(data.get("currentPrice"), "currentPrice"),
+            rent_price=require_number(data.get("rentPrice"), "rentPrice"),
+            depreciation=require_number(data.get("depreciation"), "depreciation"),
             additional_data=data.get("additionalData"),
             rent_currency=normalize_currency(data.get("rentCurrency")),
             sell_by=data.get("sellBy") or None,
@@ -629,13 +651,21 @@ def properties_get(id):
             result.country = country_for_update(data, result.country)
             result.currency = normalize_currency(data.get("currency", result.currency))
             result.property_name = data.get("propertyName", result.property_name)
-            result.purchase_price = data.get("purchasePrice", result.purchase_price)
+            result.purchase_price = require_number(
+                data.get("purchasePrice", result.purchase_price), "purchasePrice"
+            )
             result.purchase_date = require_date(
                 data.get("purchaseDate", result.purchase_date), "purchaseDate"
             )
-            result.current_price = data.get("currentPrice", result.current_price)
-            result.rent_price = data.get("rentPrice", result.rent_price)
-            result.depreciation = data.get("depreciation", result.depreciation)
+            result.current_price = require_number(
+                data.get("currentPrice", result.current_price), "currentPrice"
+            )
+            result.rent_price = require_number(
+                data.get("rentPrice", result.rent_price), "rentPrice"
+            )
+            result.depreciation = require_number(
+                data.get("depreciation", result.depreciation), "depreciation"
+            )
             result.additional_data = data.get("additionalData", result.additional_data)
             result.rent_currency = normalize_currency(
                 data.get("rentCurrency", result.rent_currency)

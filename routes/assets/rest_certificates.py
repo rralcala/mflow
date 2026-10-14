@@ -14,6 +14,7 @@ from lib.util import (
     normalize_currency,
     paginate,
     require_date,
+    require_number,
     type_to_str,
     validate_target_asset,
 )
@@ -36,7 +37,7 @@ def cd_schedules_upload():
                 cd_id=int(row["iid"]),
                 date=require_date(row["date"], "date"),
                 user_id=int(current_user.id),
-                amount=str(float(row["amount"])),
+                amount=require_number(row.get("amount"), "amount"),
                 paid=1 if row["paid"] == "1" else 0,
             )
 
@@ -59,7 +60,7 @@ def bond_schedules_upload():
                 bond_id=int(row["iid"]),
                 date=require_date(row["date"], "date"),
                 user_id=int(current_user.id),
-                amount=str(float(row["amount"])),
+                amount=require_number(row.get("amount"), "amount"),
                 paid=1 if row["paid"] == "1" else 0,
             )
 
@@ -80,7 +81,7 @@ def bond_schedules_all():
                 bond_id=data.get("bondId"),
                 date=require_date(data.get("transactionDate"), "transactionDate"),
                 user_id=int(current_user.id),
-                amount=data.get("amount"),
+                amount=require_number(data.get("amount"), "amount"),
                 paid=1 if data.get("paid", False) else 0,
             )
 
@@ -130,7 +131,7 @@ def bond_schedules_get(id):
             result.date = require_date(
                 data.get("transactionDate", result.date), "transactionDate"
             )
-            result.amount = data.get("amount", result.amount)
+            result.amount = require_number(data.get("amount", result.amount), "amount")
             result.paid = 1 if data.get("paid", result.paid == 1) else 0
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -147,7 +148,7 @@ def deposit_certificate_schedules_all():
                 cd_id=data.get("cdId"),
                 date=require_date(data.get("transactionDate"), "transactionDate"),
                 user_id=int(current_user.id),
-                amount=data.get("amount"),
+                amount=require_number(data.get("amount"), "amount"),
                 paid=1 if data.get("paid", False) else 0,
             )
 
@@ -201,7 +202,7 @@ def deposit_certificate_schedules_get(id):
             result.date = require_date(
                 data.get("transactionDate", result.date), "transactionDate"
             )
-            result.amount = data.get("amount", result.amount)
+            result.amount = require_number(data.get("amount", result.amount), "amount")
             result.paid = 1 if data.get("paid", result.paid == 1) else 0
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -239,13 +240,15 @@ def certificate_get(cert_type, request_input, id):
             maturity_date = require_date(
                 data.get("maturityDate", result.maturity_date), "maturityDate"
             )
+            capital = require_number(data.get("capital", result.capital), "capital")
+            rate = require_number(data.get("rate", result.rate), "rate")
             if not validate_target_asset(
                 session, int(current_user.id), target_asset_id, currency
             ):
                 return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
             result.name = data.get("name", result.name)
-            result.capital = data.get("capital", result.capital)
-            result.rate = data.get("rate", result.rate)
+            result.capital = capital
+            result.rate = rate
             result.maturity_date = maturity_date
             result.currency = currency
             result.entity = data.get("entity", result.entity)
@@ -279,6 +282,8 @@ def certificates_all(request_input, cert_type) -> tuple[Response, HTTPStatus]:
         currency = normalize_currency(data.get("currency"))
         country = normalize_country(data.get("country"))
         maturity_date = require_date(data.get("maturityDate"), "maturityDate")
+        capital = require_number(data.get("capital"), "capital")
+        rate = require_number(data.get("rate"), "rate")
         target_asset_id = data.get("targetAssetId")
         with Config.DB_SESSION() as session:
             if not validate_target_asset(
@@ -287,14 +292,14 @@ def certificates_all(request_input, cert_type) -> tuple[Response, HTTPStatus]:
                 return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
             new_item = cert_type(
                 name=data.get("name"),
-                capital=data.get("capital"),
-                rate=data.get("rate"),
+                capital=capital,
+                rate=rate,
                 maturity_date=maturity_date,
                 currency=currency,
                 entity=data.get("entity"),
                 country=country,
                 user_id=int(current_user.id),
-                purchase_price=data.get("capital"),
+                purchase_price=capital,
                 target_asset_id=target_asset_id,
             )
 

@@ -16,9 +16,11 @@ from lib.util import (
     error_response,
     normalize_country,
     normalize_currency,
+    normalize_flow_class,
     paginate,
     recurrence_error,
     require_date,
+    require_number,
     target_country_error,
     validate_date,
     validate_target_asset,
@@ -51,7 +53,8 @@ def apply_to_balance(session, recurrent, transaction) -> str | None:
     """Add a transaction's amount to the balance of the account that paid it.
 
     Amounts are negative for spending and positive for income, so they are
-    added as-is. Only Accounts in the recurrent's currency can be updated.
+    added as-is. Only Accounts in the recurrent's currency can be updated. The
+    caller has already validated the transaction's amount.
     """
     account = (
         session.query(Account)
@@ -65,13 +68,7 @@ def apply_to_balance(session, recurrent, transaction) -> str | None:
             f"Account '{account.id}' holds {account.currency}, "
             f"not {recurrent.currency}"
         )
-    try:
-        amount = float(transaction.amount)
-    except (TypeError, ValueError):
-        amount = math.nan
-    if not math.isfinite(amount):
-        return f"invalid amount '{transaction.amount}'"
-    account.balance = str(float(account.balance) + amount)
+    account.balance = str(float(account.balance) + float(transaction.amount))
     return None
 
 
@@ -84,7 +81,7 @@ def recurrent_transactions():
             parent_id=data.get("recurrentId"),
             year_month=data.get("yearMonth"),
             description=data.get("description"),
-            amount=data.get("amount"),
+            amount=require_number(data.get("amount"), "amount"),
             transaction_date=data.get("transactionDate"),
             paid_with=data.get("paidWithAssetId"),
             user_id=int(current_user.id),
@@ -176,7 +173,7 @@ def recurrent_transactions_get(name):
                 "transactionDate", result.transaction_date
             )
             result.parent_id = parent_id
-            result.amount = data.get("amount", result.amount)
+            result.amount = require_number(data.get("amount", result.amount), "amount")
             result.description = data.get("description", result.description)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -197,6 +194,9 @@ def recurrents_all():
         currency = normalize_currency(data.get("currency"))
         start = require_date(data.get("start"), "start")
         end = require_date(data.get("end"), "end")
+        amount = require_number(data.get("amount"), "amount")
+        rate = require_number(data.get("rate"), "rate")
+        flow_class = normalize_flow_class(data.get("flowClass"))
         error = recurrence_error(data.get("recurrence"))
         if error:
             return error_response(error, HTTPStatus.BAD_REQUEST)
@@ -215,13 +215,13 @@ def recurrents_all():
                 parent_asset_id=data.get("assetId"),
                 target_asset_id=target_asset_id,
                 country=country,
-                amount=data.get("amount"),
+                amount=amount,
                 currency=currency,
                 recurrence=data.get("recurrence"),
                 start=start,
                 end=end,
-                flow_class=data.get("flowClass").lower(),
-                rate=data.get("rate"),
+                flow_class=flow_class,
+                rate=rate,
                 user_id=int(current_user.id),
                 inflation=1 if data.get("inflation") else 0,
             )
@@ -274,6 +274,9 @@ def recurrents_get(name):
             currency = normalize_currency(data.get("currency", result.currency))
             start = require_date(data.get("start", result.start), "start")
             end = require_date(data.get("end", result.end), "end")
+            amount = require_number(data.get("amount", result.amount), "amount")
+            rate = require_number(data.get("rate", result.rate), "rate")
+            flow_class = normalize_flow_class(data.get("flowClass", result.flow_class))
             country = country_for_update(data, result.country)
             if not validate_target_asset(
                 session, int(current_user.id), target_asset_id, currency
@@ -287,13 +290,13 @@ def recurrents_get(name):
             result.parent_asset_id = data.get("assetId", result.parent_asset_id)
             result.target_asset_id = target_asset_id
             result.country = country
-            result.amount = data.get("amount", result.amount)
+            result.amount = amount
             result.currency = currency
             result.recurrence = recurrence
             result.start = start
             result.end = end
-            result.flow_class = data.get("flowClass", result.flow_class).lower()
-            result.rate = data.get("rate", result.rate)
+            result.flow_class = flow_class
+            result.rate = rate
             result.inflation = 1 if data.get("inflation", result.inflation) else 0
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))

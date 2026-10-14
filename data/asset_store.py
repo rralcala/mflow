@@ -140,7 +140,9 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 payouts = count_cron_runs(
                     row.dividend, datetime(year, 1, 1), datetime(year, 12, 31)
                 )
-                estimated_dividend = qty * price * rate / payouts
+                # A schedule can skip a year (e.g. Feb 29): no dividend this year.
+                if payouts:
+                    estimated_dividend = qty * price * rate / payouts
 
             asset = Instrument(
                 country=row.country,
