@@ -1461,12 +1461,17 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertTrue(session.committed)
         self.assertEqual((existing.id, existing.user_id), (1, 1))
 
-    def post_recurrent_transaction(self, owned):
+    def post_recurrent_transaction(self, owned, account=None, **extra):
         session = SessionStub(
             {
                 Recurrent: QueryStub(
-                    first_item=SimpleNamespace(identifier="Rent") if owned else None
-                )
+                    first_item=(
+                        SimpleNamespace(identifier="Rent", currency="USD")
+                        if owned
+                        else None
+                    )
+                ),
+                rest_recurrents.Account: QueryStub(first_item=account),
             }
         )
         with self.app.test_request_context(
@@ -1479,6 +1484,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
                 "amount": -100,
                 "transactionDate": "2026-10-01",
                 "paidWithAssetId": "acc-1",
+                **extra,
             },
         ), patch("routes.rest_recurrents.current_user", self.user), patch(
             "routes.rest_recurrents.reload_asset_store"
@@ -1503,6 +1509,42 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(status, HTTPStatus.CREATED)
         self.assertEqual(session.added[0].parent_id, "Rent")
         self.assertEqual(session.added[0].user_id, 1)
+
+    def test_recurrent_transactions_post_leaves_balance_by_default(self):
+        account = account_row(id="acc-1", balance="500")
+        status, session = self.post_recurrent_transaction(owned=True, account=account)
+
+        self.assertEqual(status, HTTPStatus.CREATED)
+        self.assertEqual(account.balance, "500")
+
+    def test_recurrent_transactions_post_updates_balance(self):
+        account = account_row(id="acc-1", balance="500")
+        status, session = self.post_recurrent_transaction(
+            owned=True, account=account, updateBalance=True
+        )
+
+        self.assertEqual(status, HTTPStatus.CREATED)
+        self.assertEqual(float(account.balance), 400)
+        self.assertTrue(session.committed)
+
+    def test_recurrent_transactions_post_update_balance_needs_account(self):
+        status, session = self.post_recurrent_transaction(
+            owned=True, account=None, updateBalance=True
+        )
+
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(session.added, [])
+        self.assertFalse(session.committed)
+
+    def test_recurrent_transactions_post_update_balance_needs_same_currency(self):
+        account = account_row(id="acc-1", balance="500", currency="PYG")
+        status, session = self.post_recurrent_transaction(
+            owned=True, account=account, updateBalance=True
+        )
+
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(account.balance, "500")
+        self.assertEqual(session.added, [])
 
     def test_recurrent_transactions_put_rejects_foreign_recurrent(self):
         existing = SimpleNamespace(

@@ -23,7 +23,12 @@ from lib.util import (
     validate_date,
     validate_target_asset,
 )
-from models.models import IgnoredTransaction, Recurrent, RecurrentTransaction
+from models.models import (
+    Account,
+    IgnoredTransaction,
+    Recurrent,
+    RecurrentTransaction,
+)
 
 from ..blueprints import assets_bp
 from ..security import auth
@@ -42,6 +47,34 @@ def owns_recurrent(session, identifier) -> bool:
     )
 
 
+def apply_to_balance(session, recurrent, transaction) -> str | None:
+    """Add a transaction's amount to the balance of the account that paid it.
+
+    Amounts are negative for spending and positive for income, so they are
+    added as-is. Only Accounts in the recurrent's currency can be updated.
+    """
+    account = (
+        session.query(Account)
+        .filter_by(user_id=int(current_user.id), id=transaction.paid_with)
+        .first()
+    )
+    if account is None:
+        return f"'{transaction.paid_with}' is not an account"
+    if account.currency.upper() != recurrent.currency.upper():
+        return (
+            f"Account '{account.id}' holds {account.currency}, "
+            f"not {recurrent.currency}"
+        )
+    try:
+        amount = float(transaction.amount)
+    except (TypeError, ValueError):
+        amount = math.nan
+    if not math.isfinite(amount):
+        return f"invalid amount '{transaction.amount}'"
+    account.balance = str(float(account.balance) + amount)
+    return None
+
+
 @assets_bp.route("/recurrentTransactions", methods=["GET", "POST"])
 @assets_bp.auth_required(auth)
 def recurrent_transactions():
@@ -57,8 +90,19 @@ def recurrent_transactions():
             user_id=int(current_user.id),
         )
         with Config.DB_SESSION() as session:
-            if not owns_recurrent(session, new_transaction.parent_id):
+            recurrent = (
+                session.query(Recurrent)
+                .filter_by(
+                    user_id=int(current_user.id), identifier=new_transaction.parent_id
+                )
+                .first()
+            )
+            if recurrent is None:
                 return error_response("Unknown recurrent", HTTPStatus.BAD_REQUEST)
+            if data.get("updateBalance"):
+                error = apply_to_balance(session, recurrent, new_transaction)
+                if error:
+                    return error_response(error, HTTPStatus.BAD_REQUEST)
             session.add(new_transaction)
             session.commit()
             reload_asset_store(UserStore.get_user_config(current_user.id))
