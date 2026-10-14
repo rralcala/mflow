@@ -7,12 +7,12 @@ import time
 from werkzeug.routing import BaseConverter, ValidationError
 
 from data.exchange_rates import ExchangeRates
-from init import app, initialize_app
+from init import initialize_app
 from lib.config import Config
 from lib.logger import get_logger
 from routes import register_api_routes
 
-debug = initialize_app()
+app = initialize_app()
 
 Logger = get_logger()
 
