@@ -62,7 +62,6 @@ def calculate_monthly_pnl_data(
     main_assets: Dict[str, List[Asset]],
     months: int = 12,
     skip_one_off: bool = False,
-    summary_only: bool = False,
 ) -> Dict[str, Any]:
     secondary_currency = UserStore.get_user_config(current_user.id).SECONDARY_CURRENCY
     p_totals = {"USD": 0.0, secondary_currency: 0.0}
@@ -95,16 +94,15 @@ def calculate_monthly_pnl_data(
         n_totals[secondary_currency] += nsums.get(secondary_currency, 0.0)
         p_totals["USD"] += psums.get("USD", 0.0)
         n_totals["USD"] += nsums.get("USD", 0.0)
-        if not summary_only:
-            monthly_data.append(
-                {
-                    "month": month,
-                    "income": month_income,
-                    "expenses": month_expenses,
-                    "income_sums": psums,
-                    "expense_sums": nsums,
-                }
-            )
+        monthly_data.append(
+            {
+                "month": month,
+                "income": month_income,
+                "expenses": month_expenses,
+                "income_sums": psums,
+                "expense_sums": nsums,
+            }
+        )
 
     return {
         "monthly_data": monthly_data,

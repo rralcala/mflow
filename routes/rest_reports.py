@@ -19,7 +19,6 @@ from views import history as vnh
 from views import investment_performance as vip
 from views import list_assets as vla
 from views import monthly_pnl as vmpnl
-from views import projection as vp
 from views import recurrent_history as vrh
 from views import spending as vs
 from views import upcoming_payments as vup
@@ -183,19 +182,6 @@ def net_worth_summary():
     user_config = UserStore.get_user_config(current_user.id)
     assets = get_asset_store(user_config)
     data = vla.list_assets(assets)
-    count = len(data)
-
-    response = jsonify(data)
-    response.headers["X-Total-Count"] = count
-    return response, HTTPStatus.OK
-
-
-@reports_bp.route("/projection_analysis", methods=["GET"])
-@reports_bp.auth_required(auth)
-def projection_analysis():
-    user_config = UserStore.get_user_config(current_user.id)
-    assets = get_asset_store(user_config)
-    data = vp.financial_analysis(assets)
     count = len(data)
 
     response = jsonify(data)
