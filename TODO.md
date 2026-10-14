@@ -32,7 +32,7 @@ Follow-ups from the Flask → APIFlask migration.
   - Deleting a bond or CD leaves its schedule rows; deleting a recurrent leaves its transactions (8 orphaned transactions in the database as of 2026-10-09). A new recurrent with the same identifier would pick them up.
   - Schedule POST and the CSV uploads (`rest_certificates.py:29`, `:75`) don't check that the bond or CD belongs to the caller or exists.
 - [ ] **Monthly P&L summary only totals USD and the secondary currency.** Other configured currencies (e.g. `usdc`) appear in the per-month sums but not in `p_totals` / `n_totals`.
-- [ ] **Startup race in `ExchangeRates.ensure_currency_data`** (`data/exchange_rates.py:102`). If the background refresh holds the lock while the cache is still empty, it returns immediately and `exchange_rate` raises.
+- [x] **Startup race in `ExchangeRates.ensure_currency_data`** (`data/exchange_rates.py:102`). If the background refresh holds the lock while the cache is still empty, it returns immediately and `exchange_rate` raises.
 
 ### Low
 

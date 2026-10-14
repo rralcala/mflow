@@ -1,5 +1,6 @@
 import os
 import tempfile
+import threading
 import unittest
 from datetime import datetime
 from types import SimpleNamespace
@@ -29,17 +30,6 @@ class _SessionContext:
 class _UnlockedLock:
     def locked(self):
         return False
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        return False
-
-
-class _LockedLock:
-    def locked(self):
-        return True
 
     def __enter__(self):
         return self
@@ -245,14 +235,57 @@ class TestExchangeRates(unittest.TestCase):
         refresh.assert_called_once()
         self.assertFalse(FX_FETCH_LOCK.locked())
 
-    def test_ensure_currency_data_returns_immediately_when_locked(self):
-        with patch("data.exchange_rates.FX_FETCH_LOCK", _LockedLock()), patch.object(
+    def test_ensure_currency_data_skips_lock_when_cache_filled(self):
+        ExchangeRates.quote_cache = {"USDEUR": 0.91}
+
+        # A refresh in progress must not block readers that already have data.
+        with FX_FETCH_LOCK, patch.object(
             ExchangeRates, "fetch_from_local"
         ) as from_local, patch.object(ExchangeRates, "_refresh_and_store") as refresh:
             ExchangeRates.ensure_currency_data()
 
         from_local.assert_not_called()
         refresh.assert_not_called()
+
+    def test_exchange_rate_waits_for_startup_refresh(self):
+        # Regression: with the lock held and the cache still empty,
+        # ensure_currency_data returned at once and exchange_rate raised.
+        ExchangeRates.quote_cache = {}
+        result = {}
+
+        def lookup():
+            try:
+                result["rate"] = ExchangeRates.exchange_rate("USDEUR")
+            except Exception as e:
+                result["error"] = e
+
+        with patch.object(ExchangeRates, "fetch_from_local") as from_local:
+            FX_FETCH_LOCK.acquire()  # the background refresh, still loading
+            try:
+                reader = threading.Thread(target=lookup)
+                reader.start()
+                reader.join(timeout=0.2)
+                self.assertTrue(reader.is_alive(), "reader did not wait for the lock")
+                ExchangeRates.quote_cache = {"USDEUR": 0.91}
+            finally:
+                FX_FETCH_LOCK.release()
+            reader.join(timeout=5)
+
+        self.assertEqual(result, {"rate": 0.91})
+        from_local.assert_not_called()
+
+    def test_fetch_from_local_swaps_in_complete_cache(self):
+        ExchangeRates.quote_cache = {}
+        original = ExchangeRates.quote_cache
+        with patch.object(Config, "CURRENCIES", ["usd"], create=True), patch.object(
+            ExchangeRates, "latest_in_db", return_value=datetime(2026, 4, 19)
+        ), patch.object(
+            ExchangeRates, "local_quotes_on", return_value=[("USDEUR", 0.91)]
+        ):
+            ExchangeRates.fetch_from_local()
+
+        self.assertEqual(original, {})
+        self.assertEqual(ExchangeRates.quote_cache, {"USDEUR": 0.91})
 
     def test_ensure_currency_data_refreshes_when_local_is_empty(self):
         ExchangeRates.quote_cache = {}

@@ -99,8 +99,12 @@ class ExchangeRates:
 
     @staticmethod
     def ensure_currency_data():
-        if FX_FETCH_LOCK.locked():
+        # Refreshes swap in a complete cache, so while one runs readers can keep
+        # using the current data instead of waiting for the lock.
+        if ExchangeRates.currencies and ExchangeRates.quote_cache:
             return
+        # Nothing to serve yet: wait for whoever holds the lock (e.g. the
+        # background refresh at startup), then re-check under it.
         with FX_FETCH_LOCK:
             if len(ExchangeRates.currencies) == 0:
                 Logger.warning("Currency set is empty, loading from config...")
@@ -114,9 +118,11 @@ class ExchangeRates:
     def fetch_from_local():
         date = ExchangeRates.latest_in_db()
         date_str = date.strftime(Config.DATE_FORMAT_STRING)
+        # Built aside and swapped in at the end, so lock-free readers in
+        # ensure_currency_data never see a partly loaded cache.
+        quote_cache = dict(ExchangeRates.quote_cache)
         for symbol, value in ExchangeRates.local_quotes_on(date_str):
-
-            ExchangeRates.quote_cache[symbol] = value
+            quote_cache[symbol] = value
         if os.path.exists(FX_LAST_UPDATE_FILE):
             with open(FX_LAST_UPDATE_FILE, "rb") as f:
                 last_run = pickle.load(f)
@@ -127,6 +133,7 @@ class ExchangeRates:
         else:
             ExchangeRates.last_update = date
         ExchangeRates.currencies = set(Config.CURRENCIES)
+        ExchangeRates.quote_cache = quote_cache
         Logger.info(f"Loaded quotes: {date_str} freshness {ExchangeRates.last_update}")
 
     @staticmethod
