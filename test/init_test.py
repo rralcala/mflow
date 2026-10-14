@@ -36,6 +36,11 @@ class TestCreateApp(unittest.TestCase):
         self.assertEqual(client.get("/openapi.json").status_code, 200)
         self.assertEqual(client.get("/docs").status_code, 200)
 
+    def test_cookie_security_scheme_documented(self):
+        spec = create_app(debug=True).test_client().get("/openapi.json").get_json()
+        cookie = spec["components"]["securitySchemes"]["CookieAuth"]
+        self.assertEqual((cookie["in"], cookie["name"]), ("cookie", "session"))
+
     def test_login_manager_attached(self):
         app = create_app()
         self.assertIs(app.login_manager, login_manager)

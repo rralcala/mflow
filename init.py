@@ -65,6 +65,12 @@ def create_app(debug: bool = False) -> APIFlask:
         expose_headers=["X-Total-Count", "Content-Range"],
     )
     login_manager.init_app(app)
+
+    # Imported here: the routes package imports this module.
+    from routes.security import add_cookie_security, security_schemes
+
+    app.config["SECURITY_SCHEMES"] = security_schemes(app.config["SESSION_COOKIE_NAME"])
+    app.spec_processor(add_cookie_security)
     return app
 
 

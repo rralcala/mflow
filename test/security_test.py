@@ -8,7 +8,7 @@ from flask_login import LoginManager, login_user
 from lib.config import Config
 from models.models import User
 from routes.auth import ALGORITHM, load_user_from_request
-from routes.security import auth
+from routes.security import add_cookie_security, auth, security_schemes
 
 
 class TestDualAuth(unittest.TestCase):
@@ -65,6 +65,50 @@ class TestDualAuth(unittest.TestCase):
             "/protected", headers={"Authorization": "Bearer garbage"}
         )
         self.assertEqual(response.status_code, 401)
+
+
+class TestCookieSecurityScheme(unittest.TestCase):
+    def setUp(self):
+        self.app = APIFlask(__name__)
+        self.app.config["SECURITY_SCHEMES"] = security_schemes("session")
+        self.app.spec_processor(add_cookie_security)
+
+        @self.app.get("/protected")
+        @self.app.auth_required(auth)
+        def protected():
+            return {}
+
+        @self.app.get("/public")
+        def public():
+            return {}
+
+        self.spec = self.app.spec
+
+    def test_cookie_scheme_declared(self):
+        schemes = self.spec["components"]["securitySchemes"]
+        self.assertEqual(schemes["BearerAuth"]["scheme"], "bearer")
+        cookie = schemes["CookieAuth"]
+        self.assertEqual(
+            (cookie["type"], cookie["in"], cookie["name"]),
+            ("apiKey", "cookie", "session"),
+        )
+
+    def test_protected_operation_accepts_either_scheme(self):
+        self.assertEqual(
+            self.spec["paths"]["/protected"]["get"]["security"],
+            [{"BearerAuth": []}, {"CookieAuth": []}],
+        )
+
+    def test_public_operation_has_no_security(self):
+        self.assertNotIn("security", self.spec["paths"]["/public"]["get"])
+
+    def test_processor_is_idempotent(self):
+        spec = {"paths": {"/p": {"get": {"security": [{"BearerAuth": []}]}}}}
+        add_cookie_security(add_cookie_security(spec))
+        self.assertEqual(
+            spec["paths"]["/p"]["get"]["security"],
+            [{"BearerAuth": []}, {"CookieAuth": []}],
+        )
 
 
 if __name__ == "__main__":

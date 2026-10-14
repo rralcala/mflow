@@ -15,11 +15,8 @@ Follow-ups from the Flask → APIFlask migration.
 
   Add a shared `sort_items()` helper next to `paginate()` (sort before slicing). Things to settle: rows with missing or `None` sort values (the current `x.get(sort_key, "")` can raise on mixed types), `_order` case handling, unknown sort keys (ignore vs 400), and whether DB-backed endpoints sort in SQL or in Python. Add unit tests for the helper and each endpoint touched.
 - [ ] **Document cookie auth as its own security scheme.** The spec only lists `BearerAuth`; cookie support is only mentioned in its description. Add a `CookieAuth` (`apiKey`, `in: cookie`) scheme via `SECURITY_SCHEMES` and reference both on protected operations.
-- [ ] **Verify the frontend end to end.** The frontend and `mflow-data` were not touched or tested against the migrated backend. Smoke-test login (cookie), the JWT flow and a few react-admin list pages.
 
 ## Known bugs
-
-From the 2026-10-09 backend review. Already fixed: recurrent timelines past maturity, recurrents running more than once a month, payables using `amount` (only `balance` counts), dividend and account `factor`, cross-user instrument and recurrent-transaction writes, currency/date/symbol validation, `create_date`, and the `get_returns` / exchange-rate crashes.
 
 ### High
 
