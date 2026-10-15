@@ -126,6 +126,10 @@ def recurrent_transactions():
                 base_query = base_query.filter(
                     RecurrentTransaction.year_month == request.args["yearMonth"],
                 )
+            if "paidWithAssetId" in request.args:
+                base_query = base_query.filter(
+                    RecurrentTransaction.paid_with == request.args["paidWithAssetId"],
+                )
             if "description" in request.args:
                 base_query = base_query.filter(
                     RecurrentTransaction.description.contains(

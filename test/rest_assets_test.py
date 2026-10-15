@@ -764,6 +764,37 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(response.get_json()[0]["currency"], "USD")
 
+    def test_recurrent_transactions_get_filters_by_paid_with(self):
+        class RecordingQuery(QueryStub):
+            def __init__(self):
+                super().__init__()
+                self.criteria = []
+
+            def filter(self, *args):
+                self.criteria.extend(args)
+                return self
+
+        transactions = RecordingQuery()
+        session = SessionStub(
+            {Recurrent: QueryStub(), RecurrentTransaction: transactions}
+        )
+
+        with self.app.test_request_context(
+            "/recurrentTransactions?paidWithAssetId=visa", method="GET"
+        ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = rest_recurrents.recurrent_transactions.__wrapped__()
+
+        self.assertEqual(status, 200)
+        paid_with = [
+            c
+            for c in transactions.criteria
+            if getattr(getattr(c, "left", None), "key", None) == "paid_with"
+        ]
+        self.assertEqual(len(paid_with), 1)
+        self.assertEqual(paid_with[0].right.value, "visa")
+
     def test_recurrent_transactions_get_not_found(self):
         session = SessionStub({RecurrentTransaction: QueryStub(first_item=None)})
         with self.app.test_request_context(
