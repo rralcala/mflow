@@ -9,6 +9,7 @@ from flask_login import current_user, login_user, logout_user
 from init import login_manager
 from lib.config import Config
 from lib.logger import get_logger
+from lib.user_config import UserStore
 from models.models import User, find_user_by_username
 from routes.security import auth
 
@@ -71,6 +72,25 @@ def rlogin():
         login_user(user, remember=True)
         return jsonify({"id": user.id, "fullName": user.username}), HTTPStatus.OK
     return jsonify({"message": "Invalid credentials"}), HTTPStatus.UNAUTHORIZED
+
+
+@auth_bp.route("/profile", methods=["GET"])
+@auth_bp.auth_required(auth)
+def profile():
+    """The logged-in user's identity and their (read-only) UserConfig."""
+    user_config = UserStore.get_user_config(current_user.id)
+    return (
+        jsonify(
+            {
+                "id": current_user.id,
+                "username": current_user.username,
+                "name": current_user.name,
+                "email": current_user.email,
+                "config": user_config.to_public_dict(),
+            }
+        ),
+        HTTPStatus.OK,
+    )
 
 
 @auth_bp.route("/rlogout", methods=["GET"])

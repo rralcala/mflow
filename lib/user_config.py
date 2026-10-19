@@ -1,7 +1,13 @@
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from asset_classes.asset import Asset
 from lib.config import Config, load_config
+
+# Runtime state kept on UserConfig that is not a setting.
+PRIVATE_KEYS = ("ASSETS",)
+# Keys holding credentials; only whether they are set is exposed.
+MASKED_KEY_MARKERS = ("SECRET", "API_KEY")
+MASK = "********"
 
 
 class UserConfig:
@@ -21,6 +27,18 @@ class UserConfig:
         # e.g. [{"id": "Discretionary", "label": "discretionary"}].
         self.DASHBOARD_RECURRENTS: List[Dict[str, str]] = []
         self.ASSETS: Dict[str, List[Asset]] = {}
+
+    def to_public_dict(self) -> Dict[str, Any]:
+        """Settings safe to send to the client: credentials are masked and the
+        runtime asset cache is left out."""
+        public = {}
+        for key, value in sorted(vars(self).items()):
+            if key in PRIVATE_KEYS:
+                continue
+            if any(marker in key for marker in MASKED_KEY_MARKERS):
+                value = MASK if value else ""
+            public[key] = value
+        return public
 
 
 class UserStore:
