@@ -7,7 +7,7 @@ from flask_login import LoginManager, login_user
 
 from lib.config import Config
 from models.models import User
-from routes.auth import ALGORITHM, load_user_from_request
+from routes.auth import load_user_from_request
 from routes.security import add_cookie_security, auth, security_schemes
 
 
@@ -53,7 +53,9 @@ class TestDualAuth(unittest.TestCase):
         self.assertEqual(response.get_json(), {"user": "1"})
 
     def test_bearer_token(self):
-        token = jwt.encode({"sub": "1"}, Config.SECRET_KEY, algorithm=ALGORITHM)
+        token = jwt.encode(
+            {"sub": "1"}, Config.SECRET_KEY, algorithm=Config.SECRET_ALGORITHM
+        )
         response = self.client.get(
             "/protected", headers={"Authorization": f"Bearer {token}"}
         )

@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import logging
 from pathlib import Path
@@ -16,9 +17,11 @@ class Config:
     DATE_FORMAT_STRING = "%Y-%m-%d"
     DB_SESSION: sessionmaker
     SECRET_KEY: str
+    SECRET_ALGORITHM = "HS256"
     TRADED_CRYPTO: List[str]
     TRADED_METALS: List[str]
     TRADED_STOCKS: List[str]
+    TOKEN_EXPIRATION_HOURS = 24
     LOCAL_SYMBOLS: Dict[str, float]
     USERS: Dict
     YEAR: float = 365.25

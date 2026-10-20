@@ -15,7 +15,6 @@ from routes.security import auth
 
 auth_bp = APIBlueprint("auth", __name__, tag="auth")
 
-ALGORITHM = "HS256"
 Logger = get_logger()
 
 
@@ -31,10 +30,13 @@ def jwt_token():
     payload = {
         "sub": current_user.id,  # Subject (User ID)
         "exp": datetime.datetime.now(datetime.timezone.utc)
-        + datetime.timedelta(hours=1),  # Expiration
+        + datetime.timedelta(hours=Config.TOKEN_EXPIRATION_HOURS),  # Expiration
         "iat": datetime.datetime.now(datetime.timezone.utc),  # Issued At
     }
-    return jwt.encode(payload, Config.SECRET_KEY, algorithm=ALGORITHM), HTTPStatus.OK
+    return (
+        jwt.encode(payload, Config.SECRET_KEY, algorithm=Config.SECRET_ALGORITHM),
+        HTTPStatus.OK,
+    )
 
 
 @login_manager.request_loader
@@ -47,7 +49,9 @@ def load_user_from_request(request):
 
     token = auth_header.split(" ", 1)[1]
     try:
-        payload = jwt.decode(token, Config.SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            token, Config.SECRET_KEY, algorithms=[Config.SECRET_ALGORITHM]
+        )
     except jwt.InvalidTokenError:
         return None
 
