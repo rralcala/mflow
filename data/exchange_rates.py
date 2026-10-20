@@ -8,6 +8,7 @@ import requests
 import yfinance as yf
 from sqlalchemy import func, select
 
+from data.constants import DATE_FORMAT_STRING
 from lib.config import Config
 from lib.logger import get_logger
 from models.quotes import Quote
@@ -84,7 +85,7 @@ class ExchangeRates:
         if date is None:
             date = datetime.min
         else:
-            date = datetime.strptime(date, Config.DATE_FORMAT_STRING)
+            date = datetime.strptime(date, DATE_FORMAT_STRING)
         return date
 
     @staticmethod
@@ -117,7 +118,7 @@ class ExchangeRates:
     @staticmethod
     def fetch_from_local():
         date = ExchangeRates.latest_in_db()
-        date_str = date.strftime(Config.DATE_FORMAT_STRING)
+        date_str = date.strftime(DATE_FORMAT_STRING)
         # Built aside and swapped in at the end, so lock-free readers in
         # ensure_currency_data never see a partly loaded cache.
         quote_cache = dict(ExchangeRates.quote_cache)
@@ -152,7 +153,7 @@ class ExchangeRates:
     def _refresh_and_store():
         """Fetch fresh quotes and record them in the DB. Caller holds FX_FETCH_LOCK."""
         ExchangeRates._refresh_currency_data()
-        date_str = ExchangeRates.last_update.strftime(Config.DATE_FORMAT_STRING)
+        date_str = ExchangeRates.last_update.strftime(DATE_FORMAT_STRING)
         with Config.DB_SESSION() as session:
             for key, value in ExchangeRates.quote_cache.items():
                 Logger.info(f"Adding quote to DB: {key} = {value:.2f}")

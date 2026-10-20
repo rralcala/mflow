@@ -5,6 +5,7 @@ from sqlalchemy import Index, Integer, String
 from sqlalchemy.orm import mapped_column
 
 from data.base import Base
+from data.constants import DATE_FORMAT_STRING
 from lib.config import Config
 from lib.util import sha256_hash
 
@@ -102,7 +103,7 @@ class RecurrentTransaction(Base):
         String(35),
         nullable=False,
         # A callable, so each row gets its own date rather than the import date.
-        default=lambda: datetime.now().strftime(Config.DATE_FORMAT_STRING),
+        default=lambda: datetime.now().strftime(DATE_FORMAT_STRING),
     )
     user_id = mapped_column(Integer, nullable=False)
     # Set on bulk imports so the same source row can't be loaded twice.
@@ -145,7 +146,7 @@ class IgnoredTransaction(Base):
     create_date = mapped_column(
         String(35),
         nullable=False,
-        default=lambda: datetime.now().strftime(Config.DATE_FORMAT_STRING),
+        default=lambda: datetime.now().strftime(DATE_FORMAT_STRING),
     )
 
 

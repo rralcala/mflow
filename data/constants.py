@@ -14,6 +14,8 @@ FLOW_CLASSES = (
     RecurrentTypes.Transfer,
 )
 
+DATE_FORMAT_STRING = "%Y-%m-%d"
+
 
 def is_transfer(asset) -> bool:
     """Transfers move value between assets in pairs; they're not income or expenses."""

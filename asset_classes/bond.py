@@ -2,6 +2,7 @@ from datetime import date, datetime
 from typing import Any, Dict, List, Tuple
 
 from asset_classes.asset import Asset
+from data.constants import DATE_FORMAT_STRING
 from lib.config import Config
 
 
@@ -148,6 +149,6 @@ class Bond(Asset):
             + ", Interest Rate: "
             + f"{self.interest_rate:.2%}"
             + ", Maturity Date: "
-            + self.maturity_date.strftime(Config.DATE_FORMAT_STRING)
+            + self.maturity_date.strftime(DATE_FORMAT_STRING)
             + ")"
         )

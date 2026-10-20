@@ -96,6 +96,7 @@ POSTS = [
             "amount": 10,
             "balance": 10,
             "flowClass": "expense",
+            "targetAssetId": "Checking",
         },
         ["amount", "balance"],
     ),

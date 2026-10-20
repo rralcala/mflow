@@ -9,6 +9,7 @@ from asset_classes.instrument import Instrument
 from asset_classes.payable import Payable
 from asset_classes.property import Property
 from data.coinbase import fetch_cb_assets
+from data.constants import DATE_FORMAT_STRING
 from data.exchange_rates import ExchangeRates
 from lib.config import Config
 from lib.logger import get_logger
@@ -55,9 +56,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 identifier=str(row.name),
                 capital=float(row.capital),
                 interest_rate=float(row.rate),
-                maturity_date=datetime.strptime(
-                    row.maturity_date, Config.DATE_FORMAT_STRING
-                ),
+                maturity_date=datetime.strptime(row.maturity_date, DATE_FORMAT_STRING),
                 currency=str(row.currency),
                 country=str(row.country),
                 entity=str(row.entity),
@@ -69,7 +68,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 .all()
             ):
                 payment = {
-                    "date": datetime.strptime(irow.date, Config.DATE_FORMAT_STRING),
+                    "date": datetime.strptime(irow.date, DATE_FORMAT_STRING),
                     "amount": float(irow.amount),
                     "paid": irow.paid == 1,
                 }
@@ -84,9 +83,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
             asset = DepositCertificate(
                 identifier=str(row.name),
                 capital=float(row.capital),
-                maturity_date=datetime.strptime(
-                    row.maturity_date, Config.DATE_FORMAT_STRING
-                ),
+                maturity_date=datetime.strptime(row.maturity_date, DATE_FORMAT_STRING),
                 interest_rate=float(row.rate),
                 currency=str(row.currency),
                 country=str(row.country),
@@ -99,7 +96,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 .all()
             ):
                 payment = {
-                    "date": datetime.strptime(irow.date, Config.DATE_FORMAT_STRING),
+                    "date": datetime.strptime(irow.date, DATE_FORMAT_STRING),
                     "amount": float(irow.amount),
                     "paid": irow.paid == 1,
                 }
@@ -116,8 +113,8 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 amount=float(row.amount),
                 currency=str(row.currency),
                 recurrence=row.recurrence,
-                start=datetime.strptime(row.start, Config.DATE_FORMAT_STRING),
-                end=datetime.strptime(row.end, Config.DATE_FORMAT_STRING),
+                start=datetime.strptime(row.start, DATE_FORMAT_STRING),
+                end=datetime.strptime(row.end, DATE_FORMAT_STRING),
                 flow_class=row.flow_class,
                 rate=float(row.rate),
                 target_asset_id=str(row.target_asset_id or ""),
@@ -156,14 +153,14 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 rate=rate,
                 currency=row.currency,
                 acquisition_date=datetime.strptime(
-                    row.acquisition_date, Config.DATE_FORMAT_STRING
+                    row.acquisition_date, DATE_FORMAT_STRING
                 ),
                 acquisition_price=float(row.acquisition_price),
                 liquid=row.liquid == 1,
                 capital_rate=float(row.capital_rate),
                 target_asset_id=str(row.target_asset_id or ""),
                 sell_by=(
-                    datetime.strptime(row.sell_by, Config.DATE_FORMAT_STRING)
+                    datetime.strptime(row.sell_by, DATE_FORMAT_STRING)
                     if row.sell_by
                     else None
                 ),
@@ -181,7 +178,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 account_type=row.account_type,
                 liquid=row.liquid == 1,
                 transfer_by=(
-                    datetime.strptime(row.transfer_by, Config.DATE_FORMAT_STRING)
+                    datetime.strptime(row.transfer_by, DATE_FORMAT_STRING)
                     if row.transfer_by
                     else None
                 ),
@@ -196,7 +193,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 country=row.country,
                 currency=row.currency,
                 amount=float(row.amount),
-                due_date=datetime.strptime(row.due_date, Config.DATE_FORMAT_STRING),
+                due_date=datetime.strptime(row.due_date, DATE_FORMAT_STRING),
                 commited=row.commited == 1,
                 balance=float(row.balance),
                 flow_class=row.flow_class,
@@ -212,14 +209,14 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
                 currency=row.currency,
                 purchase_price=float(row.purchase_price),
                 purchase_date=datetime.strptime(
-                    row.purchase_date, Config.DATE_FORMAT_STRING
+                    row.purchase_date, DATE_FORMAT_STRING
                 ).date(),
                 latest_price=float(row.current_price),
                 rented_price=float(row.rent_price),
                 additional_data=row.additional_data,
                 rent_currency=row.rent_currency,
                 sell_by=(
-                    datetime.strptime(row.sell_by, Config.DATE_FORMAT_STRING)
+                    datetime.strptime(row.sell_by, DATE_FORMAT_STRING)
                     if row.sell_by
                     else None
                 ),

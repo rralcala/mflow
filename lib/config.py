@@ -1,4 +1,3 @@
-from datetime import datetime
 import json
 import logging
 from pathlib import Path
@@ -14,7 +13,6 @@ class Config:
     BASE_PATH: Path
     COUNTRIES: List[str]
     CURRENCIES: List[str]
-    DATE_FORMAT_STRING = "%Y-%m-%d"
     DB_SESSION: sessionmaker
     SECRET_KEY: str
     SECRET_ALGORITHM = "HS256"
