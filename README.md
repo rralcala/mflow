@@ -60,7 +60,9 @@ pre-commit install                       # runs black on commit
 
 ## API
 
-All routes are served under `/api`. Authenticate with `/api/auth/jwt` and pass the token as a Bearer header. List endpoints support json-server style `_start`/`_end` pagination.
+All routes are served under `/api`. Authenticate with `/api/auth/jwt` and pass the token as a Bearer header. List endpoints support json-server style `_start`/`_end` pagination and return the unpaginated total in `X-Total-Count`.
+
+Request and response bodies are defined by the marshmallow schemas in `routes/schemas.py`. Run the server with `--debug` to browse them at `/docs` (spec at `/openapi.json`). Bad input is a 400 whose `message` names each invalid field (e.g. `balance: Not a valid number.`) and whose `detail` holds the per-field errors.
 
 Main resources: `accounts`, `instruments`, `properties`, `payables`, `recurrents`, `monthlyTransactions`, and the aggregate `assets`.
 
@@ -68,23 +70,16 @@ Main resources: `accounts`, `instruments`, `properties`, `payables`, `recurrents
 
 Reports are REST resources backed by projection logic in `views/`.
 
-`GET /future_timeline` returns future timeline points for asset value, projected yield and expiration events.
+`GET /reports/future_timeline` simulates every asset month by month until the user's `LAST_UNTIL` date.
 
 | Param | Values | Default |
 |---|---|---|
-| `mode` | `flat` or `aggregated` | |
-| `granularity` | `monthly` or `yearly` | |
-| `startDate`, `endDate` | `YYYY-MM-DD` | optional |
-| `includeNonExpiringValue` | `true`/`false` | `true` |
-| `includeExpirations` | `true`/`false` | `true` |
-| `includeYield` | `true`/`false` | `true` |
-| `fallbackYears` | N, used when no asset expires | `5` |
-| `_start`, `_end` | pagination | |
+| `endDate` | `YYYY-MM-DD` | the user's `LAST_UNTIL` |
+| `capitalGrowth` | `1`/`0`: grow instruments by their capital rate | `0` |
 
 ```
-GET /future_timeline?mode=flat&granularity=monthly
-GET /future_timeline?mode=aggregated&granularity=yearly&startDate=2026-01-01
-GET /future_timeline?mode=flat&granularity=yearly&_start=0&_end=200
+GET /reports/future_timeline
+GET /reports/future_timeline?endDate=2040-01-01&capitalGrowth=1
 ```
 
 ### Bulk bond schedule upload

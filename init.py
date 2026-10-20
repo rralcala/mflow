@@ -67,8 +67,10 @@ def create_app(debug: bool = False) -> APIFlask:
     login_manager.init_app(app)
 
     # Imported here: the routes package imports this module.
+    from routes.errors import configure_errors
     from routes.security import add_cookie_security, security_schemes
 
+    configure_errors(app)
     app.config["SECURITY_SCHEMES"] = security_schemes(app.config["SESSION_COOKIE_NAME"])
     app.spec_processor(add_cookie_security)
     return app

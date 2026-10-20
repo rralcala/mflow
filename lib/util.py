@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from apiflask import abort
 from croniter import CroniterError, croniter
-from flask import Response, jsonify, request
+from flask import request
 
 from data.constants import FLOW_CLASSES
 from lib.config import Config
@@ -156,13 +156,12 @@ def normalize_flow_class(value) -> str:
     return flow_class
 
 
-def error_response(
-    message: str, status_code: HTTPStatus
-) -> tuple[Response, HTTPStatus]:
-    return (
-        jsonify({"message": message}),
-        status_code,
-    )
+def owned_or_404(session, model, user_id: int, message: str, **filters):
+    """The user's row of `model` matching `filters`, or a 404 with `message`."""
+    row = session.query(model).filter_by(user_id=user_id, **filters).first()
+    if row is None:
+        abort(HTTPStatus.NOT_FOUND, message)
+    return row
 
 
 def validate_target_asset(

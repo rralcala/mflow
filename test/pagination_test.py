@@ -1,5 +1,5 @@
 import unittest
-from test.rest_assets_test import QueryStub, SessionStub, row
+from test.rest_assets_test import QueryStub, SessionStub, api_app, row, run_view
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -51,14 +51,14 @@ class TestEndpointTotals(unittest.TestCase):
     """X-Total-Count must stay the unsliced total when a range is requested."""
 
     def setUp(self):
-        self.app = Flask(__name__)
+        self.app = api_app()
         self.user = SimpleNamespace(id="1")
 
     def test_bond_schedules(self):
         session = SessionStub(
             {
                 rest_certificates.BondSchedule: QueryStub(
-                    all_items=[row({"id": str(i)}) for i in range(5)]
+                    all_items=[row({"id": i}) for i in range(5)]
                 )
             }
         )
@@ -67,10 +67,10 @@ class TestEndpointTotals(unittest.TestCase):
         ), patch("routes.rest_certificates.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_certificates.bond_schedules_all.__wrapped__()
+            response, status = run_view(rest_certificates.bond_schedules_list)
 
         self.assertEqual(status, 200)
-        self.assertEqual(response.get_json(), [{"id": "1"}, {"id": "2"}])
+        self.assertEqual(response.get_json(), [{"id": 1}, {"id": 2}])
         self.assertEqual(response.headers["X-Total-Count"], "5")
 
     def test_recurrents(self):
@@ -86,7 +86,7 @@ class TestEndpointTotals(unittest.TestCase):
         ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_recurrents.recurrents_all.__wrapped__()
+            response, status = run_view(rest_recurrents.recurrents_list)
 
         self.assertEqual(response.get_json(), [{"id": "a"}, {"id": "b"}])
         self.assertEqual(response.headers["X-Total-Count"], "4")
@@ -98,7 +98,7 @@ class TestEndpointTotals(unittest.TestCase):
         ), patch("routes.rest_assets.current_user", self.user), patch(
             "routes.rest_assets.load_tx", return_value=txs
         ):
-            response = rest_assets.monthly_transactions.__wrapped__()
+            response, _ = run_view(rest_assets.monthly_transactions)
 
         self.assertEqual(response.get_json(), [txs[3]])
         self.assertEqual(response.headers["X-Total-Count"], "4")

@@ -2,7 +2,7 @@
 
 Follow-ups from the Flask → APIFlask migration.
 
-- [ ] **Add request/response schemas.** Endpoints have no `@app.input` / `@app.output` marshmallow schemas, so the OpenAPI spec lists paths and auth but no body shapes. Add them incrementally, keeping the json-server-style responses (raw lists, `X-Total-Count`) that `ra-data-json-server` expects.
+- [ ] **Response schemas for the analytic reports.** Every endpoint now has request schemas (bodies and query args, in `routes/schemas.py`), and every resource and list report has a response schema. These reports still return undocumented payloads: `assets_by_location`, `cash_flow`, `future_timeline`, `income_per_location`, `investment_performance`, `monthly_pnl`, `nw_summary`, `recurrent_history`, `spending_analysis`, `valuation_history`. Several use dynamic keys (`cash_flow`'s `USD-US` columns) or rows as lists (`nw_summary`'s `tot_per_location`), so they need `Dict` / `List` fields or a reshaped payload agreed with the dashboards. Output schemas drop undeclared keys: add a dump round-trip test against real view output for each (see `test/schemas_test.py`), and remove the report from `UNDOCUMENTED_RESPONSES` there.
 - [ ] **`_sort` / `_order` on list endpoints.** Still missing or partial:
 
   | Endpoint | Current state |
@@ -29,7 +29,6 @@ Follow-ups from the Flask → APIFlask migration.
   - Deleting a bond or CD leaves its schedule rows; deleting a recurrent leaves its transactions (8 orphaned transactions in the database as of 2026-10-09). A new recurrent with the same identifier would pick them up.
   - Schedule POST and the CSV uploads (`rest_certificates.py:29`, `:75`) don't check that the bond or CD belongs to the caller or exists.
 - [ ] **Monthly P&L summary only totals USD and the secondary currency.** Other configured currencies (e.g. `usdc`) appear in the per-month sums but not in `p_totals` / `n_totals`.
-- [x] **Startup race in `ExchangeRates.ensure_currency_data`** (`data/exchange_rates.py:102`). If the background refresh holds the lock while the cache is still empty, it returns immediately and `exchange_rate` raises.
 
 ### Low
 

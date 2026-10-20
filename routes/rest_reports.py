@@ -1,8 +1,8 @@
 from datetime import date
 from http import HTTPStatus
 
-from apiflask import APIBlueprint
-from flask import jsonify, request
+from apiflask import APIBlueprint, abort
+from flask import jsonify
 from flask_login import current_user
 
 from data.asset_store import get_asset_store
@@ -10,7 +10,17 @@ from data.exchange_rates import ExchangeRates
 from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserStore
-from lib.util import business_days_ago
+from lib.util import business_days_ago, paginate
+from routes.schemas import (
+    ExchangeRateOut,
+    FutureTimelineQuery,
+    MessageOut,
+    MonthlyPnlQuery,
+    RecurrentHistoryQuery,
+    TotalCountHeader,
+    UpcomingPaymentOut,
+    UpcomingPaymentsQuery,
+)
 from routes.security import auth
 from views import assets_by_location as vabl
 from views import cash_flow as vcf
@@ -56,20 +66,17 @@ def cash_flow():
 
 @reports_bp.route("/future_timeline", methods=["GET"])
 @reports_bp.auth_required(auth)
-def future_timeline():
-    """Monthly simulation of every asset until the user's LAST_UNTIL date.
-
-    Optional query args: endDate (YYYY-MM-DD, defaults to LAST_UNTIL) and
-    capitalGrowth (0/1, whether instruments appreciate by their capital rate).
-    """
+@reports_bp.input(FutureTimelineQuery, location="query")
+def future_timeline(query_data):
+    """Monthly simulation of every asset until the user's LAST_UNTIL date."""
     try:
         user_config = UserStore.get_user_config(current_user.id)
         assets = get_asset_store(user_config)
         data = vft.future_timeline(
             assets,
-            end_date=request.args.get("endDate") or user_config.LAST_UNTIL,
+            end_date=query_data.get("endDate") or user_config.LAST_UNTIL,
             inflation_rates=getattr(user_config, "INFLATION_RATES", None),
-            include_capital_growth=request.args.get("capitalGrowth", "0") == "1",
+            include_capital_growth=query_data.get("capitalGrowth", False),
             desired_estate=float(getattr(user_config, "DESIRED_ESTATE", 0.0)),
         )
     except ValueError as exc:
@@ -82,19 +89,21 @@ def future_timeline():
 
 @reports_bp.route("/exchangeRatesRefresh", methods=["GET"])
 @reports_bp.auth_required(auth)
+@reports_bp.output(MessageOut)
 def exchange_rates_refresh():
     try:
         ExchangeRates.refresh()
     except Exception as e:
-        return (
-            jsonify({"message": f"Failed to refresh exchange rates: {str(e)}"}),
+        abort(
             HTTPStatus.INTERNAL_SERVER_ERROR,
+            f"Failed to refresh exchange rates: {str(e)}",
         )
-    return jsonify({"message": "Exchange rates refreshed"}), HTTPStatus.OK
+    return {"message": "Exchange rates refreshed"}
 
 
 @reports_bp.route("/exchangeRates", methods=["GET"])
 @reports_bp.auth_required(auth)
+@reports_bp.output(ExchangeRateOut(many=True), headers=TotalCountHeader)
 def exchange_rates():
     user_config = UserStore.get_user_config(current_user.id)
     result = []
@@ -117,23 +126,19 @@ def exchange_rates():
         item["weekChange"] = (item["rate"] / item["weekChange"]) - 1
 
     result = sorted(result, key=lambda x: x["id"])
-    response = jsonify(result)
-    response.headers["X-Total-Count"] = len(result)
-    return response, HTTPStatus.OK
+    return result, HTTPStatus.OK, {"X-Total-Count": len(result)}
 
 
 @reports_bp.route("/exchangeRates/<string:name>", methods=["GET"])
 @reports_bp.auth_required(auth)
+@reports_bp.output(ExchangeRateOut)
 def exchange_rates_get(name):
     try:
         result = ExchangeRates.exchange_rate(name)
     except ValueError:
-        return jsonify({"message": "Exchange not found"}), HTTPStatus.NOT_FOUND
+        abort(HTTPStatus.NOT_FOUND, "Exchange not found")
 
-    return (
-        jsonify({"id": name, "rate": round(result, 2), "weekChange": round(result, 2)}),
-        HTTPStatus.OK,
-    )
+    return {"id": name, "rate": round(result, 2), "weekChange": round(result, 2)}
 
 
 @reports_bp.route("/income_per_location", methods=["GET"])
@@ -164,11 +169,10 @@ def investment_performance():
 
 @reports_bp.route("/monthly_pnl", methods=["GET"])
 @reports_bp.auth_required(auth)
-def monthly_pnl():
-    skip_one_off = request.args.get("oneOff", "0") == "0"
-    Logger.info(
-        f"Calculating monthly P&L with skip_one_off={skip_one_off} {request.args.get('oneOff', '1')}"
-    )
+@reports_bp.input(MonthlyPnlQuery, location="query")
+def monthly_pnl(query_data):
+    skip_one_off = not query_data.get("oneOff", False)
+    Logger.info(f"Calculating monthly P&L with skip_one_off={skip_one_off}")
     assets = get_asset_store(UserStore.get_user_config(current_user.id))
     year_months, summary = vmpnl.monthly_pnl(assets, skip_one_off=skip_one_off)
     response = jsonify({"year_months": year_months, "summary": summary})
@@ -191,19 +195,19 @@ def net_worth_summary():
 
 @reports_bp.route("/recurrent_history", methods=["GET"])
 @reports_bp.auth_required(auth)
-def recurrent_history():
+@reports_bp.input(RecurrentHistoryQuery, location="query")
+def recurrent_history(query_data):
     """Recorded transactions per recurrent and month, with statistics.
 
-    Optional query args: startYearMonth and endYearMonth (YYYY-MM, defaulting
-    to the twelve months ending with the current one) and flowClass.
+    The range defaults to the twelve months ending with the current one.
     """
     default_start, default_end = vrh.default_range(date.today())
     try:
         data = vrh.recurrent_history(
             int(current_user.id),
-            request.args.get("startYearMonth") or default_start,
-            request.args.get("endYearMonth") or default_end,
-            flow_class=request.args.get("flowClass") or None,
+            query_data.get("startYearMonth") or default_start,
+            query_data.get("endYearMonth") or default_end,
+            flow_class=query_data.get("flowClass") or None,
         )
     except ValueError as exc:
         return jsonify({"message": str(exc)}), HTTPStatus.BAD_REQUEST
@@ -228,8 +232,10 @@ def spending_analysis():
 
 @reports_bp.route("/upcoming_payments", methods=["GET"])
 @reports_bp.auth_required(auth)
-def upcoming_payments_flat():
-    exclude_capital = request.args.get("exclude", "1") == "1"
+@reports_bp.input(UpcomingPaymentsQuery, location="query")
+@reports_bp.output(UpcomingPaymentOut(many=True), headers=TotalCountHeader)
+def upcoming_payments_flat(query_data):
+    exclude_capital = query_data.get("exclude", True)
     user_config = UserStore.get_user_config(current_user.id)
     payments_by_month = vup.upcoming_payments_flat(
         get_asset_store(user_config), exclude_capital
@@ -237,13 +243,7 @@ def upcoming_payments_flat():
     count = len(payments_by_month)
     # Sort by Year-Month, Country, Date
     payments_by_month.sort(key=lambda x: (x["date"][:8], x["country"], x["date"]))
-    if "_start" in request.args and "_end" in request.args:
-        start = int(request.args["_start"])
-        end = int(request.args["_end"])
-        payments_by_month = payments_by_month[start:end]
-    response = jsonify(payments_by_month)
-    response.headers["X-Total-Count"] = count
-    return response, HTTPStatus.OK
+    return paginate(payments_by_month), HTTPStatus.OK, {"X-Total-Count": count}
 
 
 @reports_bp.route("/valuation_history", methods=["GET"])

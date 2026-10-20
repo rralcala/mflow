@@ -2,7 +2,7 @@ import datetime
 from http import HTTPStatus
 
 import jwt
-from apiflask import APIBlueprint
+from apiflask import APIBlueprint, abort
 from flask import jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_user, logout_user
 
@@ -11,6 +11,7 @@ from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserStore
 from models.models import User, find_user_by_username
+from routes.schemas import LoginIn, LoginOut, MessageOut, ProfileOut
 from routes.security import auth
 
 auth_bp = APIBlueprint("auth", __name__, tag="auth")
@@ -25,6 +26,14 @@ def unauthorized():
 
 @auth_bp.route("/jwt", methods=["GET"])
 @auth_bp.auth_required(auth)
+@auth_bp.doc(
+    responses={
+        HTTPStatus.OK: {
+            "description": "A JWT to send as a Bearer token.",
+            "content": {"text/plain": {"schema": {"type": "string"}}},
+        }
+    }
+)
 def jwt_token():
 
     payload = {
@@ -36,6 +45,7 @@ def jwt_token():
     return (
         jwt.encode(payload, Config.SECRET_KEY, algorithm=Config.SECRET_ALGORITHM),
         HTTPStatus.OK,
+        {"Content-Type": "text/plain; charset=utf-8"},
     )
 
 
@@ -59,10 +69,12 @@ def load_user_from_request(request):
 
 
 @auth_bp.route("/rlogin", methods=["POST"])
-def rlogin():
-    data = request.json
-    req_user = data.get("username", "")
-    req_password = data.get("password", "")
+@auth_bp.input(LoginIn)
+@auth_bp.output(LoginOut)
+def rlogin(json_data):
+    """Log in and set the session cookie."""
+    req_user = json_data["username"]
+    req_password = json_data["password"]
     if (
         not req_user.isalnum()
         or not req_password
@@ -70,38 +82,35 @@ def rlogin():
         or len(req_password) > 30
         or len(req_user) > 30
     ):
-        return jsonify({"message": "Invalid username/password"}), HTTPStatus.BAD_REQUEST
+        abort(HTTPStatus.BAD_REQUEST, "Invalid username/password")
     user = find_user_by_username(req_user)
     if user and user.check_password(req_password):
         login_user(user, remember=True)
-        return jsonify({"id": user.id, "fullName": user.username}), HTTPStatus.OK
-    return jsonify({"message": "Invalid credentials"}), HTTPStatus.UNAUTHORIZED
+        return {"id": user.id, "fullName": user.username}
+    abort(HTTPStatus.UNAUTHORIZED, "Invalid credentials")
 
 
 @auth_bp.route("/profile", methods=["GET"])
 @auth_bp.auth_required(auth)
+@auth_bp.output(ProfileOut)
 def profile():
     """The logged-in user's identity and their (read-only) UserConfig."""
     user_config = UserStore.get_user_config(current_user.id)
-    return (
-        jsonify(
-            {
-                "id": current_user.id,
-                "username": current_user.username,
-                "name": current_user.name,
-                "email": current_user.email,
-                "config": user_config.to_public_dict(),
-            }
-        ),
-        HTTPStatus.OK,
-    )
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "name": current_user.name,
+        "email": current_user.email,
+        "config": user_config.to_public_dict(),
+    }
 
 
 @auth_bp.route("/rlogout", methods=["GET"])
 @auth_bp.auth_required(auth)
+@auth_bp.output(MessageOut)
 def rlogout():
     logout_user()
-    return jsonify({"message": "Logged out"}), HTTPStatus.OK
+    return {"message": "Logged out"}
 
 
 @login_manager.user_loader

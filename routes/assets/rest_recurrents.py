@@ -2,7 +2,7 @@ import math
 import re
 from http import HTTPStatus
 
-from flask import jsonify, request
+from apiflask import abort
 from flask_login import current_user
 
 from data.asset_store import reload_asset_store
@@ -13,10 +13,10 @@ from lib.parsers.base import DATE, MAX_UPLOAD_BYTES, YEAR_MONTH
 from lib.user_config import UserStore
 from lib.util import (
     country_for_update,
-    error_response,
     normalize_country,
     normalize_currency,
     normalize_flow_class,
+    owned_or_404,
     paginate,
     recurrence_error,
     require_date,
@@ -33,6 +33,21 @@ from models.models import (
 )
 
 from ..blueprints import assets_bp
+from ..schemas import (
+    ImportIn,
+    ImportOut,
+    PageQuery,
+    ParsedRowOut,
+    ParseIn,
+    RecurrentIn,
+    RecurrentOut,
+    RecurrentsQuery,
+    RecurrentTransactionIn,
+    RecurrentTransactionOut,
+    RecurrentTransactionsQuery,
+    TotalCountHeader,
+    TransactionParserOut,
+)
 from ..security import auth
 
 Logger = get_logger()
@@ -72,256 +87,288 @@ def apply_to_balance(session, recurrent, transaction) -> str | None:
     return None
 
 
-@assets_bp.route("/recurrentTransactions", methods=["GET", "POST"])
+@assets_bp.get("/recurrentTransactions")
 @assets_bp.auth_required(auth)
-def recurrent_transactions():
-    if request.method == "POST":
-        data = request.json
-        new_transaction = RecurrentTransaction(
-            parent_id=data.get("recurrentId"),
-            year_month=data.get("yearMonth"),
-            description=data.get("description"),
-            amount=require_number(data.get("amount"), "amount"),
-            transaction_date=data.get("transactionDate"),
-            paid_with=data.get("paidWithAssetId"),
-            user_id=int(current_user.id),
-        )
-        with Config.DB_SESSION() as session:
-            recurrent = (
-                session.query(Recurrent)
-                .filter_by(
-                    user_id=int(current_user.id), identifier=new_transaction.parent_id
-                )
-                .first()
-            )
-            if recurrent is None:
-                return error_response("Unknown recurrent", HTTPStatus.BAD_REQUEST)
-            if data.get("updateBalance"):
-                error = apply_to_balance(session, recurrent, new_transaction)
-                if error:
-                    return error_response(error, HTTPStatus.BAD_REQUEST)
-            session.add(new_transaction)
-            session.commit()
-            reload_asset_store(UserStore.get_user_config(current_user.id))
-            return jsonify(new_transaction.to_dict()), 201
-    else:
-
-        with Config.DB_SESSION() as session:
-            base_query = session.query(Recurrent).filter_by(
-                user_id=int(current_user.id)
-            )
-            parent_recurrents = base_query.all()
-            recurrents = {}
-            for post in parent_recurrents:
-                recurrents[post.identifier] = post.to_dict()
-
-            base_query = session.query(RecurrentTransaction).filter(
-                RecurrentTransaction.user_id == int(current_user.id)
-            )
-            if "recurrentId" in request.args:
-                base_query = base_query.filter(
-                    RecurrentTransaction.parent_id == request.args["recurrentId"],
-                )
-            if "yearMonth" in request.args:
-                base_query = base_query.filter(
-                    RecurrentTransaction.year_month == request.args["yearMonth"],
-                )
-            if "paidWithAssetId" in request.args:
-                base_query = base_query.filter(
-                    RecurrentTransaction.paid_with == request.args["paidWithAssetId"],
-                )
-            if "description" in request.args:
-                base_query = base_query.filter(
-                    RecurrentTransaction.description.contains(
-                        request.args["description"]
-                    ),
-                )
-            results = []
-            for post in base_query.order_by(
-                RecurrentTransaction.transaction_date.desc()
-            ).all():
-                record = post.to_dict()
-                record["currency"] = recurrents.get(post.parent_id, {}).get(
-                    "currency", ""
-                )
-                results.append(record)
-
-        count = len(results)
-        response = jsonify(paginate(results))
-        response.headers["X-Total-Count"] = count
-    return response, HTTPStatus.OK
-
-
-@assets_bp.route("/recurrentTransactions/<name>", methods=["GET", "PUT", "DELETE"])
-@assets_bp.auth_required(auth)
-def recurrent_transactions_get(name):
+@assets_bp.input(RecurrentTransactionsQuery, location="query")
+@assets_bp.output(RecurrentTransactionOut(many=True), headers=TotalCountHeader)
+def recurrent_transactions_list(query_data):
     with Config.DB_SESSION() as session:
-        result = (
-            session.query(RecurrentTransaction)
-            .filter_by(user_id=int(current_user.id), transaction_id=name)
-            .first()
+        base_query = session.query(Recurrent).filter_by(user_id=int(current_user.id))
+        parent_recurrents = base_query.all()
+        recurrents = {}
+        for post in parent_recurrents:
+            recurrents[post.identifier] = post.to_dict()
+
+        base_query = session.query(RecurrentTransaction).filter(
+            RecurrentTransaction.user_id == int(current_user.id)
         )
-        if result is None:
-            return (
-                jsonify({"message": "Recurrent Transaction not found"}),
-                HTTPStatus.NOT_FOUND,
+        if "recurrentId" in query_data:
+            base_query = base_query.filter(
+                RecurrentTransaction.parent_id == query_data["recurrentId"],
             )
-        if request.method == "PUT":
-            data = request.json
-            parent_id = data.get("recurrentId", result.parent_id)
-            if parent_id != result.parent_id and not owns_recurrent(session, parent_id):
-                return error_response("Unknown recurrent", HTTPStatus.BAD_REQUEST)
-            result.year_month = data.get("yearMonth", result.year_month)
-            result.paid_with = data.get("paidWithAssetId", result.paid_with)
-            result.transaction_date = data.get(
-                "transactionDate", result.transaction_date
+        if "yearMonth" in query_data:
+            base_query = base_query.filter(
+                RecurrentTransaction.year_month == query_data["yearMonth"],
             )
-            result.parent_id = parent_id
-            result.amount = require_number(data.get("amount", result.amount), "amount")
-            result.description = data.get("description", result.description)
-            session.commit()
-            reload_asset_store(UserStore.get_user_config(current_user.id))
-        elif request.method == "DELETE":
-            session.delete(result)
-            session.commit()
-            reload_asset_store(UserStore.get_user_config(current_user.id))
-        return jsonify(result.to_dict()), HTTPStatus.OK
+        if "paidWithAssetId" in query_data:
+            base_query = base_query.filter(
+                RecurrentTransaction.paid_with == query_data["paidWithAssetId"],
+            )
+        if "description" in query_data:
+            base_query = base_query.filter(
+                RecurrentTransaction.description.contains(query_data["description"]),
+            )
+        results = []
+        for post in base_query.order_by(
+            RecurrentTransaction.transaction_date.desc()
+        ).all():
+            record = post.to_dict()
+            record["currency"] = recurrents.get(post.parent_id, {}).get("currency", "")
+            results.append(record)
+
+    count = len(results)
+    return paginate(results), HTTPStatus.OK, {"X-Total-Count": count}
 
 
-@assets_bp.route("/recurrents", methods=["GET", "POST"])
+@assets_bp.post("/recurrentTransactions")
 @assets_bp.auth_required(auth)
-def recurrents_all():
-    if request.method == "POST":
-        data = request.json
-        country = normalize_country(data.get("country"))
-        target_asset_id = data.get("targetAssetId")
-        currency = normalize_currency(data.get("currency"))
-        start = require_date(data.get("start"), "start")
-        end = require_date(data.get("end"), "end")
-        amount = require_number(data.get("amount"), "amount")
-        rate = require_number(data.get("rate"), "rate")
-        flow_class = normalize_flow_class(data.get("flowClass"))
-        error = recurrence_error(data.get("recurrence"))
-        if error:
-            return error_response(error, HTTPStatus.BAD_REQUEST)
-        with Config.DB_SESSION() as session:
-            if not validate_target_asset(
-                session, int(current_user.id), target_asset_id, currency
-            ):
-                return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
-            error = target_country_error(
-                session, int(current_user.id), target_asset_id, country
-            )
-            if error:
-                return error_response(error, HTTPStatus.BAD_REQUEST)
-            new_transaction = Recurrent(
-                identifier=data.get("id"),
-                parent_asset_id=data.get("assetId"),
-                target_asset_id=target_asset_id,
-                country=country,
-                amount=amount,
-                currency=currency,
-                recurrence=data.get("recurrence"),
-                start=start,
-                end=end,
-                flow_class=flow_class,
-                rate=rate,
-                user_id=int(current_user.id),
-                inflation=1 if data.get("inflation") else 0,
-            )
-            session.add(new_transaction)
-            session.commit()
-            reload_asset_store(UserStore.get_user_config(current_user.id))
-            return jsonify(new_transaction.to_dict()), 201
-    else:
-        with Config.DB_SESSION() as session:
-            base_query = session.query(Recurrent).filter_by(
-                user_id=int(current_user.id)
-            )
-            if "flowClass" in request.args:
-                base_query = base_query.filter_by(flow_class=request.args["flowClass"])
-            if "targetAssetId" in request.args:
-                base_query = base_query.filter_by(
-                    target_asset_id=request.args["targetAssetId"]
-                )
-
-            rows = base_query.all()
-
-        results = sorted(
-            [post.to_dict() for post in rows], key=lambda x: x.get("id", "")
-        )
-        count = len(results)
-        response = jsonify(paginate(results))
-        response.headers["X-Total-Count"] = count
-        return response, HTTPStatus.OK
-
-
-@assets_bp.route("/recurrents/<name>", methods=["GET", "PUT", "DELETE"])
-@assets_bp.auth_required(auth)
-def recurrents_get(name):
+@assets_bp.input(RecurrentTransactionIn)
+@assets_bp.output(RecurrentTransactionOut, status_code=HTTPStatus.CREATED)
+def recurrent_transaction_create(json_data):
+    data = json_data
+    new_transaction = RecurrentTransaction(
+        parent_id=data.get("recurrentId"),
+        year_month=data.get("yearMonth"),
+        description=data.get("description"),
+        amount=require_number(data.get("amount"), "amount"),
+        transaction_date=data.get("transactionDate"),
+        paid_with=data.get("paidWithAssetId"),
+        user_id=int(current_user.id),
+    )
     with Config.DB_SESSION() as session:
-        result = (
+        recurrent = (
             session.query(Recurrent)
-            .filter_by(user_id=int(current_user.id), identifier=name)
+            .filter_by(
+                user_id=int(current_user.id), identifier=new_transaction.parent_id
+            )
             .first()
         )
-        if result is None:
-            return jsonify({"message": "Recurrent not found"}), HTTPStatus.NOT_FOUND
-        if request.method == "PUT":
-            data = request.json
-            recurrence = data.get("recurrence", result.recurrence)
-            if recurrence != result.recurrence:
-                error = recurrence_error(recurrence)
-                if error:
-                    return error_response(error, HTTPStatus.BAD_REQUEST)
-            target_asset_id = data.get("targetAssetId", result.target_asset_id)
-            currency = normalize_currency(data.get("currency", result.currency))
-            start = require_date(data.get("start", result.start), "start")
-            end = require_date(data.get("end", result.end), "end")
-            amount = require_number(data.get("amount", result.amount), "amount")
-            rate = require_number(data.get("rate", result.rate), "rate")
-            flow_class = normalize_flow_class(data.get("flowClass", result.flow_class))
-            country = country_for_update(data, result.country)
-            if not validate_target_asset(
-                session, int(current_user.id), target_asset_id, currency
-            ):
-                return jsonify({"message": "Bad target asset"}), HTTPStatus.BAD_REQUEST
-            error = target_country_error(
-                session, int(current_user.id), target_asset_id, country
-            )
+        if recurrent is None:
+            abort(HTTPStatus.BAD_REQUEST, "Unknown recurrent")
+        if data.get("updateBalance"):
+            error = apply_to_balance(session, recurrent, new_transaction)
             if error:
-                return error_response(error, HTTPStatus.BAD_REQUEST)
-            result.parent_asset_id = data.get("assetId", result.parent_asset_id)
-            result.target_asset_id = target_asset_id
-            result.country = country
-            result.amount = amount
-            result.currency = currency
-            result.recurrence = recurrence
-            result.start = start
-            result.end = end
-            result.flow_class = flow_class
-            result.rate = rate
-            result.inflation = 1 if data.get("inflation", result.inflation) else 0
-            session.commit()
-            reload_asset_store(UserStore.get_user_config(current_user.id))
-        elif request.method == "DELETE":
-            session.delete(result)
-            session.commit()
-            reload_asset_store(UserStore.get_user_config(current_user.id))
-        return jsonify(result.to_dict()), HTTPStatus.OK
+                abort(HTTPStatus.BAD_REQUEST, error)
+        session.add(new_transaction)
+        session.commit()
+        reload_asset_store(UserStore.get_user_config(current_user.id))
+        return new_transaction.to_dict()
 
 
-@assets_bp.route("/transactionParsers", methods=["GET"])
+@assets_bp.get("/recurrentTransactions/<name>")
 @assets_bp.auth_required(auth)
-def transaction_parsers():
+@assets_bp.output(RecurrentTransactionOut)
+def recurrent_transaction_get(name):
+    with Config.DB_SESSION() as session:
+        return find_transaction(session, name).to_dict()
+
+
+@assets_bp.put("/recurrentTransactions/<name>")
+@assets_bp.auth_required(auth)
+@assets_bp.input(RecurrentTransactionIn(partial=True, exclude=("updateBalance",)))
+@assets_bp.output(RecurrentTransactionOut)
+def recurrent_transaction_update(name, json_data):
+    data = json_data
+    with Config.DB_SESSION() as session:
+        result = find_transaction(session, name)
+        parent_id = data.get("recurrentId", result.parent_id)
+        if parent_id != result.parent_id and not owns_recurrent(session, parent_id):
+            abort(HTTPStatus.BAD_REQUEST, "Unknown recurrent")
+        result.year_month = data.get("yearMonth", result.year_month)
+        result.paid_with = data.get("paidWithAssetId", result.paid_with)
+        result.transaction_date = data.get("transactionDate", result.transaction_date)
+        result.parent_id = parent_id
+        result.amount = require_number(data.get("amount", result.amount), "amount")
+        result.description = data.get("description", result.description)
+        session.commit()
+        reload_asset_store(UserStore.get_user_config(current_user.id))
+        return result.to_dict()
+
+
+@assets_bp.delete("/recurrentTransactions/<name>")
+@assets_bp.auth_required(auth)
+@assets_bp.output(RecurrentTransactionOut)
+def recurrent_transaction_delete(name):
+    with Config.DB_SESSION() as session:
+        result = find_transaction(session, name)
+        session.delete(result)
+        session.commit()
+        reload_asset_store(UserStore.get_user_config(current_user.id))
+        return result.to_dict()
+
+
+def find_transaction(session, name) -> RecurrentTransaction:
+    return owned_or_404(
+        session,
+        RecurrentTransaction,
+        int(current_user.id),
+        "Recurrent Transaction not found",
+        transaction_id=name,
+    )
+
+
+@assets_bp.get("/recurrents")
+@assets_bp.auth_required(auth)
+@assets_bp.input(RecurrentsQuery, location="query")
+@assets_bp.output(RecurrentOut(many=True), headers=TotalCountHeader)
+def recurrents_list(query_data):
+    with Config.DB_SESSION() as session:
+        base_query = session.query(Recurrent).filter_by(user_id=int(current_user.id))
+        if "flowClass" in query_data:
+            base_query = base_query.filter_by(flow_class=query_data["flowClass"])
+        if "targetAssetId" in query_data:
+            base_query = base_query.filter_by(
+                target_asset_id=query_data["targetAssetId"]
+            )
+
+        rows = base_query.all()
+
+    results = sorted([post.to_dict() for post in rows], key=lambda x: x.get("id", ""))
+    count = len(results)
+    return paginate(results), HTTPStatus.OK, {"X-Total-Count": count}
+
+
+@assets_bp.post("/recurrents")
+@assets_bp.auth_required(auth)
+@assets_bp.input(RecurrentIn)
+@assets_bp.output(RecurrentOut, status_code=HTTPStatus.CREATED)
+def recurrent_create(json_data):
+    data = json_data
+    country = normalize_country(data.get("country"))
+    target_asset_id = data.get("targetAssetId")
+    currency = normalize_currency(data.get("currency"))
+    start = require_date(data.get("start"), "start")
+    end = require_date(data.get("end"), "end")
+    amount = require_number(data.get("amount"), "amount")
+    rate = require_number(data.get("rate"), "rate")
+    flow_class = normalize_flow_class(data.get("flowClass"))
+    error = recurrence_error(data.get("recurrence"))
+    if error:
+        abort(HTTPStatus.BAD_REQUEST, error)
+    with Config.DB_SESSION() as session:
+        if not validate_target_asset(
+            session, int(current_user.id), target_asset_id, currency
+        ):
+            abort(HTTPStatus.BAD_REQUEST, "Bad target asset")
+        error = target_country_error(
+            session, int(current_user.id), target_asset_id, country
+        )
+        if error:
+            abort(HTTPStatus.BAD_REQUEST, error)
+        new_transaction = Recurrent(
+            identifier=data.get("id"),
+            parent_asset_id=data.get("assetId"),
+            target_asset_id=target_asset_id,
+            country=country,
+            amount=amount,
+            currency=currency,
+            recurrence=data.get("recurrence"),
+            start=start,
+            end=end,
+            flow_class=flow_class,
+            rate=rate,
+            user_id=int(current_user.id),
+            inflation=1 if data.get("inflation") else 0,
+        )
+        session.add(new_transaction)
+        session.commit()
+        reload_asset_store(UserStore.get_user_config(current_user.id))
+        return new_transaction.to_dict()
+
+
+@assets_bp.get("/recurrents/<name>")
+@assets_bp.auth_required(auth)
+@assets_bp.output(RecurrentOut)
+def recurrent_get(name):
+    with Config.DB_SESSION() as session:
+        return find_recurrent(session, name).to_dict()
+
+
+@assets_bp.put("/recurrents/<name>")
+@assets_bp.auth_required(auth)
+@assets_bp.input(RecurrentIn(partial=True, exclude=("id",)))
+@assets_bp.output(RecurrentOut)
+def recurrent_update(name, json_data):
+    data = json_data
+    with Config.DB_SESSION() as session:
+        result = find_recurrent(session, name)
+        recurrence = data.get("recurrence", result.recurrence)
+        if recurrence != result.recurrence:
+            error = recurrence_error(recurrence)
+            if error:
+                abort(HTTPStatus.BAD_REQUEST, error)
+        target_asset_id = data.get("targetAssetId", result.target_asset_id)
+        currency = normalize_currency(data.get("currency", result.currency))
+        start = require_date(data.get("start", result.start), "start")
+        end = require_date(data.get("end", result.end), "end")
+        amount = require_number(data.get("amount", result.amount), "amount")
+        rate = require_number(data.get("rate", result.rate), "rate")
+        flow_class = normalize_flow_class(data.get("flowClass", result.flow_class))
+        country = country_for_update(data, result.country)
+        if not validate_target_asset(
+            session, int(current_user.id), target_asset_id, currency
+        ):
+            abort(HTTPStatus.BAD_REQUEST, "Bad target asset")
+        error = target_country_error(
+            session, int(current_user.id), target_asset_id, country
+        )
+        if error:
+            abort(HTTPStatus.BAD_REQUEST, error)
+        result.parent_asset_id = data.get("assetId", result.parent_asset_id)
+        result.target_asset_id = target_asset_id
+        result.country = country
+        result.amount = amount
+        result.currency = currency
+        result.recurrence = recurrence
+        result.start = start
+        result.end = end
+        result.flow_class = flow_class
+        result.rate = rate
+        result.inflation = 1 if data.get("inflation", result.inflation) else 0
+        session.commit()
+        reload_asset_store(UserStore.get_user_config(current_user.id))
+        return result.to_dict()
+
+
+@assets_bp.delete("/recurrents/<name>")
+@assets_bp.auth_required(auth)
+@assets_bp.output(RecurrentOut)
+def recurrent_delete(name):
+    with Config.DB_SESSION() as session:
+        result = find_recurrent(session, name)
+        session.delete(result)
+        session.commit()
+        reload_asset_store(UserStore.get_user_config(current_user.id))
+        return result.to_dict()
+
+
+def find_recurrent(session, name) -> Recurrent:
+    return owned_or_404(
+        session, Recurrent, int(current_user.id), "Recurrent not found", identifier=name
+    )
+
+
+@assets_bp.get("/transactionParsers")
+@assets_bp.auth_required(auth)
+@assets_bp.input(PageQuery, location="query")
+@assets_bp.output(TransactionParserOut(many=True), headers=TotalCountHeader)
+def transaction_parsers(query_data):
     results = sorted(
         (parser.to_dict() for parser in available_parsers().values()),
         key=lambda x: x["name"],
     )
     count = len(results)
-    response = jsonify(paginate(results))
-    response.headers["X-Total-Count"] = count
-    return response, HTTPStatus.OK
+    return paginate(results), HTTPStatus.OK, {"X-Total-Count": count}
 
 
 def processed_rows(session, hashes):
@@ -351,38 +398,35 @@ def processed_rows(session, hashes):
     )
 
 
-@assets_bp.route("/recurrentTransactionsParse", methods=["POST"])
+@assets_bp.post("/recurrentTransactionsParse")
 @assets_bp.auth_required(auth)
-def recurrent_transactions_parse():
+@assets_bp.input(ParseIn, location="files")
+@assets_bp.output(ParsedRowOut(many=True))
+def recurrent_transactions_parse(files_data):
     """Parse an uploaded statement into transactions, without saving them.
 
-    Multipart form with `file` and `parser` (a `/transactionParsers` id). The
-    file must have one of the parser's extensions and be at most
+    The file must have one of the parser's extensions and be at most
     MAX_UPLOAD_BYTES. Each returned row carries its import hash and a `status`:
     `new`, `ignored`, or `imported`, in which case the row holds the saved
     transaction's values and `transactionId`.
     """
-    parser = get_parser(request.form.get("parser", ""))
+    parser = get_parser(files_data["parser"])
     if parser is None:
-        return error_response("Unknown parser", HTTPStatus.BAD_REQUEST)
-    upload = request.files.get("file")
-    if upload is None:
-        return error_response("Missing file", HTTPStatus.BAD_REQUEST)
+        abort(HTTPStatus.BAD_REQUEST, "Unknown parser")
+    upload = files_data["file"]
     filename = upload.filename or ""
     if not parser.accepts(filename):
-        return error_response(
-            f"{parser.name} only reads {', '.join(parser.extensions)} files",
+        abort(
             HTTPStatus.BAD_REQUEST,
+            f"{parser.name} only reads {', '.join(parser.extensions)} files",
         )
     content = upload.read(MAX_UPLOAD_BYTES + 1)
     if len(content) > MAX_UPLOAD_BYTES:
-        return error_response(
-            "File is larger than 1.5 MB", HTTPStatus.REQUEST_ENTITY_TOO_LARGE
-        )
+        abort(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "File is larger than 1.5 MB")
     try:
         transactions = parser.parse(content, filename)
     except ParseError as e:
-        return error_response(str(e), HTTPStatus.BAD_REQUEST)
+        abort(HTTPStatus.BAD_REQUEST, str(e))
 
     hashes = transaction_hashes(transactions)
     with Config.DB_SESSION() as session:
@@ -420,7 +464,7 @@ def recurrent_transactions_parse():
         elif import_hash in ignored:
             row["status"] = "ignored"
         results.append(row)
-    return jsonify(results), HTTPStatus.OK
+    return results
 
 
 def source_row_error(row) -> str | None:
@@ -460,30 +504,32 @@ def import_row_error(row, owned_recurrents) -> str | None:
     return None
 
 
-@assets_bp.route("/recurrentTransactionsImport", methods=["POST"])
+# The schema documents the body; the rows are checked below instead, so an
+# error names the row by its position ("Transaction 2: ...") and the whole
+# batch is rejected.
+@assets_bp.post("/recurrentTransactionsImport")
 @assets_bp.auth_required(auth)
-def recurrent_transactions_import():
+@assets_bp.input(ImportIn, validation=False)
+@assets_bp.output(ImportOut, status_code=HTTPStatus.CREATED)
+def recurrent_transactions_import(json_data):
     """Save parsed rows as transactions, or record them as ignored.
 
-    Body: `{"transactions": [...], "ignored": [...]}`, rows as returned by
-    `/recurrentTransactionsParse`. Rows to import are shaped like a
-    recurrentTransactions POST plus `importHash`; rows to ignore need
-    `importHash`, `transactionDate`, `description` and `amount`. The whole batch
-    is rejected if any row is invalid.
+    Rows are as returned by `/recurrentTransactionsParse`. Rows to import are
+    shaped like a recurrentTransactions POST plus `importHash`; rows to ignore
+    need `importHash`, `transactionDate`, `description` and `amount`. The whole
+    batch is rejected if any row is invalid.
 
     Hashes already imported are skipped. Importing an ignored hash un-ignores
     it; ignoring an imported hash, or one also imported in this batch, is a
     no-op.
     """
-    body = request.json or {}
+    body = json_data if isinstance(json_data, dict) else {}
     rows = body.get("transactions") or []
     ignore_rows = body.get("ignored") or []
     if not isinstance(rows, list) or not isinstance(ignore_rows, list):
-        return error_response(
-            "transactions and ignored must be lists", HTTPStatus.BAD_REQUEST
-        )
+        abort(HTTPStatus.BAD_REQUEST, "transactions and ignored must be lists")
     if not rows and not ignore_rows:
-        return error_response("No transactions", HTTPStatus.BAD_REQUEST)
+        abort(HTTPStatus.BAD_REQUEST, "No transactions")
     user_id = int(current_user.id)
     with Config.DB_SESSION() as session:
         owned_recurrents = {
@@ -495,15 +541,11 @@ def recurrent_transactions_import():
         for index, row in enumerate(rows, start=1):
             error = import_row_error(row, owned_recurrents)
             if error:
-                return error_response(
-                    f"Transaction {index}: {error}", HTTPStatus.BAD_REQUEST
-                )
+                abort(HTTPStatus.BAD_REQUEST, f"Transaction {index}: {error}")
         for index, row in enumerate(ignore_rows, start=1):
             error = source_row_error(row)
             if error:
-                return error_response(
-                    f"Ignored row {index}: {error}", HTTPStatus.BAD_REQUEST
-                )
+                abort(HTTPStatus.BAD_REQUEST, f"Ignored row {index}: {error}")
 
         imported, ignored = processed_rows(
             session, [row["importHash"] for row in rows + ignore_rows]
@@ -549,13 +591,8 @@ def recurrent_transactions_import():
         session.commit()
     if inserted:
         reload_asset_store(UserStore.get_user_config(current_user.id))
-    return (
-        jsonify(
-            {
-                "inserted": inserted,
-                "ignored": newly_ignored,
-                "skipped": len(rows) + len(ignore_rows) - inserted - newly_ignored,
-            }
-        ),
-        HTTPStatus.CREATED,
-    )
+    return {
+        "inserted": inserted,
+        "ignored": newly_ignored,
+        "skipped": len(rows) + len(ignore_rows) - inserted - newly_ignored,
+    }

@@ -1,8 +1,7 @@
 import unittest
+from test.rest_assets_test import api_app, run_view
 from types import SimpleNamespace
 from unittest.mock import patch
-
-from flask import Flask
 
 import routes.auth as auth_routes
 from lib.user_config import MASK, UserConfig
@@ -50,12 +49,12 @@ class TestProfileRoute(unittest.TestCase):
         user_config = UserConfig("1")
         user_config.COINBASE_API_SECRET = "real-secret"
 
-        with Flask(__name__).test_request_context("/profile"), patch(
+        with api_app().test_request_context("/profile"), patch(
             "routes.auth.current_user", user
         ), patch(
             "routes.auth.UserStore.get_user_config", return_value=user_config
         ) as get_config:
-            response, status = auth_routes.profile.__wrapped__()
+            response, status = run_view(auth_routes.profile)
 
         self.assertEqual(status, 200)
         get_config.assert_called_once_with("1")

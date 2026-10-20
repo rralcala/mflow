@@ -3,12 +3,35 @@ from http import HTTPStatus
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from apiflask import APIFlask
 from apiflask.exceptions import HTTPError
-from flask import Flask
+from flask import current_app
 
 from lib.config import Config
 from models.models import Recurrent, RecurrentTransaction
 from routes.assets import rest_assets, rest_certificates, rest_recurrents
+from routes.errors import configure_errors, error_body
+
+
+def api_app():
+    """An app that handles errors like the one create_app builds."""
+    app = APIFlask(__name__)
+    configure_errors(app)
+    return app
+
+
+def run_view(view, *args):
+    """Call a view inside a request context, skipping only its auth check.
+
+    Its input and output schemas still apply. Returns (response, status) as the
+    app would send them, error responses included.
+    """
+    try:
+        rv = view.__wrapped__(*args)
+    except HTTPError as error:
+        rv = error_body(error)
+    response = current_app.make_response(rv)
+    return response, response.status_code
 
 
 def row(data):
@@ -116,7 +139,7 @@ class SessionStub:
 
 class TestRestAssetsRoutes(unittest.TestCase):
     def setUp(self):
-        self.app = Flask(__name__)
+        self.app = api_app()
         self.user = SimpleNamespace(id="1")
         countries = patch.object(Config, "COUNTRIES", ["US", "PY"], create=True)
         countries.start()
@@ -143,7 +166,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_assets.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.accounts.__wrapped__()
+            response, status = run_view(rest_assets.accounts_list)
 
         self.assertEqual(status, 200)
         self.assertEqual(response.headers["X-Total-Count"], "2")
@@ -161,7 +184,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch(
             "routes.rest_assets.asset_data_from_asset", return_value={"id": "asset-1"}
         ):
-            response, status = rest_assets.asset_get.__wrapped__("asset-1")
+            response, status = run_view(rest_assets.asset_get, "asset-1")
 
         self.assertEqual(status, 200)
         self.assertEqual(response.get_json(), {"id": "asset-1"})
@@ -178,16 +201,16 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch(
             "routes.rest_assets.get_assets",
             return_value=[
-                {"id": "a", "name": "A"},
-                {"id": "b", "name": "B"},
-                {"id": "c", "name": "C"},
+                {"id": "a", "details": "A"},
+                {"id": "b", "details": "B"},
+                {"id": "c", "details": "C"},
             ],
         ):
-            response, status = rest_assets.assets.__wrapped__()
+            response, status = run_view(rest_assets.assets)
 
         self.assertEqual(status, 200)
         self.assertEqual(response.headers["X-Total-Count"], "2")
-        self.assertEqual(response.get_json(), [{"id": "c", "name": "C"}])
+        self.assertEqual(response.get_json(), [{"id": "c", "details": "C"}])
 
     def test_bond_schedules_all_get(self):
         session = SessionStub(
@@ -200,7 +223,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         with self.app.test_request_context("/bondSchedules", method="GET"), patch(
             "routes.rest_certificates.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_certificates.bond_schedules_all.__wrapped__()
+            response, status = run_view(rest_certificates.bond_schedules_list)
 
         self.assertEqual(status, 200)
         self.assertEqual(response.headers["X-Total-Count"], "2")
@@ -212,18 +235,18 @@ class TestRestAssetsRoutes(unittest.TestCase):
         with self.app.test_request_context("/bondSchedules/1", method="GET"), patch(
             "routes.rest_certificates.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_certificates.bond_schedules_get.__wrapped__("1")
+            response, status = run_view(rest_certificates.bond_schedule_get, "1")
 
         self.assertEqual(status, 404)
-        self.assertEqual(response.get_json(), {"message": "Bond Schedule not found"})
+        self.assertEqual(response.get_json()["message"], "Bond Schedule not found")
 
     def test_bonds_all_get(self):
         session = SessionStub(
             {
                 rest_certificates.Bond: QueryStub(
                     all_items=[
-                        row({"id": "a", "name": "a"}),
-                        row({"id": "b", "name": "b"}),
+                        row({"id": 1, "name": "a"}),
+                        row({"id": 2, "name": "b"}),
                     ]
                 )
             }
@@ -231,11 +254,11 @@ class TestRestAssetsRoutes(unittest.TestCase):
         with self.app.test_request_context("/bonds", method="GET"), patch(
             "routes.rest_certificates.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_certificates.bonds_all.__wrapped__()
+            response, status = run_view(rest_certificates.bonds_list)
 
         self.assertEqual(status, 200)
         self.assertEqual(
-            response.get_json(), [{"id": "a", "name": "a"}, {"id": "b", "name": "b"}]
+            response.get_json(), [{"id": 1, "name": "a"}, {"id": 2, "name": "b"}]
         )
 
     def test_bonds_get_not_found(self):
@@ -243,10 +266,10 @@ class TestRestAssetsRoutes(unittest.TestCase):
         with self.app.test_request_context("/bonds/1", method="GET"), patch(
             "routes.rest_certificates.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_certificates.bonds_get.__wrapped__("1")
+            response, status = run_view(rest_certificates.bond_get, "1")
 
         self.assertEqual(status, 404)
-        self.assertEqual(response.get_json(), {"message": "Bond not found"})
+        self.assertEqual(response.get_json()["message"], "Bond not found")
 
     def test_deposit_certificate_schedules_all_get(self):
         session = SessionStub(
@@ -261,8 +284,8 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_certificates.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = (
-                rest_certificates.deposit_certificate_schedules_all.__wrapped__()
+            response, status = run_view(
+                rest_certificates.deposit_certificate_schedules_list
             )
 
         self.assertEqual(status, 200)
@@ -277,8 +300,8 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_certificates.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = (
-                rest_certificates.deposit_certificate_schedules_get.__wrapped__("1")
+            response, status = run_view(
+                rest_certificates.deposit_certificate_schedule_get, "1"
             )
 
         self.assertEqual(status, 404)
@@ -288,8 +311,8 @@ class TestRestAssetsRoutes(unittest.TestCase):
             {
                 rest_certificates.DepositCertificate: QueryStub(
                     all_items=[
-                        row({"id": "2", "name": "a"}),
-                        row({"id": "1", "name": "b"}),
+                        row({"id": 2, "name": "a"}),
+                        row({"id": 1, "name": "b"}),
                     ]
                 )
             }
@@ -297,11 +320,11 @@ class TestRestAssetsRoutes(unittest.TestCase):
         with self.app.test_request_context("/depositCertificates", method="GET"), patch(
             "routes.rest_certificates.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_certificates.deposit_certificates_all.__wrapped__()
+            response, status = run_view(rest_certificates.deposit_certificates_list)
 
         self.assertEqual(status, 200)
         self.assertEqual(
-            response.get_json(), [{"id": "2", "name": "a"}, {"id": "1", "name": "b"}]
+            response.get_json(), [{"id": 2, "name": "a"}, {"id": 1, "name": "b"}]
         )
 
     def test_deposit_certificates_get_not_found(self):
@@ -313,9 +336,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_certificates.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_certificates.deposit_certificates_get.__wrapped__(
-                "1"
-            )
+            response, status = run_view(rest_certificates.deposit_certificate_get, "1")
 
         self.assertEqual(status, 404)
 
@@ -324,7 +345,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         with self.app.test_request_context("/accounts/acc", method="GET"), patch(
             "routes.rest_assets.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_assets.get_account.__wrapped__("acc")
+            response, status = run_view(rest_assets.account_get, "acc")
 
         self.assertEqual(status, 404)
 
@@ -344,7 +365,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_assets.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.instruments.__wrapped__()
+            response, status = run_view(rest_assets.instruments_list)
 
         self.assertEqual(status, 200)
         self.assertEqual(response.get_json(), [{"id": 1, "location": "NASDAQ"}])
@@ -354,7 +375,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         with self.app.test_request_context("/instruments/1", method="GET"), patch(
             "routes.rest_assets.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_assets.instruments_get.__wrapped__(1)
+            response, status = run_view(rest_assets.instrument_get, 1)
 
         self.assertEqual(status, 404)
 
@@ -408,7 +429,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
                 {"id": "pos", "amount": 1.0},
             ],
         ):
-            response = rest_assets.monthly_transactions.__wrapped__()
+            response, _ = run_view(rest_assets.monthly_transactions)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json(), [{"id": "neg", "amount": -1.0}])
@@ -419,7 +440,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_assets.current_user", self.user), patch(
             "routes.rest_assets.load_tx", return_value=[{"id": "neg", "amount": -1.0}]
         ):
-            response = rest_assets.monthly_transactions_get.__wrapped__("neg")
+            response, _ = run_view(rest_assets.monthly_transactions_get, "neg")
 
         self.assertEqual(response.status_code, 200)
 
@@ -452,7 +473,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch(
             "routes.rest_assets.get_asset_store", return_value=store
         ):
-            response = rest_assets.dashboard_budgets.__wrapped__()
+            response, _ = run_view(rest_assets.dashboard_budgets)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["X-Total-Count"], "2")
@@ -479,7 +500,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_assets.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.payables.__wrapped__()
+            response, status = run_view(rest_assets.payables_list)
 
         self.assertEqual(status, 200)
         self.assertEqual(response.headers["X-Total-Count"], "2")
@@ -490,7 +511,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         with self.app.test_request_context("/payables/1", method="GET"), patch(
             "routes.rest_assets.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_assets.payables_get.__wrapped__(1)
+            response, status = run_view(rest_assets.payable_get, 1)
 
         self.assertEqual(status, 404)
 
@@ -510,7 +531,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_assets.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.properties.__wrapped__()
+            response, status = run_view(rest_assets.properties_list)
 
         self.assertEqual(status, 200)
         self.assertEqual(response.get_json(), [{"id": 1, "propertyName": "A"}])
@@ -520,7 +541,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         with self.app.test_request_context("/properties/1", method="GET"), patch(
             "routes.rest_assets.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_assets.properties_get.__wrapped__(1)
+            response, status = run_view(rest_assets.property_get, 1)
 
         self.assertEqual(status, 404)
 
@@ -549,7 +570,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.properties.__wrapped__()
+            response, status = run_view(rest_assets.property_create)
         return response, status, session
 
     def test_properties_post_with_sell_by_and_target(self):
@@ -571,8 +592,8 @@ class TestRestAssetsRoutes(unittest.TestCase):
         response, status, session = self._post_property({"sellBy": "2035-06-01"})
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(
-            response.get_json(),
-            {"message": "A target asset is required when a sell-by date is set"},
+            response.get_json()["message"],
+            "A target asset is required when a sell-by date is set",
         )
         self.assertEqual(session.added, [])
 
@@ -587,7 +608,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
             {"sellBy": "2035-06-01", "targetAssetId": "acc-1"}, pyg_account
         )
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
-        self.assertEqual(response.get_json(), {"message": "Bad target asset"})
+        self.assertEqual(response.get_json()["message"], "Bad target asset")
 
     def test_properties_put_clears_sale(self):
         existing = SimpleNamespace(
@@ -619,7 +640,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.properties_get.__wrapped__(1)
+            response, status = run_view(rest_assets.property_update, 1)
 
         self.assertEqual(status, 200)
         self.assertTrue(session.committed)
@@ -662,7 +683,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.accounts.__wrapped__()
+            response, status = run_view(rest_assets.account_create)
         return response, status, session
 
     def test_accounts_post_with_transfer_into_pool(self):
@@ -699,14 +720,14 @@ class TestRestAssetsRoutes(unittest.TestCase):
             ),
             (
                 {"transferBy": "someday", "targetAssetId": "Sweep_USD"},
-                "Invalid date 'someday'",
+                "transferBy: Not a valid date, expected YYYY-MM-DD.",
             ),
         ]
         for payload, message in cases:
             with self.subTest(payload=payload):
                 response, status, session = self._post_account(payload)
                 self.assertEqual(status, HTTPStatus.BAD_REQUEST)
-                self.assertEqual(response.get_json(), {"message": message})
+                self.assertEqual(response.get_json()["message"], message)
                 self.assertEqual(session.added, [])
 
     def test_accounts_put_clears_transfer(self):
@@ -724,7 +745,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.get_account.__wrapped__("OldBank")
+            response, status = run_view(rest_assets.account_update, "OldBank")
 
         self.assertEqual(status, 200)
         self.assertTrue(session.committed)
@@ -759,7 +780,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_recurrents.recurrent_transactions.__wrapped__()
+            response, status = run_view(rest_recurrents.recurrent_transactions_list)
 
         self.assertEqual(status, 200)
         self.assertEqual(response.get_json()[0]["currency"], "USD")
@@ -784,7 +805,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_recurrents.recurrent_transactions.__wrapped__()
+            response, status = run_view(rest_recurrents.recurrent_transactions_list)
 
         self.assertEqual(status, 200)
         paid_with = [
@@ -802,8 +823,8 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_recurrents.recurrent_transactions_get.__wrapped__(
-                "missing"
+            response, status = run_view(
+                rest_recurrents.recurrent_transaction_get, "missing"
             )
 
         self.assertEqual(status, 404)
@@ -815,7 +836,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         with self.app.test_request_context("/recurrents", method="GET"), patch(
             "routes.rest_recurrents.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_recurrents.recurrents_all.__wrapped__()
+            response, status = run_view(rest_recurrents.recurrents_list)
 
         self.assertEqual(status, 200)
         self.assertEqual(response.get_json(), [{"id": "a"}, {"id": "b"}])
@@ -830,7 +851,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch.object(
             query, "filter_by", wraps=query.filter_by
         ) as filter_by:
-            response, status = rest_recurrents.recurrents_all.__wrapped__()
+            response, status = run_view(rest_recurrents.recurrents_list)
 
         self.assertEqual(status, 200)
         filter_by.assert_any_call(target_asset_id="Puente_PYG")
@@ -840,7 +861,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         with self.app.test_request_context("/recurrents/r", method="GET"), patch(
             "routes.rest_recurrents.current_user", self.user
         ), patch.object(Config, "DB_SESSION", lambda: session, create=True):
-            response, status = rest_recurrents.recurrents_get.__wrapped__("r")
+            response, status = run_view(rest_recurrents.recurrent_get, "r")
 
         self.assertEqual(status, 404)
 
@@ -875,15 +896,15 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_recurrents.recurrents_all.__wrapped__()
+            response, status = run_view(rest_recurrents.recurrent_create)
         return response, status, session
 
     def test_recurrents_post_rejects_target_in_another_country(self):
         response, status, session = self.post_recurrent({"country": "PY"})
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(
-            response.get_json(),
-            {"message": "Target asset acc-1 is in US, but the recurrent is in PY"},
+            response.get_json()["message"],
+            "Target asset acc-1 is in US, but the recurrent is in PY",
         )
         self.assertEqual(session.added, [])
 
@@ -892,8 +913,8 @@ class TestRestAssetsRoutes(unittest.TestCase):
         response, status, session = self.put_recurrent(result, {"country": "PY"})
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(
-            response.get_json(),
-            {"message": "Target asset acc-1 is in US, but the recurrent is in PY"},
+            response.get_json()["message"],
+            "Target asset acc-1 is in US, but the recurrent is in PY",
         )
         self.assertEqual(result.country, "US")
         self.assertFalse(session.committed)
@@ -910,14 +931,20 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(session.added[0].currency, "USD")
 
     def test_recurrents_post_rejects_unknown_currency(self):
-        with self.assertRaises(HTTPError) as ctx:
-            self.post_recurrent({"currency": "eur"})
-        self.assertEqual(ctx.exception.status_code, 400)
+        response, status, _ = self.post_recurrent({"currency": "eur"})
+        self.assertEqual(status, 400)
+        self.assertEqual(response.get_json()["message"], "Invalid currency 'eur'")
 
     def test_recurrents_post_rejects_bad_dates(self):
         for field in ("start", "end"):
-            with self.assertRaises(HTTPError):
-                self.post_recurrent({field: "01/01/2026"})
+            with self.subTest(field=field):
+                response, status, session = self.post_recurrent({field: "01/01/2026"})
+                self.assertEqual(status, 400)
+                self.assertEqual(
+                    response.get_json()["message"],
+                    f"{field}: Not a valid date, expected YYYY-MM-DD.",
+                )
+                self.assertEqual(session.added, [])
 
     def test_recurrents_post_rejects_more_than_once_a_month(self):
         session = SessionStub()
@@ -939,7 +966,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_recurrents.recurrents_all.__wrapped__()
+            response, status = run_view(rest_recurrents.recurrent_create)
 
         self.assertEqual(status, 400)
         self.assertIn("more than once a month", response.get_json()["message"])
@@ -982,7 +1009,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_recurrents.recurrents_get.__wrapped__("r")
+            response, status = run_view(rest_recurrents.recurrent_update, "r")
         return response, status, session
 
     def test_recurrents_put_sets_and_keeps_inflation(self):
@@ -1060,7 +1087,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch.object(
             Config, "COUNTRIES", ["US"], create=True
         ):
-            response, status = rest_certificates.bonds_all.__wrapped__()
+            response, status = run_view(rest_certificates.bond_create)
 
         self.assertEqual(status, 201)
         self.assertEqual(len(session.added), 1)
@@ -1094,10 +1121,10 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch.object(
             Config, "COUNTRIES", ["US"], create=True
         ):
-            response, status = rest_certificates.bonds_all.__wrapped__()
+            response, status = run_view(rest_certificates.bond_create)
 
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
-        self.assertEqual(response.get_json(), {"message": "Bad target asset"})
+        self.assertEqual(response.get_json()["message"], "Bad target asset")
         self.assertEqual(session.added, [])
 
     def test_certificates_all_post_bad_target(self):
@@ -1127,10 +1154,10 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch.object(
             Config, "COUNTRIES", ["US"], create=True
         ):
-            response, status = rest_certificates.bonds_all.__wrapped__()
+            response, status = run_view(rest_certificates.bond_create)
 
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
-        self.assertEqual(response.get_json(), {"message": "Bad target asset"})
+        self.assertEqual(response.get_json()["message"], "Bad target asset")
         self.assertEqual(session.added, [])
 
     def test_certificate_get_put_bad_target(self):
@@ -1154,10 +1181,10 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_certificates.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_certificates.bonds_get.__wrapped__("1")
+            response, status = run_view(rest_certificates.bond_update, "1")
 
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
-        self.assertEqual(response.get_json(), {"message": "Bad target asset"})
+        self.assertEqual(response.get_json()["message"], "Bad target asset")
         self.assertFalse(session.committed)
 
     def test_recurrents_all_post_bad_target(self):
@@ -1185,10 +1212,10 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_recurrents.recurrents_all.__wrapped__()
+            response, status = run_view(rest_recurrents.recurrent_create)
 
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
-        self.assertEqual(response.get_json(), {"message": "Bad target asset"})
+        self.assertEqual(response.get_json()["message"], "Bad target asset")
         self.assertEqual(session.added, [])
 
     def test_recurrents_all_post_success_with_instrument_target(self):
@@ -1230,7 +1257,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_recurrents.recurrents_all.__wrapped__()
+            response, status = run_view(rest_recurrents.recurrent_create)
 
         self.assertEqual(status, 201)
         self.assertEqual(session.added[0].target_asset_id, "NYSE_USD")
@@ -1266,10 +1293,10 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_recurrents.recurrents_all.__wrapped__()
+            response, status = run_view(rest_recurrents.recurrent_create)
 
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
-        self.assertEqual(response.get_json(), {"message": "Bad target asset"})
+        self.assertEqual(response.get_json()["message"], "Bad target asset")
         self.assertEqual(session.added, [])
 
     def test_recurrents_get_put_bad_target(self):
@@ -1298,10 +1325,10 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_recurrents.recurrents_get.__wrapped__("r1")
+            response, status = run_view(rest_recurrents.recurrent_update, "r1")
 
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
-        self.assertEqual(response.get_json(), {"message": "Bad target asset"})
+        self.assertEqual(response.get_json()["message"], "Bad target asset")
         self.assertFalse(session.committed)
 
     def test_instruments_post_bad_target(self):
@@ -1331,7 +1358,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_assets.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.instruments.__wrapped__()
+            response, status = run_view(rest_assets.instrument_create)
 
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(session.added, [])
@@ -1379,7 +1406,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.instruments.__wrapped__()
+            response, status = run_view(rest_assets.instrument_create)
         return response, status, session
 
     def test_instruments_post_non_liquid_with_sell_by(self):
@@ -1405,8 +1432,8 @@ class TestRestAssetsRoutes(unittest.TestCase):
         )
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(
-            response.get_json(),
-            {"message": "Target pools can't have a sell-by date"},
+            response.get_json()["message"],
+            "Target pools can't have a sell-by date",
         )
         self.assertEqual(session.added, [])
 
@@ -1420,7 +1447,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
     def test_instruments_post_rejects_non_pool_targeting_itself(self):
         response, status, _ = self._post_instrument({"targetAssetId": "Citi_I5902_USD"})
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
-        self.assertEqual(response.get_json(), {"message": "Bad target asset"})
+        self.assertEqual(response.get_json()["message"], "Bad target asset")
 
     def test_instruments_post_rejects_symbol_without_quote(self):
         response, status, session = self._post_instrument(
@@ -1428,7 +1455,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         )
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(
-            response.get_json(), {"message": "No quote for symbol 'NOTASYM'"}
+            response.get_json()["message"], "No quote for symbol 'NOTASYM'"
         )
         self.assertEqual(session.added, [])
 
@@ -1457,15 +1484,12 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_assets.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.instruments_get.__wrapped__(1)
+            response, status = run_view(rest_assets.instrument_update, 1)
 
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(
-            response.get_json(),
-            {
-                "message": "Puente_USD is still the target of Mirador-MJ; "
-                "retarget them first"
-            },
+            response.get_json()["message"],
+            "Puente_USD is still the target of Mirador-MJ; " "retarget them first",
         )
         self.assertFalse(session.committed)
 
@@ -1491,7 +1515,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.instruments_get.__wrapped__(1)
+            response, status = run_view(rest_assets.instrument_update, 1)
 
         self.assertEqual(status, HTTPStatus.OK)
         self.assertTrue(session.committed)
@@ -1511,10 +1535,13 @@ class TestRestAssetsRoutes(unittest.TestCase):
     def test_instruments_post_rejects_bad_dividend(self):
         # "0 0 30 2 *" parses but never fires, which load_assets can't handle.
         for dividend in ("", None, "monthly", "0 0 30 2 *"):
-            with self.subTest(dividend=dividend), self.assertRaises(HTTPError) as ctx:
-                self._post_instrument({"dividend": dividend})
-            self.assertEqual(ctx.exception.status_code, 400)
-            self.assertIn("dividend", ctx.exception.message)
+            with self.subTest(dividend=dividend):
+                response, status, session = self._post_instrument(
+                    {"dividend": dividend}
+                )
+                self.assertEqual(status, 400)
+                self.assertIn("dividend", response.get_json()["message"])
+                self.assertEqual(session.added, [])
 
     def test_instruments_put_rejects_bad_dividend(self):
         session = SessionStub(
@@ -1526,12 +1553,11 @@ class TestRestAssetsRoutes(unittest.TestCase):
             json={"acquisition_date": "2026-01-01", "dividend": "quarterly"},
         ), patch("routes.rest_assets.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
-        ), self.assertRaises(
-            HTTPError
-        ) as ctx:
-            rest_assets.instruments_get.__wrapped__(1)
+        ):
+            response, status = run_view(rest_assets.instrument_update, 1)
 
-        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(status, 400)
+        self.assertIn("dividend", response.get_json()["message"])
         self.assertFalse(session.committed)
 
     def post_recurrent_transaction(self, owned, account=None, **extra):
@@ -1567,7 +1593,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_recurrents.recurrent_transactions.__wrapped__()
+            response, status = run_view(rest_recurrents.recurrent_transaction_create)
         return status, session
 
     def test_recurrent_transactions_post_requires_own_recurrent(self):
@@ -1636,8 +1662,8 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_recurrents.recurrent_transactions_get.__wrapped__(
-                "1"
+            response, status = run_view(
+                rest_recurrents.recurrent_transaction_update, "1"
             )
 
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
@@ -1659,7 +1685,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_assets.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.instruments_get.__wrapped__(1)
+            response, status = run_view(rest_assets.instrument_update, 1)
 
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertFalse(session.committed)
@@ -1691,7 +1717,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch.object(
             Config, "COUNTRIES", ["US"], create=True
         ):
-            response, status = rest_assets.payables.__wrapped__()
+            response, status = run_view(rest_assets.payable_create)
 
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(session.added, [])
@@ -1729,7 +1755,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch.object(
             Config, "COUNTRIES", ["US"], create=True
         ):
-            response, status = rest_assets.payables.__wrapped__()
+            response, status = run_view(rest_assets.payable_create)
         self.assertEqual(status, 201)
         return session.added[0]
 
@@ -1757,11 +1783,14 @@ class TestRestAssetsRoutes(unittest.TestCase):
             "/payables/1", method="PUT", json={"dueDate": "12/15/2026"}
         ), patch("routes.rest_assets.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
-        ), self.assertRaises(
-            HTTPError
         ):
-            rest_assets.payables_get.__wrapped__(1)
+            response, status = run_view(rest_assets.payable_update, 1)
 
+        self.assertEqual(status, 400)
+        self.assertEqual(
+            response.get_json()["message"],
+            "dueDate: Not a valid date, expected YYYY-MM-DD.",
+        )
         self.assertEqual(existing.due_date, "2026-12-15")
         self.assertFalse(session.committed)
 
@@ -1772,11 +1801,10 @@ class TestRestAssetsRoutes(unittest.TestCase):
             "/bondSchedulesUpload", method="POST", data=csv_body
         ), patch("routes.rest_certificates.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
-        ), self.assertRaises(
-            HTTPError
         ):
-            rest_certificates.bond_schedules_upload.__wrapped__()
+            _, status = run_view(rest_certificates.bond_schedules_upload)
 
+        self.assertEqual(status, 400)
         self.assertFalse(session.committed)
 
     def test_payables_get_put_bad_target(self):
@@ -1800,7 +1828,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch("routes.rest_assets.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            response, status = rest_assets.payables_get.__wrapped__(1)
+            response, status = run_view(rest_assets.payable_update, 1)
 
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertFalse(session.committed)
@@ -1814,11 +1842,11 @@ class TestRestAssetsRoutes(unittest.TestCase):
         ), patch(
             "routes.rest_assets.reload_asset_store"
         ) as reload_store:
-            response, status = rest_assets.reload_assets.__wrapped__()
+            response, status = run_view(rest_assets.reload_assets)
 
         reload_store.assert_called_once()
         self.assertEqual(status, 200)
-        self.assertEqual(response.get_json(), {"message": "Assets reloaded"})
+        self.assertEqual(response.get_json()["message"], "Assets reloaded")
 
 
 if __name__ == "__main__":

@@ -1,10 +1,9 @@
 import unittest
-from test.rest_assets_test import QueryStub, SessionStub
+from test.rest_assets_test import QueryStub, SessionStub, api_app, run_view
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from apiflask import HTTPError
-from flask import Flask
 
 from lib.config import Config
 from lib.util import normalize_flow_class, require_number
@@ -47,21 +46,31 @@ class TestNormalizeFlowClass(unittest.TestCase):
 
 
 # (url, view, module, valid body, numeric fields) for every POST that writes
-# numeric columns.
+# numeric columns. The bodies pass the input schemas, so each case is about
+# the number alone.
 POSTS = [
     (
         "/accounts",
-        rest_assets.accounts,
+        rest_assets.account_create,
         "rest_assets",
-        {"id": "a", "country": "US", "currency": "usd", "balance": 100, "factor": 1},
+        {
+            "id": "a",
+            "country": "US",
+            "institution": "Bank",
+            "currency": "usd",
+            "balance": 100,
+            "factor": 1,
+            "accountType": "Checking",
+        },
         ["balance", "factor"],
     ),
     (
         "/instruments",
-        rest_assets.instruments,
+        rest_assets.instrument_create,
         "rest_assets",
         {
             "country": "US",
+            "targetAssetId": "Checking",
             "currency": "usd",
             "acquisition_date": "2026-01-01",
             "location": "Citi",
@@ -77,11 +86,12 @@ POSTS = [
     ),
     (
         "/payables",
-        rest_assets.payables,
+        rest_assets.payable_create,
         "rest_assets",
         {
             "country": "US",
             "currency": "usd",
+            "description": "Rent",
             "dueDate": "2026-12-01",
             "amount": 10,
             "balance": 10,
@@ -91,11 +101,13 @@ POSTS = [
     ),
     (
         "/properties",
-        rest_assets.properties,
+        rest_assets.property_create,
         "rest_assets",
         {
             "country": "US",
             "currency": "usd",
+            "propertyName": "Flat",
+            "additionalData": "",
             "purchasePrice": 1,
             "purchaseDate": "2020-01-01",
             "currentPrice": 1,
@@ -107,10 +119,11 @@ POSTS = [
     ),
     (
         "/recurrents",
-        rest_recurrents.recurrents_all,
+        rest_recurrents.recurrent_create,
         "rest_recurrents",
         {
             "id": "r",
+            "targetAssetId": "Checking",
             "country": "US",
             "currency": "usd",
             "start": "2026-01-01",
@@ -124,16 +137,26 @@ POSTS = [
     ),
     (
         "/recurrentTransactions",
-        rest_recurrents.recurrent_transactions,
+        rest_recurrents.recurrent_transaction_create,
         "rest_recurrents",
-        {"recurrentId": "r", "yearMonth": "2026-01", "amount": -5},
+        {
+            "recurrentId": "r",
+            "yearMonth": "2026-01",
+            "description": "",
+            "amount": -5,
+            "transactionDate": "2026-01-05",
+            "paidWithAssetId": "Checking",
+        },
         ["amount"],
     ),
     (
         "/bonds",
-        rest_certificates.bonds_all,
+        rest_certificates.bond_create,
         "rest_certificates",
         {
+            "name": "c",
+            "entity": "Bank",
+            "targetAssetId": "Checking",
             "currency": "usd",
             "country": "US",
             "maturityDate": "2030-01-01",
@@ -144,9 +167,12 @@ POSTS = [
     ),
     (
         "/depositCertificates",
-        rest_certificates.deposit_certificates_all,
+        rest_certificates.deposit_certificate_create,
         "rest_certificates",
         {
+            "name": "c",
+            "entity": "Bank",
+            "targetAssetId": "Checking",
             "currency": "usd",
             "country": "US",
             "maturityDate": "2030-01-01",
@@ -157,14 +183,14 @@ POSTS = [
     ),
     (
         "/bondSchedules",
-        rest_certificates.bond_schedules_all,
+        rest_certificates.bond_schedule_create,
         "rest_certificates",
         {"bondId": 1, "transactionDate": "2026-01-01", "amount": 5},
         ["amount"],
     ),
     (
         "/depositCertificateSchedules",
-        rest_certificates.deposit_certificate_schedules_all,
+        rest_certificates.deposit_certificate_schedule_create,
         "rest_certificates",
         {"cdId": 1, "transactionDate": "2026-01-01", "amount": 5},
         ["amount"],
@@ -174,7 +200,7 @@ POSTS = [
 
 class RouteTestCase(unittest.TestCase):
     def setUp(self):
-        self.app = Flask(__name__)
+        self.app = api_app()
         self.user = SimpleNamespace(id="1")
         for name, value in {
             "COUNTRIES": ["US"],
@@ -193,13 +219,12 @@ class RouteTestCase(unittest.TestCase):
         ), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ):
-            return view.__wrapped__(*args)
+            return run_view(view, *args)
 
     def assert_400(self, field, url, method, view, module, body, session):
-        with self.assertRaises(HTTPError) as ctx:
-            self.call(url, method, view, module, body, session)
-        self.assertEqual(ctx.exception.status_code, 400)
-        self.assertIn(field, ctx.exception.message)
+        response, status = self.call(url, method, view, module, body, session)
+        self.assertEqual(status, 400)
+        self.assertIn(field, response.get_json()["message"])
         self.assertEqual(session.added, [])
         self.assertFalse(session.committed)
 
@@ -250,12 +275,10 @@ class TestPostsRejectBadNumbers(RouteTestCase):
         _, status = self.call(
             "/accounts",
             "POST",
-            rest_assets.accounts,
+            rest_assets.account_create,
             "rest_assets",
             {
-                "id": "a",
-                "country": "US",
-                "currency": "usd",
+                **POSTS[0][3],
                 "balance": "1500",
                 "factor": 1,
             },
@@ -270,7 +293,12 @@ class TestPostsRejectBadNumbers(RouteTestCase):
         body = {**POSTS[2][3], "flowClass": "Transfer"}
         with patch("routes.rest_assets.validate_target_asset", return_value=True):
             _, status = self.call(
-                "/payables", "POST", rest_assets.payables, "rest_assets", body, session
+                "/payables",
+                "POST",
+                rest_assets.payable_create,
+                "rest_assets",
+                body,
+                session,
             )
         self.assertEqual(status, 201)
         self.assertEqual(session.added[0].flow_class, "transfer")
@@ -280,11 +308,10 @@ class TestPostsRejectBadNumbers(RouteTestCase):
 class TestPutsRejectBadNumbers(RouteTestCase):
     def put(self, url, view, module, model, existing, body, *args):
         session = SessionStub({model: QueryStub(first_item=existing)})
-        with self.assertRaises(HTTPError) as ctx:
-            self.call(url, "PUT", view, module, body, session, *args)
-        self.assertEqual(ctx.exception.status_code, 400)
+        response, status = self.call(url, "PUT", view, module, body, session, *args)
+        self.assertEqual(status, 400)
         self.assertFalse(session.committed)
-        return ctx.exception.message
+        return response.get_json()["message"]
 
     def test_account_balance(self):
         existing = SimpleNamespace(
@@ -301,7 +328,7 @@ class TestPutsRejectBadNumbers(RouteTestCase):
         )
         message = self.put(
             "/accounts/a",
-            rest_assets.get_account,
+            rest_assets.account_update,
             "rest_assets",
             rest_assets.Account,
             existing,
@@ -321,7 +348,7 @@ class TestPutsRejectBadNumbers(RouteTestCase):
         )
         message = self.put(
             "/payables/1",
-            rest_assets.payables_get,
+            rest_assets.payable_update,
             "rest_assets",
             rest_assets.Payable,
             existing,
@@ -341,7 +368,7 @@ class TestPutsRejectBadNumbers(RouteTestCase):
         )
         message = self.put(
             "/recurrentTransactions/t",
-            rest_recurrents.recurrent_transactions_get,
+            rest_recurrents.recurrent_transaction_update,
             "rest_recurrents",
             RecurrentTransaction,
             existing,
@@ -364,7 +391,7 @@ class TestPutsRejectBadNumbers(RouteTestCase):
         )
         message = self.put(
             "/recurrents/r",
-            rest_recurrents.recurrents_get,
+            rest_recurrents.recurrent_update,
             "rest_recurrents",
             Recurrent,
             existing,
@@ -377,7 +404,7 @@ class TestPutsRejectBadNumbers(RouteTestCase):
         existing = SimpleNamespace(date="2026-01-01", amount="5", paid=0)
         message = self.put(
             "/bondSchedules/1",
-            rest_certificates.bond_schedules_get,
+            rest_certificates.bond_schedule_update,
             "rest_certificates",
             rest_certificates.BondSchedule,
             existing,
@@ -395,12 +422,10 @@ class TestScheduleUploadRejectsBadAmount(RouteTestCase):
             "/bondSchedulesUpload", method="POST", data=csv
         ), patch("routes.rest_certificates.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
-        ), self.assertRaises(
-            HTTPError
-        ) as ctx:
-            rest_certificates.bond_schedules_upload.__wrapped__()
-        self.assertEqual(ctx.exception.status_code, 400)
-        self.assertIn("amount", ctx.exception.message)
+        ):
+            response, status = run_view(rest_certificates.bond_schedules_upload)
+        self.assertEqual(status, 400)
+        self.assertIn("amount", response.get_json()["message"])
         self.assertFalse(session.committed)
 
 

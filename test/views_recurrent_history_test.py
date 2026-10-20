@@ -1,9 +1,9 @@
 import unittest
 from datetime import date
+from test.rest_assets_test import api_app, run_view
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from flask import Flask
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -153,21 +153,21 @@ class TestRecurrentHistory(unittest.TestCase):
                 vrh.month_range(start, end)
 
     def test_route(self):
-        app = Flask(__name__)
+        app = api_app()
         with patch.object(rest_reports, "current_user", SimpleNamespace(id="1")):
             with app.test_request_context(
                 "/recurrent_history?startYearMonth=2026-02&endYearMonth=2026-03"
                 "&flowClass=expense"
             ):
-                response, status = rest_reports.recurrent_history.__wrapped__()
+                response, status = run_view(rest_reports.recurrent_history)
                 self.assertEqual(status, 200)
                 self.assertEqual(response.headers["X-Total-Count"], "2")
                 data = response.get_json()
                 self.assertEqual(data["months"], ["2026-02", "2026-03"])
             with app.test_request_context("/recurrent_history?startYearMonth=bad"):
-                response, status = rest_reports.recurrent_history.__wrapped__()
+                response, status = run_view(rest_reports.recurrent_history)
                 self.assertEqual(status, 400)
-                self.assertIn("Invalid year month", response.get_json()["message"])
+                self.assertIn("startYearMonth", response.get_json()["message"])
 
 
 if __name__ == "__main__":

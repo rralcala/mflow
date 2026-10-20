@@ -1,20 +1,24 @@
 import unittest
-from test.rest_assets_test import QueryStub, SessionStub
+from test.numeric_validation_test import POSTS
+from test.rest_assets_test import QueryStub, SessionStub, api_app, run_view
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from apiflask import HTTPError
-from flask import Flask
 
 from lib.config import REQUIRED_KEYS, Config, missing_required_keys
 from lib.util import country_for_update, normalize_country
 from models.models import Account
 from routes.assets import rest_assets, rest_certificates, rest_recurrents
 
+# Bodies that pass the input schemas, so a 400 is about the country alone.
+VALID_BODIES = {url: body for url, _, _, body, _ in POSTS}
+MISSING = object()
+
 
 class CountryTestCase(unittest.TestCase):
     def setUp(self):
-        self.app = Flask(__name__)
+        self.app = api_app()
         self.user = SimpleNamespace(id="1")
         countries = patch.object(Config, "COUNTRIES", ["US", "py"], create=True)
         countries.start()
@@ -52,59 +56,44 @@ class TestRequiredConfig(unittest.TestCase):
 
 
 class TestRoutesRejectBadCountry(CountryTestCase):
-    """Bad country input must surface as HTTPError(400), not a 500."""
+    """Bad country input must be a 400, not a 500."""
 
-    def post(self, url, view, module, payload, **extra):
+    def post(self, view, module, url, country=MISSING):
+        body = {k: v for k, v in VALID_BODIES[url].items() if k != "country"}
+        if country is not MISSING:
+            body["country"] = country
         session = SessionStub({Account: QueryStub()})
-        with self.app.test_request_context(url, method="POST", json=payload), patch(
+        with self.app.test_request_context(url, method="POST", json=body), patch(
             f"routes.{module}.current_user", self.user
         ), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ), patch.object(
             Config, "CURRENCIES", ["usd"], create=True
         ):
-            view()
-        return session
+            response, status = run_view(view)
+        self.assertEqual(session.added, [])
+        return response, status
 
-    def assert_400(self, *args, **kwargs):
-        with self.assertRaises(HTTPError) as ctx:
-            self.post(*args, **kwargs)
-        self.assertEqual(ctx.exception.status_code, 400)
-        self.assertIn("ountry", ctx.exception.message)
+    def assert_400(self, *args):
+        response, status = self.post(*args)
+        self.assertEqual(status, 400)
+        self.assertIn("ountry", response.get_json()["message"])
 
     def test_payable_missing_country(self):
-        self.assert_400(
-            "/payables",
-            rest_assets.payables.__wrapped__,
-            "rest_assets",
-            {"currency": "usd"},
-        )
+        self.assert_400(rest_assets.payable_create, "rest_assets", "/payables")
 
     def test_payable_unknown_country(self):
-        self.assert_400(
-            "/payables",
-            rest_assets.payables.__wrapped__,
-            "rest_assets",
-            {"currency": "usd", "country": "ZZ"},
-        )
+        self.assert_400(rest_assets.payable_create, "rest_assets", "/payables", "ZZ")
 
     def test_certificate_non_string_country(self):
-        self.assert_400(
-            "/bonds",
-            rest_certificates.bonds_all.__wrapped__,
-            "rest_certificates",
-            {"currency": "usd", "country": 7},
-        )
+        self.assert_400(rest_certificates.bond_create, "rest_certificates", "/bonds", 7)
 
     def test_account_missing_country(self):
         # The account table's country column is NOT NULL.
-        for payload in ({"id": "a"}, {"id": "a", "country": None}):
-            with self.subTest(payload=payload):
+        for country in (MISSING, None):
+            with self.subTest(country=country):
                 self.assert_400(
-                    "/accounts",
-                    rest_assets.accounts.__wrapped__,
-                    "rest_assets",
-                    payload,
+                    rest_assets.account_create, "rest_assets", "/accounts", country
                 )
 
     def test_account_put_cannot_clear_country(self):
@@ -114,44 +103,25 @@ class TestRoutesRejectBadCountry(CountryTestCase):
             "/accounts/a", method="PUT", json={"country": ""}
         ), patch("routes.rest_assets.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
-        ), self.assertRaises(
-            HTTPError
-        ) as ctx:
-            rest_assets.get_account.__wrapped__("a")
-        self.assertEqual(ctx.exception.status_code, 400)
+        ):
+            response, status = run_view(rest_assets.account_update, "a")
+        self.assertEqual(status, 400)
+        self.assertIn("country", response.get_json()["message"])
         self.assertFalse(session.committed)
 
     def test_account_unknown_country(self):
-        self.assert_400(
-            "/accounts",
-            rest_assets.accounts.__wrapped__,
-            "rest_assets",
-            {"id": "a", "country": "ZZ"},
-        )
+        self.assert_400(rest_assets.account_create, "rest_assets", "/accounts", "ZZ")
 
     def test_recurrent_unknown_country(self):
         self.assert_400(
-            "/recurrents",
-            rest_recurrents.recurrents_all.__wrapped__,
-            "rest_recurrents",
-            {"id": "r", "country": "ZZ", "currency": "usd"},
+            rest_recurrents.recurrent_create, "rest_recurrents", "/recurrents", "ZZ"
         )
 
     def test_instrument_missing_country(self):
-        self.assert_400(
-            "/instruments",
-            rest_assets.instruments.__wrapped__,
-            "rest_assets",
-            {"id": "i", "currency": "usd"},
-        )
+        self.assert_400(rest_assets.instrument_create, "rest_assets", "/instruments")
 
     def test_property_unknown_country(self):
-        self.assert_400(
-            "/properties",
-            rest_assets.properties.__wrapped__,
-            "rest_assets",
-            {"id": "p", "country": "ZZ"},
-        )
+        self.assert_400(rest_assets.property_create, "rest_assets", "/properties", "ZZ")
 
 
 if __name__ == "__main__":

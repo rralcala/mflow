@@ -1,9 +1,9 @@
 import io
 import unittest
+from test.rest_assets_test import api_app, run_view
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from flask import Flask
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -37,7 +37,7 @@ def recurrent(identifier, user_id):
 
 class TestRecurrentTransactionImport(unittest.TestCase):
     def setUp(self):
-        self.app = Flask(__name__)
+        self.app = api_app()
         engine = create_engine("sqlite://")
         self.addCleanup(engine.dispose)
         Base.metadata.create_all(
@@ -69,9 +69,7 @@ class TestRecurrentTransactionImport(unittest.TestCase):
             data=data,
             content_type="multipart/form-data",
         ):
-            response, status = (
-                rest_recurrents.recurrent_transactions_parse.__wrapped__()
-            )
+            response, status = run_view(rest_recurrents.recurrent_transactions_parse)
         return response.get_json(), status
 
     def import_rows(self, rows, ignored=None):
@@ -80,9 +78,7 @@ class TestRecurrentTransactionImport(unittest.TestCase):
             method="POST",
             json={"transactions": rows, "ignored": ignored or []},
         ):
-            response, status = (
-                rest_recurrents.recurrent_transactions_import.__wrapped__()
-            )
+            response, status = run_view(rest_recurrents.recurrent_transactions_import)
         return response.get_json(), status
 
     def assigned(self, rows, recurrent_id="Food"):
@@ -90,7 +86,7 @@ class TestRecurrentTransactionImport(unittest.TestCase):
 
     def test_lists_parsers(self):
         with self.app.test_request_context("/transactionParsers"):
-            response, status = rest_recurrents.transaction_parsers.__wrapped__()
+            response, status = run_view(rest_recurrents.transaction_parsers)
         self.assertEqual(status, 200)
         parsers = {p["id"]: p for p in response.get_json()}
         self.assertEqual(parsers["generic_csv"]["maxBytes"], 1536 * 1024)

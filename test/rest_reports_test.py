@@ -1,15 +1,14 @@
 import unittest
+from test.rest_assets_test import api_app, run_view
 from types import SimpleNamespace
 from unittest.mock import patch
-
-from flask import Flask
 
 import routes.rest_reports as rest_reports
 
 
 class TestRestReportsRoutes(unittest.TestCase):
     def setUp(self):
-        self.app = Flask(__name__)
+        self.app = api_app()
         self.user = SimpleNamespace(id="1")
 
     def test_future_timeline_defaults_to_last_until(self):
@@ -30,7 +29,7 @@ class TestRestReportsRoutes(unittest.TestCase):
         ), patch(
             "routes.rest_reports.vft.future_timeline", return_value=data
         ) as timeline_mock:
-            response, status = rest_reports.future_timeline.__wrapped__()
+            response, status = run_view(rest_reports.future_timeline)
 
         self.assertEqual(status, 200)
         self.assertEqual(response.headers["X-Total-Count"], "2")
@@ -52,7 +51,7 @@ class TestRestReportsRoutes(unittest.TestCase):
         ), patch(
             "routes.rest_reports.vft.future_timeline", return_value={"months": []}
         ) as timeline_mock:
-            rest_reports.future_timeline.__wrapped__()
+            run_view(rest_reports.future_timeline)
 
         self.assertEqual(timeline_mock.call_args.kwargs["end_date"], "2040-01-01")
         self.assertFalse(timeline_mock.call_args.kwargs["include_capital_growth"])
@@ -69,11 +68,11 @@ class TestRestReportsRoutes(unittest.TestCase):
             "routes.rest_reports.vft.future_timeline",
             side_effect=ValueError("endDate must not be before startDate"),
         ):
-            response, status = rest_reports.future_timeline.__wrapped__()
+            response, status = run_view(rest_reports.future_timeline)
 
         self.assertEqual(status, 400)
         self.assertEqual(
-            response.get_json(), {"message": "endDate must not be before startDate"}
+            response.get_json()["message"], "endDate must not be before startDate"
         )
 
     def test_exchange_rate_unknown_returns_404(self):
@@ -83,7 +82,7 @@ class TestRestReportsRoutes(unittest.TestCase):
             "routes.rest_reports.ExchangeRates.exchange_rate",
             side_effect=ValueError("Exchange rate for USDEUR not found."),
         ):
-            response, status = rest_reports.exchange_rates_get.__wrapped__("USDEUR")
+            response, status = run_view(rest_reports.exchange_rates_get, "USDEUR")
 
         self.assertEqual(status, 404)
 
