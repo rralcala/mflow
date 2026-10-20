@@ -527,7 +527,7 @@ def payable_create(json_data):
     amount = require_number(data.get("amount"), "amount")
     balance = require_number(data.get("balance"), "balance")
     flow_class = normalize_flow_class(data.get("flowClass"))
-    target_asset_id = data.get("targetAssetId", data.get("paidWithAssetId"))
+    target_asset_id = data.get("targetAssetId")
     with Config.DB_SESSION() as session:
         if not validate_target_asset(
             session, int(current_user.id), target_asset_id, currency
@@ -567,9 +567,7 @@ def payable_update(id, json_data):
     data = json_data
     with Config.DB_SESSION() as session:
         result = find_payable(session, id)
-        target_asset_id = data.get(
-            "targetAssetId", data.get("paidWithAssetId", result.target_asset_id)
-        )
+        target_asset_id = data.get("targetAssetId", result.target_asset_id)
         currency = normalize_currency(data.get("currency", result.currency))
         due_date = require_date(data.get("dueDate", result.due_date), "dueDate")
         amount = require_number(data.get("amount", result.amount), "amount")

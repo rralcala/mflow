@@ -210,9 +210,8 @@ class PayableIn(In):
     dueDate = DateString(required=True)
     commited = Boolean(allow_none=True)
     flowClass = String(required=True)
-    targetAssetId = String(metadata={"description": "Account that pays it."})
-    paidWithAssetId = String(
-        metadata={"description": "Older name for targetAssetId.", "deprecated": True}
+    targetAssetId = String(
+        required=True, metadata={"description": "Account that pays it."}
     )
 
 
