@@ -11,7 +11,7 @@ from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserStore
 from models.models import User, find_user_by_username
-from routes.schemas import LoginIn, LoginOut, MessageOut, ProfileOut
+from routes.schemas import JwtTokenQuery, LoginIn, LoginOut, MessageOut, ProfileOut
 from routes.security import auth
 
 auth_bp = APIBlueprint("auth", __name__, tag="auth")
@@ -26,6 +26,7 @@ def unauthorized():
 
 @auth_bp.route("/jwt", methods=["GET"])
 @auth_bp.auth_required(auth)
+@auth_bp.input(JwtTokenQuery, location="query")
 @auth_bp.doc(
     responses={
         HTTPStatus.OK: {
@@ -34,12 +35,17 @@ def unauthorized():
         }
     }
 )
-def jwt_token():
+def jwt_token(query_data):
 
+    expiration_hours = float(
+        query_data.get("expiration_hours", Config.TOKEN_EXPIRATION_HOURS)
+    )
+    if expiration_hours > 200:
+        abort(HTTPStatus.BAD_REQUEST, "Expiration hours cannot exceed 200.")
     payload = {
         "sub": current_user.id,  # Subject (User ID)
         "exp": datetime.datetime.now(datetime.timezone.utc)
-        + datetime.timedelta(hours=Config.TOKEN_EXPIRATION_HOURS),  # Expiration
+        + datetime.timedelta(hours=expiration_hours),  # Expiration
         "iat": datetime.datetime.now(datetime.timezone.utc),  # Issued At
     }
     return (

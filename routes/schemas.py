@@ -520,6 +520,10 @@ class MonthlyPnlQuery(In):
     oneOff = Boolean(metadata={"description": "Include one-off flows."})
 
 
+class JwtTokenQuery(In):
+    expiration_hours = Integer(metadata={"description": "Token expiration in hours."})
+
+
 class RecurrentHistoryQuery(In):
     startYearMonth = YearMonth(allow_none=True)
     endYearMonth = YearMonth(allow_none=True)
