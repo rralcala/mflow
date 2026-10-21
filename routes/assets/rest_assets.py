@@ -343,7 +343,7 @@ def instrument_update(id, json_data):
     data = json_data
     with Config.DB_SESSION() as session:
         result = find_instrument(session, id)
-        acquisition_date = data.get("acquisition_date")
+        acquisition_date = data.get("acquisition_date", result.acquisition_date)
         if not validate_date(acquisition_date):
             abort(HTTPStatus.BAD_REQUEST, f"Invalid date '{acquisition_date}'")
         target_asset_id = data.get("targetAssetId", result.target_asset_id)

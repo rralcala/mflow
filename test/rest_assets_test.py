@@ -1521,6 +1521,33 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertTrue(session.committed)
         self.assertEqual((existing.id, existing.user_id), (1, 1))
 
+    def test_instruments_put_partial_keeps_acquisition_date(self):
+        existing = instrument_row(acquisition_date="2024-01-01")
+        session = SessionStub(
+            {
+                rest_assets.Instrument: QueryStub(first_item=existing),
+                rest_assets.Account: QueryStub(
+                    first_item=SimpleNamespace(id="old", currency="USD")
+                ),
+            }
+        )
+        with self.app.test_request_context(
+            "/instruments/1", method="PUT", json={"qty": 7677.68}
+        ), patch("routes.rest_assets.current_user", self.user), patch(
+            "routes.rest_assets.reload_asset_store"
+        ), patch(
+            "routes.rest_assets.UserStore.get_user_config",
+            return_value=SimpleNamespace(),
+        ), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = run_view(rest_assets.instrument_update, 1)
+
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertTrue(session.committed)
+        self.assertEqual(existing.qty, "7677.68")
+        self.assertEqual(existing.acquisition_date, "2024-01-01")
+
     def test_instruments_post_dividend_schedule(self):
         for dividend, stored in (
             ("N", "N"),
