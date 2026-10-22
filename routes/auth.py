@@ -9,9 +9,22 @@ from flask_login import current_user, login_user, logout_user
 from init import login_manager
 from lib.config import Config
 from lib.logger import get_logger
+from lib.passwords import (
+    PasswordStoreError,
+    hash_password,
+    password_problem,
+    set_password_hash,
+)
 from lib.user_config import UserStore
-from models.models import User, find_user_by_username
-from routes.schemas import JwtTokenQuery, LoginIn, LoginOut, MessageOut, ProfileOut
+from models.models import authenticate, find_user_by_id
+from routes.schemas import (
+    JwtTokenQuery,
+    LoginIn,
+    LoginOut,
+    MessageOut,
+    PasswordChangeIn,
+    ProfileOut,
+)
 from routes.security import auth
 
 auth_bp = APIBlueprint("auth", __name__, tag="auth")
@@ -89,8 +102,8 @@ def rlogin(json_data):
         or len(req_user) > 30
     ):
         abort(HTTPStatus.BAD_REQUEST, "Invalid username/password")
-    user = find_user_by_username(req_user)
-    if user and user.check_password(req_password):
+    user = authenticate(req_user, req_password)
+    if user:
         login_user(user, remember=True)
         return {"id": user.id, "fullName": user.username}
     abort(HTTPStatus.UNAUTHORIZED, "Invalid credentials")
@@ -111,6 +124,34 @@ def profile():
     }
 
 
+@auth_bp.route("/password", methods=["POST"])
+@auth_bp.auth_required(auth)
+@auth_bp.input(PasswordChangeIn)
+@auth_bp.output(MessageOut)
+def change_password(json_data):
+    """Change the logged-in user's own password.
+
+    There is no user id in the request: the only account that can be changed
+    is the caller's. The current password is required too, so a stolen
+    session cookie or Bearer token isn't enough to take over the account.
+    """
+    if not current_user.check_password(json_data["currentPassword"]):
+        abort(HTTPStatus.FORBIDDEN, "Current password is incorrect.")
+    new_password = json_data["newPassword"]
+    problem = password_problem(new_password)
+    if problem:
+        abort(HTTPStatus.BAD_REQUEST, problem)
+    if new_password == json_data["currentPassword"]:
+        abort(HTTPStatus.BAD_REQUEST, "New password must differ from the current one.")
+    try:
+        set_password_hash(current_user.id, hash_password(new_password))
+    except PasswordStoreError as e:
+        Logger.error("Password change for user %s failed: %s", current_user.id, e)
+        abort(HTTPStatus.INTERNAL_SERVER_ERROR, "Couldn't save the new password.")
+    Logger.info("User %s changed their password", current_user.id)
+    return {"message": "Password changed"}
+
+
 @auth_bp.route("/rlogout", methods=["GET"])
 @auth_bp.auth_required(auth)
 @auth_bp.output(MessageOut)
@@ -121,17 +162,7 @@ def rlogout():
 
 @login_manager.user_loader
 def load_user(user_id):
-    user_data = Config.USERS.get(user_id, None)
-    if user_data:
-        user = User(
-            uid=user_id,
-            username=user_data.get("username"),
-            name=user_data.get("name"),
-            password=user_data.get("password"),
-            email=user_data.get("email"),
-        )
-        return user
-    return None
+    return find_user_by_id(user_id)
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -152,8 +183,8 @@ def login():
                 HTTPStatus.BAD_REQUEST,
             )
 
-        user = find_user_by_username(req_user)
-        if user and user.check_password(req_password):
+        user = authenticate(req_user, req_password)
+        if user:
             login_user(user)
             return render_template(
                 "custom_report.html", report_data={"contents": "success"}

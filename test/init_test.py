@@ -50,7 +50,7 @@ class TestCreateApp(unittest.TestCase):
 class TestInitializeApp(unittest.TestCase):
     def setUp(self):
         # Patched so the shared Config class is restored afterwards.
-        for name in ("BASE_PATH", "DB_SESSION", "SECRET_KEY", "COUNTRIES"):
+        for name in ("BASE_PATH", "DB_SESSION", "SECRET_KEY", "COUNTRIES", "USERS"):
             patcher = patch.object(Config, name, None, create=True)
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -64,7 +64,7 @@ class TestInitializeApp(unittest.TestCase):
         self.base = Path(tmp.name)
         (self.base / "mydatabase.db").touch()
         (self.base / "config.json").write_text(
-            json.dumps({"SECRET_KEY": "secret", "COUNTRIES": []})
+            json.dumps({"SECRET_KEY": "secret", "COUNTRIES": [], "USERS": ["1"]})
         )
 
     def test_debug_flag_enables_docs(self):
@@ -81,6 +81,14 @@ class TestInitializeApp(unittest.TestCase):
         (self.base / "mydatabase.db").unlink()
         with self.assertRaises(SystemExit):
             initialize_app(["--base", str(self.base)])
+
+    def test_users_must_be_a_list_of_ids(self):
+        for users in ({"1": {"username": "u", "password": "x"}}, ["../1"], [1]):
+            (self.base / "config.json").write_text(
+                json.dumps({"SECRET_KEY": "secret", "COUNTRIES": [], "USERS": users})
+            )
+            with self.subTest(users=users), self.assertRaises(SystemExit):
+                initialize_app(["--base", str(self.base)])
 
 
 if __name__ == "__main__":

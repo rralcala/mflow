@@ -47,12 +47,22 @@ class TestNormalizeCountry(CountryTestCase):
 
 class TestRequiredConfig(unittest.TestCase):
     def test_missing_or_malformed_countries_is_reported(self):
-        self.assertEqual(REQUIRED_KEYS, ("COUNTRIES",))
-        self.assertEqual(missing_required_keys(SimpleNamespace()), ["COUNTRIES"])
+        self.assertEqual(REQUIRED_KEYS, ("COUNTRIES", "USERS"))
+        users = {"USERS": ["1"]}
+        self.assertEqual(missing_required_keys(SimpleNamespace(**users)), ["COUNTRIES"])
         self.assertEqual(
-            missing_required_keys(SimpleNamespace(COUNTRIES="US")), ["COUNTRIES"]
+            missing_required_keys(SimpleNamespace(COUNTRIES="US", **users)),
+            ["COUNTRIES"],
         )
-        self.assertEqual(missing_required_keys(SimpleNamespace(COUNTRIES=["US"])), [])
+        self.assertEqual(
+            missing_required_keys(SimpleNamespace(COUNTRIES=["US"], **users)), []
+        )
+
+    def test_users_must_be_a_list(self):
+        self.assertEqual(
+            missing_required_keys(SimpleNamespace(COUNTRIES=[], USERS={"1": {}})),
+            ["USERS"],
+        )
 
 
 class TestRoutesRejectBadCountry(CountryTestCase):

@@ -6,6 +6,7 @@ from apiflask import APIFlask
 from flask_login import LoginManager, login_user
 
 from lib.config import Config
+from lib.user_config import UserConfig, UserStore
 from models.models import User
 from routes.auth import load_user_from_request
 from routes.security import add_cookie_security, auth, security_schemes
@@ -16,11 +17,17 @@ class TestDualAuth(unittest.TestCase):
         # Patched (not assigned) so the shared Config class is restored afterwards.
         for name, value in {
             "SECRET_KEY": "unit-test-secret-key-at-least-32-bytes-long",
-            "USERS": {"1": {"username": "u", "name": "u", "password": "x"}},
+            "USERS": ["1"],
         }.items():
             patcher = patch.object(Config, name, value, create=True)
             patcher.start()
             self.addCleanup(patcher.stop)
+        # The login normally loaded from user-1/config.json.
+        user_config = UserConfig("1")
+        user_config.USERNAME = "u"
+        patcher = patch.dict(UserStore.user_config, {"1": user_config}, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.app = APIFlask(__name__)
         self.app.secret_key = Config.SECRET_KEY
         lm = LoginManager(self.app)

@@ -552,6 +552,13 @@ class LoginIn(In):
     password = String(required=True)
 
 
+class PasswordChangeIn(In):
+    currentPassword = String(
+        required=True, metadata={"description": "Re-confirms who is asking."}
+    )
+    newPassword = String(required=True)
+
+
 class LoginOut(Schema):
     id = String()
     fullName = String()

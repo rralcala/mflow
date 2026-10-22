@@ -12,7 +12,8 @@ from data.base import Base
 from init import create_app
 from lib.config import Config
 from lib.parsers import available_parsers
-from lib.util import sha256_hash
+from lib.passwords import hash_password
+from lib.user_config import UserConfig, UserStore
 from models.bond import Bond, BondSchedule
 from models.deposit_certificate import DepositCertificate, DepositCertificateSchedule
 from models.instrument import Instrument
@@ -286,20 +287,22 @@ class AppTestCase(unittest.TestCase):
     def setUp(self):
         for name, value in {
             "SECRET_KEY": "unit-test-secret-key-at-least-32-bytes-long",
-            "USERS": {
-                "1": {
-                    "username": "jdoe",
-                    "name": "J Doe",
-                    "password": sha256_hash("pw"),
-                    "email": "jdoe@example.com",
-                }
-            },
+            "USERS": ["1"],
             "COUNTRIES": ["US"],
             "CURRENCIES": ["usd"],
         }.items():
             patcher = patch.object(Config, name, value, create=True)
             patcher.start()
             self.addCleanup(patcher.stop)
+        # The login normally loaded from user-1/config.json.
+        user_config = UserConfig("1")
+        user_config.USERNAME = "jdoe"
+        user_config.NAME = "J Doe"
+        user_config.EMAIL = "jdoe@example.com"
+        user_config.PASSWORD_HASH = hash_password("pw")
+        patcher = patch.dict(UserStore.user_config, {"1": user_config}, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
 
 class TestOpenApiSpec(AppTestCase):

@@ -15,6 +15,10 @@ Follow-ups from the Flask → APIFlask migration.
 
   Add a shared `sort_items()` helper next to `paginate()` (sort before slicing). Things to settle: rows with missing or `None` sort values (the current `x.get(sort_key, "")` can raise on mixed types), `_order` case handling, unknown sort keys (ignore vs 400), and whether DB-backed endpoints sort in SQL or in Python. Add unit tests for the helper and each endpoint touched.
 
+## Planned
+
+- [ ] **Migrate login auth to WorkOS (AuthKit).** Replace the password check in `user-<id>/config.json` (`/auth/rlogin`, `/auth/login`, `find_user_by_username`) with WorkOS sign-in, and map each WorkOS user to an mflow user id. Decide what happens to `/auth/jwt` Bearer tokens (keep them for scripts such as the mflow-api skill, or verify WorkOS access tokens instead). The frontend's `authProvider.ts` needs the matching redirect flow. This is also the OAuth server a remote MCP connector would use (dynamic client registration), and it would retire the local password store (`PASSWORD_HASH` in each `user-<id>/config.json`, scrypt-hashed).
+
 ## Known bugs
 
 ### High
@@ -35,5 +39,4 @@ Follow-ups from the Flask → APIFlask migration.
 - [ ] Crypto quotes are saved to the database with 2 decimals (`data/exchange_rates.py:164`); fine for BTC/ETH/SOL, lossy for low-priced coins after a restart. Re-saving a quote on the same day never updates its value (line 162).
 - [ ] Coinbase `estimated_dividend` is in coin units, not USD (`data/coinbase.py:52`).
 - [ ] `Property.total_return` converts rent with `USD{rent_currency}`, which assumes the property is priced in USD, and divides by a zero `purchase_price` (`asset_classes/property.py:51`, `:56`).
-- [ ] Passwords are stored as unsalted SHA-256 (`models/models.py:116`); move to a salted, slow hash (bcrypt/argon2) with a migration path.
 - [ ] `create_date` on recurrent transactions saved before 2026-10-09 holds the server start date, not the real creation date; it can't be recovered.

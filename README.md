@@ -28,12 +28,14 @@ The server reads everything from a base directory. `sample-base-dir/` shows the 
 
 ```
 <base>/
-  config.json            # global config: SECRET_KEY, users, COUNTRIES (required list of allowed country codes), currencies, traded symbols
+  config.json            # global config: SECRET_KEY, USERS (list of user ids), COUNTRIES (required list of allowed country codes), currencies, traded symbols
   mydatabase.db          # SQLite database (schema in sample-base-dir/sqlite-db-schema.sql)
-  user-<id>/config.json  # per-user config (Coinbase keys, target estate, default currency, ...)
+  user-<id>/config.json  # per-user config: login (USERNAME, NAME, EMAIL, PASSWORD_HASH), Coinbase keys, target estate, default currency, ...
 ```
 
-Copy `sample-base-dir/config.sample.json` to `<base>/config.json` and set a real secret and SHA-256 password hashes. Keep this directory out of version control.
+Copy `sample-base-dir/config.sample.json` to `<base>/config.json` and set a real secret, then create a `user-<id>/config.json` for each id in `USERS` (see `sample-base-dir/user-1/`) and set passwords with `python -m scripts.set_passwords --base <base> --all`. Passwords are stored as salted scrypt hashes; users change their own from the profile page (`POST /auth/password`). Keep this directory out of version control.
+
+The API never writes the main `config.json` (it can be mounted read-only), but it does rewrite `user-<id>/config.json` when a password changes, so those directories must be writable. A base directory from before the split, with logins inside the main config's `USERS`, is migrated with `python -m scripts.split_user_config --base <base>`; the server refuses to start until then.
 
 ## Run
 

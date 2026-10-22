@@ -10,7 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from lib.config import Config, load_config, missing_required_keys
+from lib.config import Config, invalid_user_ids, load_config, missing_required_keys
 from lib.logger import config_logging
 
 # Created unbound so route modules can register their handlers at import time;
@@ -99,6 +99,16 @@ def initialize_app(argv: list[str] | None = None) -> APIFlask:
     missing = missing_required_keys(Config)
     if missing:
         logger.fatal(f"Error: '{config_file}' is missing required key(s): {missing}")
+        if "USERS" in missing:
+            logger.fatal(
+                "USERS must be a list of user ids. If it still holds logins, run "
+                "python -m scripts.split_user_config --base <data dir>"
+            )
+        sys.exit(1)
+
+    invalid = invalid_user_ids(Config)
+    if invalid:
+        logger.fatal(f"Error: USERS ids must be alphanumeric strings: {invalid}")
         sys.exit(1)
 
     app = create_app(debug=args.debug)

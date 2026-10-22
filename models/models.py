@@ -6,8 +6,15 @@ from sqlalchemy.orm import mapped_column
 
 from data.base import Base
 from data.constants import DATE_FORMAT_STRING
-from lib.config import Config
-from lib.util import sha256_hash
+from lib.logger import get_logger
+from lib.passwords import (
+    PasswordStoreError,
+    hash_password,
+    needs_rehash,
+    set_password_hash,
+    verify_password,
+)
+from lib.user_config import UserStore
 
 
 class Account(Base):
@@ -159,17 +166,55 @@ class User(UserMixin):
         self.email = email
 
     def check_password(self, password):
-        return self.password == sha256_hash(password)
+        return verify_password(self.password, password)
+
+    def upgrade_password_hash(self, password):
+        """After a successful login, re-store an old-format hash as scrypt.
+
+        This is the migration path off unsalted SHA-256: each user moves over
+        the next time they log in. Failing to save is logged, not fatal.
+        """
+        if not needs_rehash(self.password):
+            return
+        new_hash = hash_password(password)
+        try:
+            set_password_hash(self.id, new_hash)
+        except PasswordStoreError as e:
+            get_logger().warning("Couldn't upgrade password hash: %s", e)
+            return
+        self.password = new_hash
+
+
+def _user_from_config(user_config):
+    return User(
+        uid=user_config.USER_ID,
+        username=user_config.USERNAME,
+        name=user_config.NAME,
+        password=user_config.PASSWORD_HASH,
+        email=user_config.EMAIL,
+    )
+
+
+def find_user_by_id(user_id):
+    """The user listed in the main config's USERS with this id, or None."""
+    user_config = UserStore.find_user_config(str(user_id))
+    if user_config is None or not user_config.USERNAME:
+        return None
+    return _user_from_config(user_config)
 
 
 def find_user_by_username(username):
-    for uid, user_data in Config.USERS.items():
-        if user_data.get("username") == username:
-            return User(
-                uid=uid,
-                username=user_data.get("username"),
-                name=user_data.get("name"),
-                password=user_data.get("password"),
-                email=user_data.get("email"),
-            )
+    for user_id in UserStore.user_ids():
+        user_config = UserStore.find_user_config(user_id)
+        if user_config.USERNAME and user_config.USERNAME == username:
+            return _user_from_config(user_config)
+    return None
+
+
+def authenticate(username, password):
+    """The user with these credentials, or None."""
+    user = find_user_by_username(username)
+    if user and user.check_password(password):
+        user.upgrade_password_hash(password)
+        return user
     return None

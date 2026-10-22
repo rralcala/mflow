@@ -31,6 +31,15 @@ class TestUserConfigPublicDict(unittest.TestCase):
     def test_omits_asset_cache(self):
         self.assertNotIn("ASSETS", self.user_config.to_public_dict())
 
+    def test_omits_login_identity(self):
+        self.user_config.USERNAME = "jdoe"
+        self.user_config.PASSWORD_HASH = "scrypt:real-hash"
+        public = self.user_config.to_public_dict()
+
+        for key in ("USERNAME", "NAME", "EMAIL", "PASSWORD_HASH"):
+            self.assertNotIn(key, public)
+        self.assertNotIn("real-hash", str(public))
+
     def test_keeps_settings(self):
         public = self.user_config.to_public_dict()
 
