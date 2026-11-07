@@ -39,4 +39,3 @@ Follow-ups from the Flask → APIFlask migration.
 - [ ] Crypto quotes are saved to the database with 2 decimals (`data/exchange_rates.py:164`); fine for BTC/ETH/SOL, lossy for low-priced coins after a restart. Re-saving a quote on the same day never updates its value (line 162).
 - [ ] Coinbase `estimated_dividend` is in coin units, not USD (`data/coinbase.py:52`).
 - [ ] `Property.total_return` converts rent with `USD{rent_currency}`, which assumes the property is priced in USD, and divides by a zero `purchase_price` (`asset_classes/property.py:51`, `:56`).
-- [ ] `create_date` on recurrent transactions saved before 2026-10-09 holds the server start date, not the real creation date; it can't be recovered.
