@@ -2,9 +2,14 @@ import unittest
 import unittest.mock
 from datetime import date, datetime, timedelta
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
 from asset_classes.account import Account
 from asset_classes.payable import Payable
 from asset_classes.recurrent import Recurrent
+from data.base import Base
+from models.models import RecurrentTransaction
 
 
 class TestAccountTimeline(unittest.TestCase):
@@ -132,11 +137,57 @@ class TestRecurrentTransactionsPerUser(unittest.TestCase):
             create=True,
         ):
             recurrent.get_current_value()
-            recurrent.fetch_transactions(datetime(2026, 10, 1))
 
         for call in query.filter_by.call_args_list:
             self.assertEqual(call.kwargs["user_id"], 1)
-        self.assertEqual(query.filter_by.call_count, 2)
+        self.assertEqual(query.filter_by.call_count, 1)
+
+    def test_fetch_transactions_runs_against_real_session(self):
+        engine = create_engine("sqlite://")
+        Base.metadata.create_all(engine, tables=[RecurrentTransaction.__table__])
+        with Session(engine) as session:
+            for parent_id, year_month, user_id in (
+                ("Rent", "2026-10", 1),
+                ("Rent", "2026-10", 2),
+                ("Rent", "2026-09", 1),
+                ("Other", "2026-10", 1),
+            ):
+                session.add(
+                    RecurrentTransaction(
+                        parent_id=parent_id,
+                        year_month=year_month,
+                        description="",
+                        amount="-100",
+                        transaction_date=f"{year_month}-05",
+                        paid_with="acc-1",
+                        user_id=user_id,
+                    )
+                )
+            session.commit()
+
+        recurrent = Recurrent(
+            identifier="Rent",
+            parent_asset_id="",
+            country="US",
+            amount=-100.0,
+            currency="USD",
+            recurrence="0 0 5 * *",
+            start=datetime(2026, 1, 1),
+            end=datetime(2027, 1, 1),
+            flow_class="loan",
+            user_id=1,
+        )
+        with unittest.mock.patch(
+            "asset_classes.recurrent.Config.DB_SESSION",
+            new=lambda: Session(engine, expire_on_commit=False),
+            create=True,
+        ):
+            rows = recurrent.fetch_transactions(datetime(2026, 10, 1))
+
+        self.assertEqual(
+            [(r.parent_id, r.year_month, r.user_id) for r in rows],
+            [("Rent", "2026-10", 1)],
+        )
 
 
 if __name__ == "__main__":

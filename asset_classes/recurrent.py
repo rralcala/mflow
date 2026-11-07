@@ -2,6 +2,8 @@ import calendar
 from datetime import date, datetime
 from typing import List, Optional, Tuple
 
+from sqlalchemy import select
+
 from asset_classes.asset import Asset
 from data.constants import RecurrentTypes
 from lib.config import Config
@@ -85,12 +87,12 @@ class Recurrent(Asset):
 
     def fetch_transactions(self, date):
         with Config.DB_SESSION() as session:
-            select_stmt = session.query(models.RecurrentTransaction).filter_by(
+            select_stmt = select(models.RecurrentTransaction).filter_by(
                 parent_id=self._identifier,
                 user_id=self.user_id,
                 year_month=date.strftime("%Y-%m"),
             )
-            return session.execute(select_stmt).scalars().all()
+            return session.scalars(select_stmt).all()
 
     def get_timeline(self, end: datetime) -> List[Tuple[date, Tuple[float, str, bool]]]:
         timeline = []
