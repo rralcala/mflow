@@ -27,7 +27,7 @@ Follow-ups from the Flask → APIFlask migration.
 
 ### Medium
 
-- [ ] **Hardcoded `USDPYG`** in `list_income` (`views/list_assets.py:50`); use the user's `SECONDARY_CURRENCY`.
+- [x] **Hardcoded `USDPYG`** in `list_income` (`views/list_assets.py:50`); use the user's `SECONDARY_CURRENCY`.
 - [ ] **Changes can leave dangling targets or orphans.**
   - Deleting an account or instrument, or changing an instrument's location or symbol, doesn't check `target_references`. Changing an account's currency while other assets target it breaks the same-currency rule.
   - Deleting a bond or CD leaves its schedule rows; deleting a recurrent leaves its transactions (8 orphaned transactions in the database as of 2026-10-09). A new recurrent with the same identifier would pick them up.

@@ -36,11 +36,13 @@ def make_income(identifier, parent_asset_id, amount):
 
 
 class TestListIncomePerLocation(unittest.TestCase):
-    def run_report(self, assets):
+    def run_report(self, assets, secondary_currency="PYG"):
         with unittest.mock.patch(
             "views.list_assets.ExchangeRates.exchange_rate", return_value=10.0
-        ):
-            return list_income({"USD": assets})["tot_per_location"]
+        ) as rate:
+            result = list_income({"USD": assets}, secondary_currency)
+        self.rate_mock = rate
+        return result["tot_per_location"]
 
     def test_child_recurrent_merged_into_parent_location(self):
         house = make_property("Seattle-1", 800.0)
@@ -59,6 +61,25 @@ class TestListIncomePerLocation(unittest.TestCase):
             self.run_report([house, rent]),
             [("Seattle", 800.0, 1.0, 0.0), ("Alquiler", 0.0, 0.0, 500.0)],
         )
+
+    def test_income_uses_user_secondary_currency(self):
+        house = make_property("Seattle-1", 800.0)
+        airbnb = make_income("AIRBNB-SEATTLE-1", "Seattle-1", 120.0)
+
+        self.run_report([house, airbnb], secondary_currency="UYU")
+        pairs = {c.args[0] for c in self.rate_mock.call_args_list}
+        self.assertIn("USDUYU", pairs)
+        self.assertNotIn("USDPYG", pairs)
+
+    def test_unset_secondary_currency_reports_usd(self):
+        house = make_property("Seattle-1", 800.0)
+        airbnb = make_income("AIRBNB-SEATTLE-1", "Seattle-1", 120.0)
+
+        for currency in ("", "USD"):
+            self.assertEqual(
+                self.run_report([house, airbnb], secondary_currency=currency),
+                [("Seattle", 800.0, 1.0, 120.0)],
+            )
 
 
 if __name__ == "__main__":

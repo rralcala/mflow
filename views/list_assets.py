@@ -24,8 +24,16 @@ def income_location(asset: Asset, by_id: Dict[str, Asset]) -> str:
     return asset.get_location()[1]
 
 
-def list_income(assets: Dict[str, List[Asset]]) -> Dict[str, float]:
+def list_income(
+    assets: Dict[str, List[Asset]], secondary_currency: str
+) -> Dict[str, float]:
+    """Income per location is reported in `secondary_currency` (the user's
+    SECONDARY_CURRENCY); USD when it is unset."""
     grand_total, b, c = net_worth(assets)
+    if secondary_currency and secondary_currency != "USD":
+        secondary_rate = ExchangeRates.exchange_rate(f"USD{secondary_currency}")
+    else:
+        secondary_rate = 1.0
     total_fixed = 0.0
     tot_per_market = {}
     tot_per_location = {}
@@ -60,9 +68,7 @@ def list_income(assets: Dict[str, List[Asset]]) -> Dict[str, float]:
             tot_per_location.setdefault(location, 0.0)
             tot_per_location[location] += usd_value
             inc_per_location.setdefault(location, 0.0)
-            inc_per_location[location] += usd_income * ExchangeRates.exchange_rate(
-                "USDPYG"
-            )
+            inc_per_location[location] += usd_income * secondary_rate
 
     ret = 0.0
     for current_value, current_return, _, _ in b:

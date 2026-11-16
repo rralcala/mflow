@@ -146,7 +146,7 @@ def exchange_rates_get(name):
 def income_per_location():
     user_config = UserStore.get_user_config(current_user.id)
     assets = get_asset_store(user_config)
-    data = vla.list_income(assets)
+    data = vla.list_income(assets, user_config.SECONDARY_CURRENCY)
     count = len(data)
 
     response = jsonify(data)
