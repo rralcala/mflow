@@ -328,6 +328,14 @@ class DepositCertificateOut(CertificateOut):
     pass
 
 
+class ScheduleUploadQuery(In):
+    iid = Integer(
+        metadata={
+            "description": "Bond or certificate id for every row; overrides the CSV iid column."
+        }
+    )
+
+
 class BondScheduleQuery(PageQuery):
     bondId = Integer()
     paid = Boolean()

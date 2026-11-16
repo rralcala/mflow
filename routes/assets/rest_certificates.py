@@ -37,65 +37,86 @@ from ..schemas import (
     DepositCertificateScheduleQuery,
     ListQuery,
     MessageOut,
+    ScheduleUploadQuery,
     TotalCountHeader,
 )
 from ..security import auth
 
 
+def _upload_schedules(query_data, parent_model, schedule_model, parent_key, label):
+    """Insert CSV schedule rows, each attached to a parent the user owns.
+
+    The body is CSV text with the columns `date,amount,paid` and, unless the
+    `iid` query parameter is given, an `iid` column naming the parent. The
+    query parameter overrides every row's `iid`. All rows are checked before
+    anything is saved, so a bad row or a foreign parent inserts nothing.
+    """
+    user_id = int(current_user.id)
+    override = query_data.get("iid")
+    reader = csv.DictReader(StringIO(request.data.decode("utf-8")))
+    rows = []
+    for line, row in enumerate(reader, start=2):
+        raw_iid = override if override is not None else row.get("iid")
+        try:
+            iid = int(str(raw_iid).strip())
+        except ValueError:
+            abort(
+                HTTPStatus.BAD_REQUEST,
+                f"Line {line}: invalid iid '{raw_iid}', expected a {label} id",
+            )
+        rows.append(
+            {
+                parent_key: iid,
+                "date": require_date(row.get("date"), "date"),
+                "amount": require_number(row.get("amount"), "amount"),
+                "paid": 1 if (row.get("paid") or "").strip() == "1" else 0,
+            }
+        )
+    with Config.DB_SESSION() as session:
+        for iid in sorted({r[parent_key] for r in rows}):
+            owned_or_404(
+                session, parent_model, user_id, f"{label} {iid} not found", id=iid
+            )
+        for r in rows:
+            session.add(schedule_model(user_id=user_id, **r))
+        session.commit()
+    return {"message": f"inserted: {len(rows)}"}
+
+
 @assets_bp.post("/cdSchedulesUpload")
 @assets_bp.auth_required(auth)
+@assets_bp.input(ScheduleUploadQuery, location="query")
 @assets_bp.output(MessageOut, status_code=HTTPStatus.CREATED)
-def cd_schedules_upload():
+def cd_schedules_upload(query_data):
     """Upload deposit certificate schedule rows.
 
-    The body is CSV text with the header `iid,date,amount,paid`, where `iid` is
-    the deposit certificate id and `paid` is 1 or 0.
+    The body is CSV text with the header `date,amount,paid` plus an `iid`
+    column (the deposit certificate id) unless the `iid` query parameter is
+    given, which then applies to every row. `paid` is 1 or 0. Each certificate
+    must belong to the user, or nothing is inserted (404).
     """
-    f = StringIO(request.data.decode("utf-8"))
-    reader = csv.DictReader(f)
-    with Config.DB_SESSION() as session:
-        c = 0
-        for row in reader:
-            new_item = DepositCertificateSchedule(
-                cd_id=int(row["iid"]),
-                date=require_date(row["date"], "date"),
-                user_id=int(current_user.id),
-                amount=require_number(row.get("amount"), "amount"),
-                paid=1 if row["paid"] == "1" else 0,
-            )
-
-            session.add(new_item)
-            c += 1
-        session.commit()
-    return {"message": f"inserted: {c}"}
+    return _upload_schedules(
+        query_data,
+        DepositCertificate,
+        DepositCertificateSchedule,
+        "cd_id",
+        "Deposit certificate",
+    )
 
 
 @assets_bp.post("/bondSchedulesUpload")
 @assets_bp.auth_required(auth)
+@assets_bp.input(ScheduleUploadQuery, location="query")
 @assets_bp.output(MessageOut, status_code=HTTPStatus.CREATED)
-def bond_schedules_upload():
+def bond_schedules_upload(query_data):
     """Upload bond schedule rows.
 
-    The body is CSV text with the header `iid,date,amount,paid`, where `iid` is
-    the bond id and `paid` is 1 or 0.
+    The body is CSV text with the header `date,amount,paid` plus an `iid`
+    column (the bond id) unless the `iid` query parameter is given, which then
+    applies to every row. `paid` is 1 or 0. Each bond must belong to the user,
+    or nothing is inserted (404).
     """
-    f = StringIO(request.data.decode("utf-8"))
-    reader = csv.DictReader(f)
-    with Config.DB_SESSION() as session:
-        c = 0
-        for row in reader:
-            new_item = BondSchedule(
-                bond_id=int(row["iid"]),
-                date=require_date(row["date"], "date"),
-                user_id=int(current_user.id),
-                amount=require_number(row.get("amount"), "amount"),
-                paid=1 if row["paid"] == "1" else 0,
-            )
-
-            session.add(new_item)
-            c += 1
-        session.commit()
-    return {"message": f"inserted: {c}"}
+    return _upload_schedules(query_data, Bond, BondSchedule, "bond_id", "Bond")
 
 
 @assets_bp.get("/bondSchedules")

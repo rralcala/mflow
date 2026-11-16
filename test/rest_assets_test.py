@@ -1834,6 +1834,103 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertFalse(session.committed)
 
+    def upload(self, view, csv_body, query="", parents=None):
+        """POST csv_body to a schedule upload view; parents maps model -> owned row."""
+        filters = []
+
+        class OwnedQuery(QueryStub):
+            def __init__(self, owned):
+                super().__init__(first_item=owned)
+
+            def filter_by(self, **kwargs):
+                filters.append(kwargs)
+                return self
+
+        session = SessionStub(
+            {model: OwnedQuery(owned) for model, owned in (parents or {}).items()}
+        )
+        with self.app.test_request_context(
+            f"/upload{query}", method="POST", data=csv_body
+        ), patch("routes.rest_certificates.current_user", self.user), patch.object(
+            Config, "DB_SESSION", lambda: session, create=True
+        ):
+            response, status = run_view(view)
+        return response, status, session, filters
+
+    def test_bond_schedules_upload_query_iid_overrides_csv(self):
+        csv_body = (
+            "date,amount,paid,iid\n2027-10-19,526.68,0,8\n2028-01-19,544.44,1,8\n"
+        )
+        response, status, session, filters = self.upload(
+            rest_certificates.bond_schedules_upload,
+            csv_body,
+            "?iid=14",
+            {rest_certificates.Bond: SimpleNamespace(id=14)},
+        )
+
+        self.assertEqual(status, 201)
+        self.assertEqual(response.get_json()["message"], "inserted: 2")
+        self.assertEqual([r.bond_id for r in session.added], [14, 14])
+        self.assertEqual([r.paid for r in session.added], [0, 1])
+        self.assertEqual(filters, [{"user_id": 1, "id": 14}])
+        self.assertTrue(session.committed)
+
+    def test_bond_schedules_upload_uses_csv_iid_without_query(self):
+        csv_body = "date,amount,paid,iid\n2027-10-19,10,0,3\n2028-01-19,10,0,4\n"
+        _, status, session, filters = self.upload(
+            rest_certificates.bond_schedules_upload,
+            csv_body,
+            parents={rest_certificates.Bond: SimpleNamespace(id=3)},
+        )
+
+        self.assertEqual(status, 201)
+        self.assertEqual([r.bond_id for r in session.added], [3, 4])
+        self.assertEqual(filters, [{"user_id": 1, "id": 3}, {"user_id": 1, "id": 4}])
+
+    def test_bond_schedules_upload_rejects_bond_of_another_user(self):
+        csv_body = "date,amount,paid,iid\n2027-10-19,10,0,99\n"
+        response, status, session, _ = self.upload(
+            rest_certificates.bond_schedules_upload,
+            csv_body,
+            parents={rest_certificates.Bond: None},
+        )
+
+        self.assertEqual(status, 404)
+        self.assertIn("Bond 99", response.get_json()["message"])
+        self.assertEqual(session.added, [])
+        self.assertFalse(session.committed)
+
+    def test_bond_schedules_upload_rejects_bad_iid(self):
+        csv_body = "date,amount,paid\n2027-10-19,10,0\n"
+        response, status, session, _ = self.upload(
+            rest_certificates.bond_schedules_upload, csv_body
+        )
+
+        self.assertEqual(status, 400)
+        self.assertIn("iid", response.get_json()["message"])
+        self.assertFalse(session.committed)
+
+    def test_cd_schedules_upload_checks_owner_and_overrides_iid(self):
+        csv_body = "date,amount,paid,iid\n2027-10-19,10,0,8\n"
+        _, status, session, filters = self.upload(
+            rest_certificates.cd_schedules_upload,
+            csv_body,
+            "?iid=5",
+            {rest_certificates.DepositCertificate: SimpleNamespace(id=5)},
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual([r.cd_id for r in session.added], [5])
+        self.assertEqual(filters, [{"user_id": 1, "id": 5}])
+
+        _, status, session, _ = self.upload(
+            rest_certificates.cd_schedules_upload,
+            csv_body,
+            "?iid=5",
+            {rest_certificates.DepositCertificate: None},
+        )
+        self.assertEqual(status, 404)
+        self.assertFalse(session.committed)
+
     def test_payables_get_put_bad_target(self):
         existing = SimpleNamespace(
             target_asset_id="old",

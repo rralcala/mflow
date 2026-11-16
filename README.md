@@ -94,7 +94,11 @@ Then call the following with that token as a Bearer header:
 ```
 /api/assets/bondSchedulesUpload
 ```
-Send CSV-style rows (`iid` is the certificate id; `paid` is 0 or 1):
+(or `/api/assets/cdSchedulesUpload` for deposit certificates).
+Send CSV-style rows (`iid` is the bond or certificate id; `paid` is 0 or 1).
+Every `iid` must belong to the caller, otherwise the request fails with 404 and
+nothing is inserted. Pass `?iid=<id>` to attach every row to that id instead;
+it overrides the CSV's `iid` column, which may then be left out:
 ```
 date,amount,paid,iid
 2027-10-19,526.68,0,8
