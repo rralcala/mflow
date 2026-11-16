@@ -8,6 +8,7 @@ from typing import List, Optional
 from apiflask import abort
 from croniter import CroniterError, croniter
 from flask import request
+from marshmallow import Schema
 
 from data.constants import FLOW_CLASSES
 from lib.config import Config
@@ -56,6 +57,44 @@ def paginate(items):
     if start < 0 or (end is not None and end < 0):
         abort(400, "_start and _end must not be negative")
     return items[start:end]
+
+
+def _sort_value(value):
+    """Order numbers before strings before anything else, so mixed types never
+    raise; strings compare case-insensitively."""
+    if isinstance(value, (bool, int, float)):
+        return (0, value, "")
+    if isinstance(value, str):
+        return (1, 0, value.casefold())
+    return (2, 0, str(value))
+
+
+def sort_items(items, query_data, schema, default=None, default_order="ASC"):
+    """Sort records by the json-server `_sort` / `_order` arguments.
+
+    Call it before `paginate()`, so slices come from the sorted list. `_sort`
+    must be a field of the endpoint's output `schema` (400 otherwise); `_order`
+    is ASC or DESC in any case. Without `_sort`, `default` / `default_order`
+    apply, and with no default the items keep their order. Records whose value
+    is missing or None go last in either direction.
+    """
+    key = query_data.get("sort") or default
+    if not key:
+        return items
+    fields = schema.fields if isinstance(schema, Schema) else schema().fields
+    allowed = sorted(field.data_key or name for name, field in fields.items())
+    if key not in allowed:
+        abort(400, f"Can't sort by '{key}'; expected one of {', '.join(allowed)}")
+    order = query_data.get("order") or (
+        "ASC" if query_data.get("sort") else default_order
+    )
+    order = order.upper()
+    if order not in ("ASC", "DESC"):
+        abort(400, "_order must be ASC or DESC")
+    present = [item for item in items if item.get(key) is not None]
+    missing = [item for item in items if item.get(key) is None]
+    present.sort(key=lambda item: _sort_value(item[key]), reverse=order == "DESC")
+    return present + missing
 
 
 def normalize_country(value) -> str:

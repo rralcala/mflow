@@ -10,10 +10,11 @@ from data.exchange_rates import ExchangeRates
 from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserStore
-from lib.util import business_days_ago, paginate
+from lib.util import business_days_ago, paginate, sort_items
 from routes.schemas import (
     ExchangeRateOut,
     FutureTimelineQuery,
+    ListQuery,
     MessageOut,
     MonthlyPnlQuery,
     RecurrentHistoryQuery,
@@ -103,8 +104,9 @@ def exchange_rates_refresh():
 
 @reports_bp.route("/exchangeRates", methods=["GET"])
 @reports_bp.auth_required(auth)
+@reports_bp.input(ListQuery, location="query")
 @reports_bp.output(ExchangeRateOut(many=True), headers=TotalCountHeader)
-def exchange_rates():
+def exchange_rates(query_data):
     user_config = UserStore.get_user_config(current_user.id)
     result = []
     selected_exchanges = f"USD{user_config.SECONDARY_CURRENCY}"
@@ -125,8 +127,9 @@ def exchange_rates():
         item["weekChange"] = previous_dict.get(item["id"], item["rate"])
         item["weekChange"] = (item["rate"] / item["weekChange"]) - 1
 
-    result = sorted(result, key=lambda x: x["id"])
-    return result, HTTPStatus.OK, {"X-Total-Count": len(result)}
+    count = len(result)
+    result = sort_items(result, query_data, ExchangeRateOut, default="id")
+    return paginate(result), HTTPStatus.OK, {"X-Total-Count": count}
 
 
 @reports_bp.route("/exchangeRates/<string:name>", methods=["GET"])
@@ -241,8 +244,13 @@ def upcoming_payments_flat(query_data):
         get_asset_store(user_config), exclude_capital
     )
     count = len(payments_by_month)
-    # Sort by Year-Month, Country, Date
-    payments_by_month.sort(key=lambda x: (x["date"][:8], x["country"], x["date"]))
+    if query_data.get("sort"):
+        payments_by_month = sort_items(
+            payments_by_month, query_data, UpcomingPaymentOut
+        )
+    else:
+        # Default: by year-month, then country, then date.
+        payments_by_month.sort(key=lambda x: (x["date"][:8], x["country"], x["date"]))
     return paginate(payments_by_month), HTTPStatus.OK, {"X-Total-Count": count}
 
 

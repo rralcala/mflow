@@ -3,17 +3,7 @@
 Follow-ups from the Flask → APIFlask migration.
 
 - [ ] **Response schemas for the analytic reports.** Every endpoint now has request schemas (bodies and query args, in `routes/schemas.py`), and every resource and list report has a response schema. These reports still return undocumented payloads: `assets_by_location`, `cash_flow`, `future_timeline`, `income_per_location`, `investment_performance`, `monthly_pnl`, `nw_summary`, `recurrent_history`, `spending_analysis`, `valuation_history`. Several use dynamic keys (`cash_flow`'s `USD-US` columns) or rows as lists (`nw_summary`'s `tot_per_location`), so they need `Dict` / `List` fields or a reshaped payload agreed with the dashboards. Output schemas drop undeclared keys: add a dump round-trip test against real view output for each (see `test/schemas_test.py`), and remove the report from `UNDOCUMENTED_RESPONSES` there.
-- [ ] **`_sort` / `_order` on list endpoints.** Still missing or partial:
-
-  | Endpoint | Current state |
-  |---|---|
-  | `/bonds`, `/depositCertificates` | only `name` and `maturityDate` are honoured; any other key silently falls back to name ordering |
-  | `/bondSchedules`, `/depositCertificateSchedules` | fixed order by date |
-  | `/recurrents`, `/recurrentTransactions`, `/monthlyTransactions`, `/exchangeRates` | fixed order |
-  | `/upcoming_payments` | fixed order |
-  | list-returning reports | none |
-
-  Add a shared `sort_items()` helper next to `paginate()` (sort before slicing). Things to settle: rows with missing or `None` sort values (the current `x.get(sort_key, "")` can raise on mixed types), `_order` case handling, unknown sort keys (ignore vs 400), and whether DB-backed endpoints sort in SQL or in Python. Add unit tests for the helper and each endpoint touched.
+- [x] **`_sort` / `_order` on list endpoints.** `sort_items()` (`lib/util.py`, next to `paginate()`) sorts in Python on the API field names, before slicing. `_sort` must be a field of the endpoint's output schema (400 otherwise); `_order` is ASC/DESC in any case; missing or `None` values go last in both directions; numbers sort before strings so mixed types don't raise, and strings compare case-insensitively. Each endpoint keeps its old order as the default when `_sort` is absent. Covers accounts, assets, instruments, payables, properties, bonds, CDs, both schedule lists, recurrents, recurrent transactions, monthly transactions, exchange rates and upcoming payments. Frontend lists whose order used to come from a backend remap of `id` now ask for it explicitly. Left as is: `dashboardBudgets` (config order) and `transactionParsers`; the list-shaped reports return chart rows the dashboards fetch directly, not react-admin records.
 
 ## Planned
 
@@ -29,7 +19,6 @@ Follow-ups from the Flask → APIFlask migration.
 
 - [x] **Hardcoded `USDPYG`** in `list_income` (`views/list_assets.py:50`); use the user's `SECONDARY_CURRENCY`.
 - [x] **Changes can leave dangling targets or orphans.** Deletes now return 409 while other assets target the asset or recurrents are attached to it, while a bond/CD has schedule rows, or while a recurrent has transactions. Renames (instrument location/symbol, property name, payable description, bond/CD name) and an account currency change are refused (400) while used. Schedule POSTs and a recurrent's `assetId` must belong to the caller. `DELETE /bondSchedules/<id>` and `DELETE /depositCertificateSchedules/<id>` added so a bond/CD can be emptied before deleting it.
-- [ ] **Existing orphans in the database.** The 8 recurrent transactions without a recurrent (as of 2026-10-09) are still there; a new recurrent with the same identifier would pick them up. Clean them up (back up `mydatabase.db` first).
 - [ ] **Asset identifiers aren't unique, and several places assume they are.** Instruments are identified as `f"{location}_{symbol}"` and payables by their description, and nothing stops two assets sharing one (user 1 has 3 payable descriptions used by 10 payables; no duplicate instruments as of 2026-11-16). `af19cc8` stopped the Future Timeline from dropping holdings. Still open:
   - Future Timeline (`views/future_timeline.py`): `targets` maps an identifier to its *first* holding, so a pool that targets its own identifier (to compound) pays its interest into the first duplicate instead of itself. `sale_dates` keeps the *last* duplicate's sell-by, which decides when recurrents attached to that identifier stop.
   - Targets: `validate_pool_target` (`lib/util.py`) accepts a target if *any* duplicate is a pool, but the timeline uses the first one and warns "isn't marked as a target pool" when that one isn't. `target_country` returns the first match's country.

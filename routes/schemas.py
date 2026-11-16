@@ -336,7 +336,7 @@ class ScheduleUploadQuery(In):
     )
 
 
-class BondScheduleQuery(PageQuery):
+class BondScheduleQuery(ListQuery):
     bondId = Integer()
     paid = Boolean()
 
@@ -356,7 +356,7 @@ class BondScheduleOut(Schema):
     paid = Boolean()
 
 
-class DepositCertificateScheduleQuery(PageQuery):
+class DepositCertificateScheduleQuery(ListQuery):
     depositCertificateId = Integer()
     paid = Boolean()
 
@@ -379,7 +379,7 @@ class DepositCertificateScheduleOut(Schema):
 # Recurrents and their transactions
 
 
-class RecurrentsQuery(PageQuery):
+class RecurrentsQuery(ListQuery):
     flowClass = String()
     targetAssetId = String()
 
@@ -417,7 +417,7 @@ class RecurrentOut(Schema):
     inflation = Boolean()
 
 
-class RecurrentTransactionsQuery(PageQuery):
+class RecurrentTransactionsQuery(ListQuery):
     recurrentId = String()
     yearMonth = String()
     paidWithAssetId = String()
@@ -538,7 +538,7 @@ class RecurrentHistoryQuery(In):
     flowClass = String(allow_none=True)
 
 
-class UpcomingPaymentsQuery(PageQuery):
+class UpcomingPaymentsQuery(ListQuery):
     exclude = Boolean(metadata={"description": "Leave out capital; defaults to true."})
 
 

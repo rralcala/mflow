@@ -21,6 +21,7 @@ from lib.util import (
     require_date,
     require_dividend,
     require_number,
+    sort_items,
     target_references,
     validate_date,
     validate_pool_target,
@@ -101,10 +102,7 @@ def accounts_list(query_data):
             .all()
         ]
     count = len(results)
-    if "sort" in query_data:
-        sort_key = query_data["sort"]
-        reverse = query_data.get("order", "ASC") == "DESC"
-        results.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
+    results = sort_items(results, query_data, AccountOut)
     return paginate(results), HTTPStatus.OK, {"X-Total-Count": count}
 
 
@@ -173,10 +171,7 @@ def assets(query_data):
         results = [r for r in results if r.get("id") in ids]
     count = len(results)
 
-    if "sort" in query_data:
-        sort_key = query_data["sort"]
-        reverse = query_data.get("order", "ASC") == "DESC"
-        results.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
+    results = sort_items(results, query_data, AssetOut)
     return paginate(results), HTTPStatus.OK, {"X-Total-Count": count}
 
 
@@ -292,13 +287,7 @@ def instruments_list(query_data):
             .all()
         ]
     count = len(results)
-    if "sort" in query_data:
-        if query_data["sort"] == "id":
-            sort_key = "location"
-        else:
-            sort_key = query_data["sort"]
-        reverse = query_data.get("order", "ASC") == "DESC"
-        results.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
+    results = sort_items(results, query_data, InstrumentOut, default="location")
     return paginate(results), HTTPStatus.OK, {"X-Total-Count": count}
 
 
@@ -465,7 +454,7 @@ def load_tx() -> List[Dict[str, Any]]:
 
 @assets_bp.get("/monthlyTransactions")
 @assets_bp.auth_required(auth)
-@assets_bp.input(PageQuery, location="query")
+@assets_bp.input(ListQuery, location="query")
 @assets_bp.output(MonthlyTransactionOut(many=True), headers=TotalCountHeader)
 def monthly_transactions(query_data):
     """Projected spending (negative amounts) for this month and the next."""
@@ -475,6 +464,7 @@ def monthly_transactions(query_data):
         if transaction.get("amount", 0.0) < 0.0:
             response_items.append(transaction)
     count = len(response_items)
+    response_items = sort_items(response_items, query_data, MonthlyTransactionOut)
     return paginate(response_items), HTTPStatus.OK, {"X-Total-Count": count}
 
 
@@ -535,12 +525,7 @@ def payables_list(query_data):
 
         results = [post.to_dict() for post in base_query.all()]
     count = len(results)
-    if query_data.get("sort", "id") != "id":
-        sort_key = query_data["sort"]
-    else:
-        sort_key = "dueDate"
-    reverse = query_data.get("order", "ASC") == "DESC"
-    results.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
+    results = sort_items(results, query_data, PayableOut, default="dueDate")
     return paginate(results), HTTPStatus.OK, {"X-Total-Count": count}
 
 
@@ -666,9 +651,7 @@ def properties_list(query_data):
 
         results = [post.to_dict() for post in base_query.all()]
     count = len(results)
-    sort_key = query_data.get("sort", "propertyName")
-    reverse = query_data.get("order", "ASC") == "DESC"
-    results.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
+    results = sort_items(results, query_data, PropertyOut, default="propertyName")
     return paginate(results), HTTPStatus.OK, {"X-Total-Count": count}
 
 

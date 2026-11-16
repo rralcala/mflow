@@ -18,6 +18,7 @@ from lib.util import (
     paginate,
     require_date,
     require_number,
+    sort_items,
     type_to_str,
     validate_target_asset,
 )
@@ -31,6 +32,7 @@ from ..schemas import (
     BondScheduleIn,
     BondScheduleOut,
     BondScheduleQuery,
+    CertificateOut,
     DepositCertificateIn,
     DepositCertificateOut,
     DepositCertificateScheduleIn,
@@ -137,11 +139,11 @@ def bond_schedules_list(query_data):
             base_query = base_query.filter(
                 BondSchedule.paid == (1 if query_data["paid"] else 0)
             )
-        results = [
-            post.to_dict()
-            for post in base_query.order_by(BondSchedule.date.asc()).all()
-        ]
+        results = [post.to_dict() for post in base_query.all()]
     count = len(results)
+    results = sort_items(
+        results, query_data, BondScheduleOut, default="transactionDate"
+    )
     return paginate(results), HTTPStatus.OK, {"X-Total-Count": count}
 
 
@@ -238,11 +240,11 @@ def deposit_certificate_schedules_list(query_data):
             base_query = base_query.filter(
                 DepositCertificateSchedule.paid == (1 if query_data["paid"] else 0)
             )
-        results = [
-            post.to_dict()
-            for post in base_query.order_by(DepositCertificateSchedule.date.asc()).all()
-        ]
+        results = [post.to_dict() for post in base_query.all()]
     count = len(results)
+    results = sort_items(
+        results, query_data, DepositCertificateScheduleOut, default="transactionDate"
+    )
     return paginate(results), HTTPStatus.OK, {"X-Total-Count": count}
 
 
@@ -498,20 +500,7 @@ def certificate_create(cert_type, data):
 def certificates_list(cert_type, query_data):
     with Config.DB_SESSION() as session:
         rows = session.query(cert_type).filter_by(user_id=int(current_user.id))
-        sort_key = "name"
-        if query_data.get("sort", "id") != "id":
-            sort_key = query_data["sort"]
-        descending = query_data.get("order", "ASC") == "DESC"
-        if sort_key == "maturityDate":
-            if descending:
-                rows = rows.order_by(cert_type.maturity_date.desc())
-            else:
-                rows = rows.order_by(cert_type.maturity_date.asc())
-        if sort_key == "name":
-            if descending:
-                rows = rows.order_by(cert_type.name.desc())
-            else:
-                rows = rows.order_by(cert_type.name.asc())
         results = [post.to_dict() for post in rows.all()]
     count = len(results)
+    results = sort_items(results, query_data, CertificateOut, default="name")
     return paginate(results), HTTPStatus.OK, {"X-Total-Count": count}

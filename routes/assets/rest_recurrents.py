@@ -23,6 +23,7 @@ from lib.util import (
     recurrence_error,
     require_date,
     require_number,
+    sort_items,
     target_country_error,
     validate_date,
     validate_target_asset,
@@ -130,14 +131,19 @@ def recurrent_transactions_list(query_data):
                 RecurrentTransaction.description.contains(query_data["description"]),
             )
         results = []
-        for post in base_query.order_by(
-            RecurrentTransaction.transaction_date.desc()
-        ).all():
+        for post in base_query.all():
             record = post.to_dict()
             record["currency"] = recurrents.get(post.parent_id, {}).get("currency", "")
             results.append(record)
 
     count = len(results)
+    results = sort_items(
+        results,
+        query_data,
+        RecurrentTransactionOut,
+        default="transactionDate",
+        default_order="DESC",
+    )
     return paginate(results), HTTPStatus.OK, {"X-Total-Count": count}
 
 
@@ -244,8 +250,9 @@ def recurrents_list(query_data):
 
         rows = base_query.all()
 
-    results = sorted([post.to_dict() for post in rows], key=lambda x: x.get("id", ""))
+    results = [post.to_dict() for post in rows]
     count = len(results)
+    results = sort_items(results, query_data, RecurrentOut, default="id")
     return paginate(results), HTTPStatus.OK, {"X-Total-Count": count}
 
 
