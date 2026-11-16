@@ -242,8 +242,8 @@ def target_country_error(
     return None
 
 
-def target_references(session, user_id: int, target_asset_id: str) -> List[str]:
-    """Identifiers of the assets whose cash flows use target_asset_id."""
+def _identifier_labels():
+    """Each asset model with how its per-type identifier is built from a row."""
     from models.bond import Bond
     from models.deposit_certificate import DepositCertificate
     from models.instrument import Instrument
@@ -251,7 +251,7 @@ def target_references(session, user_id: int, target_asset_id: str) -> List[str]:
     from models.payable import Payable
     from models.property import Property
 
-    labels = {
+    return {
         Account: lambda row: row.id,
         Bond: lambda row: row.name,
         DepositCertificate: lambda row: row.name,
@@ -260,8 +260,12 @@ def target_references(session, user_id: int, target_asset_id: str) -> List[str]:
         Property: lambda row: row.property_name,
         Instrument: lambda row: f"{row.location}_{row.symbol}",
     }
+
+
+def target_references(session, user_id: int, target_asset_id: str) -> List[str]:
+    """Identifiers of the assets whose cash flows use target_asset_id."""
     references = []
-    for model, label in labels.items():
+    for model, label in _identifier_labels().items():
         for row in (
             session.query(model)
             .filter_by(user_id=user_id, target_asset_id=target_asset_id)
@@ -270,6 +274,45 @@ def target_references(session, user_id: int, target_asset_id: str) -> List[str]:
             references.append(label(row))
     # A pool that compounds into itself doesn't count as a reference to it.
     return sorted(ref for ref in references if ref != target_asset_id)
+
+
+def owns_asset(session, user_id: int, identifier: str) -> bool:
+    """Whether the user has an asset of any type with this identifier."""
+    return any(
+        label(row) == identifier
+        for model, label in _identifier_labels().items()
+        for row in session.query(model).filter_by(user_id=user_id).all()
+    )
+
+
+def child_references(session, user_id: int, identifier: str) -> List[str]:
+    """Assets that would be left dangling without `identifier`: those whose
+    flows target it, and recurrents attached to it as their parent asset."""
+    from models.models import Recurrent
+
+    references = set(target_references(session, user_id, identifier))
+    for row in (
+        session.query(Recurrent)
+        .filter_by(user_id=user_id, parent_asset_id=identifier)
+        .all()
+    ):
+        if row.identifier != identifier:
+            references.add(row.identifier)
+    return sorted(references)
+
+
+def children_error(
+    session, user_id: int, identifier: str, action: str
+) -> Optional[str]:
+    """Why `identifier` can't be deleted or renamed, if other assets use it.
+    `action` completes "Can't ..." (e.g. "delete", "rename")."""
+    references = child_references(session, user_id, identifier)
+    if not references:
+        return None
+    return (
+        f"Can't {action} {identifier}: still used by {', '.join(references)}; "
+        "retarget or remove them first"
+    )
 
 
 def type_to_str(type_obj) -> str:

@@ -12,11 +12,13 @@ from lib.parsers import ParseError, available_parsers, get_parser, transaction_h
 from lib.parsers.base import DATE, MAX_UPLOAD_BYTES, YEAR_MONTH
 from lib.user_config import UserStore
 from lib.util import (
+    children_error,
     country_for_update,
     normalize_country,
     normalize_currency,
     normalize_flow_class,
     owned_or_404,
+    owns_asset,
     paginate,
     recurrence_error,
     require_date,
@@ -53,6 +55,15 @@ from ..security import auth
 Logger = get_logger()
 
 IMPORT_HASH = re.compile(r"^[0-9a-f]{64}$")
+
+
+def parent_asset_error(session, parent_asset_id) -> str | None:
+    """A recurrent may be attached to one of the user's assets, or to none."""
+    if parent_asset_id in (None, "", "None"):
+        return None
+    if not owns_asset(session, int(current_user.id), parent_asset_id):
+        return f"Unknown asset '{parent_asset_id}'"
+    return None
 
 
 def owns_recurrent(session, identifier) -> bool:
@@ -265,6 +276,9 @@ def recurrent_create(json_data):
         )
         if error:
             abort(HTTPStatus.BAD_REQUEST, error)
+        error = parent_asset_error(session, data.get("assetId"))
+        if error:
+            abort(HTTPStatus.BAD_REQUEST, error)
         new_transaction = Recurrent(
             identifier=data.get("id"),
             parent_asset_id=data.get("assetId"),
@@ -324,7 +338,12 @@ def recurrent_update(name, json_data):
         )
         if error:
             abort(HTTPStatus.BAD_REQUEST, error)
-        result.parent_asset_id = data.get("assetId", result.parent_asset_id)
+        parent_asset_id = data.get("assetId", result.parent_asset_id)
+        if parent_asset_id != result.parent_asset_id:
+            error = parent_asset_error(session, parent_asset_id)
+            if error:
+                abort(HTTPStatus.BAD_REQUEST, error)
+        result.parent_asset_id = parent_asset_id
         result.target_asset_id = target_asset_id
         result.country = country
         result.amount = amount
@@ -346,6 +365,20 @@ def recurrent_update(name, json_data):
 def recurrent_delete(name):
     with Config.DB_SESSION() as session:
         result = find_recurrent(session, name)
+        transactions = (
+            session.query(RecurrentTransaction)
+            .filter_by(user_id=int(current_user.id), parent_id=name)
+            .count()
+        )
+        if transactions:
+            abort(
+                HTTPStatus.CONFLICT,
+                f"Can't delete {name}: it still has {transactions} "
+                "transaction(s); delete them first",
+            )
+        error = children_error(session, int(current_user.id), name, "delete")
+        if error:
+            abort(HTTPStatus.CONFLICT, error)
         session.delete(result)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))

@@ -11,6 +11,7 @@ from lib.config import Config
 from lib.logger import get_logger
 from lib.user_config import UserStore
 from lib.util import (
+    children_error,
     country_for_update,
     normalize_country,
     normalize_currency,
@@ -55,6 +56,19 @@ from ..schemas import (
 from ..security import auth
 
 Logger = get_logger()
+
+
+def refuse_if_used(session, identifier: str, action: str, status) -> None:
+    """Abort when other assets target or are attached to `identifier`."""
+    error = children_error(session, int(current_user.id), identifier, action)
+    if error:
+        abort(status, error)
+
+
+def refuse_rename_if_used(session, old: str, new: str) -> None:
+    """Renaming an identifier would leave the assets that use it dangling."""
+    if new != old:
+        refuse_if_used(session, old, "rename", HTTPStatus.BAD_REQUEST)
 
 
 def account_transfer_error(
@@ -183,8 +197,17 @@ def account_update(name, json_data):
     with Config.DB_SESSION() as session:
         result = find_account(session, name)
         result.country = country_for_update(data, result.country)
+        currency = normalize_currency(data.get("currency", result.currency))
+        if currency != str(result.currency).upper():
+            references = target_references(session, int(current_user.id), name)
+            if references:
+                abort(
+                    HTTPStatus.BAD_REQUEST,
+                    f"Can't change the currency of {name}: it's the target of "
+                    f"{', '.join(references)}; retarget them first",
+                )
         result.institution = data.get("institution", result.institution)
-        result.currency = normalize_currency(data.get("currency", result.currency))
+        result.currency = currency
         result.balance = require_number(data.get("balance", result.balance), "balance")
         result.factor = require_number(data.get("factor", result.factor), "factor")
         result.account_type = data.get("accountType", result.account_type)
@@ -209,6 +232,7 @@ def account_update(name, json_data):
 def account_delete(name):
     with Config.DB_SESSION() as session:
         result = find_account(session, name)
+        refuse_if_used(session, name, "delete", HTTPStatus.CONFLICT)
         session.delete(result)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -354,9 +378,11 @@ def instrument_update(id, json_data):
             error = instrument_symbol_error(symbol)
             if error:
                 abort(HTTPStatus.BAD_REQUEST, error)
+        location = data.get("location", result.location)
+        refuse_rename_if_used(session, identifier, f"{location}_{symbol}")
         was_target_pool = result.is_target_pool == 1
         result.country = country_for_update(data, result.country)
-        result.location = data.get("location", result.location)
+        result.location = location
         result.symbol = symbol
         result.factor = require_number(data.get("factor", result.factor), "factor")
         result.qty = require_number(data.get("qty", result.qty), "qty")
@@ -403,6 +429,9 @@ def instrument_update(id, json_data):
 def instrument_delete(id):
     with Config.DB_SESSION() as session:
         result = find_instrument(session, id)
+        refuse_if_used(
+            session, f"{result.location}_{result.symbol}", "delete", HTTPStatus.CONFLICT
+        )
         session.delete(result)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -582,7 +611,9 @@ def payable_update(id, json_data):
         result.amount = amount
         result.balance = balance
         result.due_date = due_date
-        result.description = data.get("description", result.description)
+        description = data.get("description", result.description)
+        refuse_rename_if_used(session, result.description, description)
+        result.description = description
         result.commited = 1 if data.get("commited", result.commited) else 0
         result.flow_class = flow_class
         result.target_asset_id = target_asset_id
@@ -597,6 +628,7 @@ def payable_update(id, json_data):
 def payable_delete(id):
     with Config.DB_SESSION() as session:
         result = find_payable(session, id)
+        refuse_if_used(session, result.description, "delete", HTTPStatus.CONFLICT)
         session.delete(result)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -694,7 +726,9 @@ def property_update(id, json_data):
         result = find_property(session, id)
         result.country = country_for_update(data, result.country)
         result.currency = normalize_currency(data.get("currency", result.currency))
-        result.property_name = data.get("propertyName", result.property_name)
+        property_name = data.get("propertyName", result.property_name)
+        refuse_rename_if_used(session, result.property_name, property_name)
+        result.property_name = property_name
         result.purchase_price = require_number(
             data.get("purchasePrice", result.purchase_price), "purchasePrice"
         )
@@ -735,6 +769,7 @@ def property_update(id, json_data):
 def property_delete(id):
     with Config.DB_SESSION() as session:
         result = find_property(session, id)
+        refuse_if_used(session, result.property_name, "delete", HTTPStatus.CONFLICT)
         session.delete(result)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))

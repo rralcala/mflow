@@ -10,6 +10,7 @@ from data.asset_store import reload_asset_store
 from lib.config import Config
 from lib.user_config import UserStore
 from lib.util import (
+    children_error,
     country_for_update,
     normalize_country,
     normalize_currency,
@@ -151,8 +152,12 @@ def bond_schedules_list(query_data):
 def bond_schedule_create(json_data):
     data = json_data
     with Config.DB_SESSION() as session:
+        bond_id = data.get("bondId")
+        owned_or_404(
+            session, Bond, int(current_user.id), f"Bond {bond_id} not found", id=bond_id
+        )
         new_item = BondSchedule(
-            bond_id=data.get("bondId"),
+            bond_id=bond_id,
             date=require_date(data.get("transactionDate"), "transactionDate"),
             user_id=int(current_user.id),
             amount=require_number(data.get("amount"), "amount"),
@@ -181,6 +186,22 @@ def bond_schedule_update(id, json_data):
     with Config.DB_SESSION() as session:
         result = find_bond_schedule(session, id)
         update_schedule(result, json_data)
+        session.commit()
+        reload_asset_store(UserStore.get_user_config(current_user.id))
+        return result.to_dict()
+
+
+@assets_bp.delete("/bondSchedules/<id>")
+@assets_bp.auth_required(auth)
+@assets_bp.output(BondScheduleOut)
+def bond_schedule_delete(id):
+    return schedule_delete(find_bond_schedule, id)
+
+
+def schedule_delete(finder, id):
+    with Config.DB_SESSION() as session:
+        result = finder(session, id)
+        session.delete(result)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
         return result.to_dict()
@@ -232,8 +253,16 @@ def deposit_certificate_schedules_list(query_data):
 def deposit_certificate_schedule_create(json_data):
     data = json_data
     with Config.DB_SESSION() as session:
+        cd_id = data.get("cdId")
+        owned_or_404(
+            session,
+            DepositCertificate,
+            int(current_user.id),
+            f"Deposit Certificate {cd_id} not found",
+            id=cd_id,
+        )
         new_item = DepositCertificateSchedule(
-            cd_id=data.get("cdId"),
+            cd_id=cd_id,
             date=require_date(data.get("transactionDate"), "transactionDate"),
             user_id=int(current_user.id),
             amount=require_number(data.get("amount"), "amount"),
@@ -265,6 +294,13 @@ def deposit_certificate_schedule_update(id, json_data):
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
         return result.to_dict()
+
+
+@assets_bp.delete("/depositCertificateSchedules/<id>")
+@assets_bp.auth_required(auth)
+@assets_bp.output(DepositCertificateScheduleOut)
+def deposit_certificate_schedule_delete(id):
+    return schedule_delete(find_deposit_certificate_schedule, id)
 
 
 def find_deposit_certificate_schedule(session, id) -> DepositCertificateSchedule:
@@ -379,7 +415,12 @@ def certificate_update(cert_type, id, data):
             session, int(current_user.id), target_asset_id, currency
         ):
             abort(HTTPStatus.BAD_REQUEST, "Bad target asset")
-        result.name = data.get("name", result.name)
+        name = data.get("name", result.name)
+        if name != result.name:
+            error = children_error(session, int(current_user.id), result.name, "rename")
+            if error:
+                abort(HTTPStatus.BAD_REQUEST, error)
+        result.name = name
         result.capital = capital
         result.rate = rate
         result.maturity_date = maturity_date
@@ -392,9 +433,31 @@ def certificate_update(cert_type, id, data):
         return result.to_dict()
 
 
+# Each certificate type with its schedule model and the column linking them.
+SCHEDULES = {
+    Bond: (BondSchedule, "bond_id"),
+    DepositCertificate: (DepositCertificateSchedule, "cd_id"),
+}
+
+
 def certificate_delete(cert_type, id):
     with Config.DB_SESSION() as session:
         result = find_certificate(session, cert_type, id)
+        schedule_model, parent_key = SCHEDULES[cert_type]
+        payments = (
+            session.query(schedule_model)
+            .filter_by(user_id=int(current_user.id), **{parent_key: result.id})
+            .count()
+        )
+        if payments:
+            abort(
+                HTTPStatus.CONFLICT,
+                f"Can't delete {result.name}: it still has {payments} scheduled "
+                "payment(s); delete them first",
+            )
+        error = children_error(session, int(current_user.id), result.name, "delete")
+        if error:
+            abort(HTTPStatus.CONFLICT, error)
         session.delete(result)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
