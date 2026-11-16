@@ -31,7 +31,14 @@ Follow-ups from the Flask → APIFlask migration.
 - [ ] **Changes can leave dangling targets or orphans.**
   - Deleting an account or instrument, or changing an instrument's location or symbol, doesn't check `target_references`. Changing an account's currency while other assets target it breaks the same-currency rule.
   - Deleting a bond or CD leaves its schedule rows; deleting a recurrent leaves its transactions (8 orphaned transactions in the database as of 2026-10-09). A new recurrent with the same identifier would pick them up.
-  - Schedule POST and the CSV uploads (`rest_certificates.py:29`, `:75`) don't check that the bond or CD belongs to the caller or exists.
+  - Single schedule POSTs (`POST /bondSchedules`, `POST /depositCertificateSchedules`) don't check that the `bondId` / `cdId` belongs to the caller or exists. The CSV uploads do since `da05732`.
+- [ ] **Asset identifiers aren't unique, and several places assume they are.** Instruments are identified as `f"{location}_{symbol}"` and payables by their description, and nothing stops two assets sharing one (user 1 has 3 payable descriptions used by 10 payables; no duplicate instruments as of 2026-11-16). `af19cc8` stopped the Future Timeline from dropping holdings. Still open:
+  - Future Timeline (`views/future_timeline.py`): `targets` maps an identifier to its *first* holding, so a pool that targets its own identifier (to compound) pays its interest into the first duplicate instead of itself. `sale_dates` keeps the *last* duplicate's sell-by, which decides when recurrents attached to that identifier stop.
+  - Targets: `validate_pool_target` (`lib/util.py`) accepts a target if *any* duplicate is a pool, but the timeline uses the first one and warns "isn't marked as a target pool" when that one isn't. `target_country` returns the first match's country.
+  - Un-pooling one of two duplicate pools is refused as "still the target of …", even though the other copy would still receive the flows.
+  - API: `GET /assets/<id>` returns the first match. `GET /assets` (and its `id` filter) returns several rows with the same `id`. Upcoming Payments (`assetId-date`) and Monthly Transactions (`yearMonth-assetId`) build row ids that collide when duplicates pay on the same date or in the same month.
+  - Frontend: target selectors list duplicates under one id, so either choice saves the same target. `ReferenceField`s to `assets/assets` show an arbitrary copy. Lists keyed by asset id (Assets, Upcoming Payments, Monthly Transactions, and `InvestmentPerformance.tsx:74`) get duplicate React keys.
+  - Decide between rejecting duplicates (location+symbol per user on instrument create/update, description per user on payables) and giving these assets an identifier that includes something unique (e.g. the row id), which means migrating stored `target_asset_id` / `parent_asset_id` values.
 - [ ] **Monthly P&L summary only totals USD and the secondary currency.** Other configured currencies (e.g. `usdc`) appear in the per-month sums but not in `p_totals` / `n_totals`.
 
 ### Low
