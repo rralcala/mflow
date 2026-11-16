@@ -409,6 +409,46 @@ class TestFutureTimeline(unittest.TestCase):
         result = run([account(balance=5000.0), tuition], end=date(2031, 12, 31))
         self.assertAlmostEqual(month(result, "2030-07")["expenses"], -1000.0)
 
+    def test_assets_sharing_an_identifier_all_count(self, *_):
+        # Instruments are keyed by location+symbol, payables by description:
+        # neither is unique, and every copy must stay in the simulation.
+        sweeps = [instrument(value=v) for v in (1000.0, 2000.0, 3000.0, 4000.0)]
+        result = run(sweeps)
+
+        self.assertEqual(
+            sorted((a["id"], a["startValue"]) for a in result["assets"]),
+            [
+                ("Instrument:Sweep_USD", 2000.0),
+                ("Instrument:Sweep_USD #3", 3000.0),
+                ("Instrument:Sweep_USD #4", 4000.0),
+                ("Sweep_USD", 1000.0),
+            ],
+        )
+        self.assertEqual({a["name"] for a in result["assets"]}, {"Sweep_USD"})
+        self.assertAlmostEqual(result["summary"]["startNetWorth"], 10000.0)
+
+    def test_committed_payables_sharing_a_description_all_count(self, *_):
+        def tax():
+            return Payable(
+                "US",
+                "USD",
+                "Tax",
+                -100.0,
+                -100.0,
+                datetime(2030, 6, 1),
+                True,
+                "expense",
+                "Checking",
+            )
+
+        result = run([account(balance=10000.0)] + [tax() for _ in range(4)])
+
+        # Committed payables already count against net worth, so paying them
+        # moves money but doesn't change it.
+        self.assertAlmostEqual(result["summary"]["startNetWorth"], 9600.0)
+        self.assertAlmostEqual(result["summary"]["endNetWorth"], 9600.0)
+        self.assertEqual(sum(1 for a in result["assets"] if a["name"] == "Tax"), 4)
+
     def test_payable_with_zero_balance_has_no_flows(self, *_):
         paid = Payable(
             "US",

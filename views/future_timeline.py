@@ -172,7 +172,7 @@ class _Simulation:
     def add_holding(self, asset: Any, value: float, **kwargs) -> _Holding:
         kind = type(asset).__name__
         name = asset.get_identifier()
-        key = name if name not in self.holdings else f"{kind}:{name}"
+        key = self.unique_key(kind, name)
         holding = _Holding(
             key=key,
             name=name,
@@ -185,6 +185,23 @@ class _Simulation:
         )
         self.holdings[key] = holding
         return holding
+
+    def unique_key(self, kind: str, name: str) -> str:
+        """A holding key no other holding uses.
+
+        Identifiers aren't unique (payables are keyed by description,
+        instruments by location and symbol), and a reused key would replace
+        the earlier holding, dropping its value from every total. Keys read
+        `name`, then `Kind:name`, then `Kind:name #3`, `#4`...
+        """
+        if name not in self.holdings:
+            return name
+        key = f"{kind}:{name}"
+        count = 3
+        while key in self.holdings:
+            key = f"{kind}:{name} #{count}"
+            count += 1
+        return key
 
     def add_assets(self, assets: Iterable[Any]) -> None:
         assets = list(assets)
