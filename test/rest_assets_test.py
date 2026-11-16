@@ -1853,9 +1853,43 @@ class TestRestAssetsRoutes(unittest.TestCase):
             f"/upload{query}", method="POST", data=csv_body
         ), patch("routes.rest_certificates.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
+        ), patch(
+            "routes.rest_certificates.reload_asset_store"
+        ) as reload, patch(
+            "routes.rest_certificates.UserStore.get_user_config",
+            return_value="user-config",
         ):
             response, status = run_view(view)
+        # Kept on the test so callers can check it without changing the tuple.
+        self.reload = reload
         return response, status, session, filters
+
+    def test_schedule_uploads_reload_the_asset_store_after_saving(self):
+        csv_body = "date,amount,paid\n2027-10-19,10,0\n"
+        for view, model in (
+            (rest_certificates.bond_schedules_upload, rest_certificates.Bond),
+            (
+                rest_certificates.cd_schedules_upload,
+                rest_certificates.DepositCertificate,
+            ),
+        ):
+            with self.subTest(view=view.__name__):
+                _, status, session, _ = self.upload(
+                    view, csv_body, "?iid=5", {model: SimpleNamespace(id=5)}
+                )
+                self.assertEqual(status, 201)
+                self.assertTrue(session.committed)
+                self.reload.assert_called_once_with("user-config")
+
+    def test_failed_schedule_upload_does_not_reload(self):
+        _, status, _, _ = self.upload(
+            rest_certificates.bond_schedules_upload,
+            "date,amount,paid\n2027-10-19,10,0\n",
+            "?iid=99",
+            {rest_certificates.Bond: None},
+        )
+        self.assertEqual(status, 404)
+        self.reload.assert_not_called()
 
     def test_bond_schedules_upload_query_iid_overrides_csv(self):
         csv_body = (

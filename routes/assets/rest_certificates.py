@@ -80,6 +80,8 @@ def _upload_schedules(query_data, parent_model, schedule_model, parent_key, labe
         for r in rows:
             session.add(schedule_model(user_id=user_id, **r))
         session.commit()
+    # Bonds and CDs cache their payment schedule when assets load.
+    reload_asset_store(UserStore.get_user_config(current_user.id))
     return {"message": f"inserted: {len(rows)}"}
 
 
