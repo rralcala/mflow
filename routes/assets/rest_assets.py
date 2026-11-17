@@ -13,6 +13,7 @@ from lib.user_config import UserStore
 from lib.util import (
     children_error,
     country_for_update,
+    duplicate_error,
     normalize_country,
     normalize_currency,
     normalize_flow_class,
@@ -66,10 +67,19 @@ def refuse_if_used(session, identifier: str, action: str, status) -> None:
         abort(status, error)
 
 
-def refuse_rename_if_used(session, old: str, new: str) -> None:
-    """Renaming an identifier would leave the assets that use it dangling."""
+def refuse_duplicate(session, identifier: str, exclude=None) -> None:
+    """Identifiers are unique per user across every asset type."""
+    error = duplicate_error(session, int(current_user.id), identifier, exclude)
+    if error:
+        abort(HTTPStatus.CONFLICT, error)
+
+
+def refuse_rename_if_used(session, old: str, new: str, row) -> None:
+    """Renaming an identifier would leave the assets that use it dangling, and
+    the new one must not belong to another asset."""
     if new != old:
         refuse_if_used(session, old, "rename", HTTPStatus.BAD_REQUEST)
+        refuse_duplicate(session, new, exclude=row)
 
 
 def account_transfer_error(
@@ -134,6 +144,7 @@ def account_create(json_data):
         )
         if error:
             abort(HTTPStatus.BAD_REQUEST, error)
+        refuse_duplicate(session, new_transaction.id)
         session.add(new_transaction)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -334,6 +345,9 @@ def instrument_create(json_data):
         error = instrument_symbol_error(new_transaction.symbol)
         if error:
             abort(HTTPStatus.BAD_REQUEST, error)
+        refuse_duplicate(
+            session, f"{new_transaction.location}_{new_transaction.symbol}"
+        )
         session.add(new_transaction)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -368,7 +382,7 @@ def instrument_update(id, json_data):
             if error:
                 abort(HTTPStatus.BAD_REQUEST, error)
         location = data.get("location", result.location)
-        refuse_rename_if_used(session, identifier, f"{location}_{symbol}")
+        refuse_rename_if_used(session, identifier, f"{location}_{symbol}", result)
         was_target_pool = result.is_target_pool == 1
         result.country = country_for_update(data, result.country)
         result.location = location
@@ -559,6 +573,7 @@ def payable_create(json_data):
             flow_class=flow_class,
             target_asset_id=target_asset_id,
         )
+        refuse_duplicate(session, new_transaction.description)
         session.add(new_transaction)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -597,7 +612,7 @@ def payable_update(id, json_data):
         result.balance = balance
         result.due_date = due_date
         description = data.get("description", result.description)
-        refuse_rename_if_used(session, result.description, description)
+        refuse_rename_if_used(session, result.description, description, result)
         result.description = description
         result.commited = 1 if data.get("commited", result.commited) else 0
         result.flow_class = flow_class
@@ -685,6 +700,7 @@ def property_create(json_data):
         )
         if error:
             abort(HTTPStatus.BAD_REQUEST, error)
+        refuse_duplicate(session, new_transaction.property_name)
         session.add(new_transaction)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -710,7 +726,7 @@ def property_update(id, json_data):
         result.country = country_for_update(data, result.country)
         result.currency = normalize_currency(data.get("currency", result.currency))
         property_name = data.get("propertyName", result.property_name)
-        refuse_rename_if_used(session, result.property_name, property_name)
+        refuse_rename_if_used(session, result.property_name, property_name, result)
         result.property_name = property_name
         result.purchase_price = require_number(
             data.get("purchasePrice", result.purchase_price), "purchasePrice"

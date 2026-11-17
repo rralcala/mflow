@@ -2,6 +2,7 @@ from http import HTTPStatus
 
 from apiflask import APIFlask, HTTPError
 from flask import current_app
+from sqlalchemy.exc import IntegrityError
 
 
 def validation_message(detail: dict) -> str:
@@ -40,3 +41,12 @@ def configure_errors(app: APIFlask) -> None:
     # 400, like the routes' own input checks, rather than APIFlask's 422.
     app.config["VALIDATION_ERROR_STATUS_CODE"] = HTTPStatus.BAD_REQUEST.value
     app.error_processor(error_body)
+
+    @app.errorhandler(IntegrityError)
+    def integrity_error(error):
+        # A unique index caught a duplicate the route's own checks missed (or a
+        # primary key another user already holds). Never echo the SQL error.
+        current_app.logger.warning("Integrity error: %s", error.orig)
+        return error_body(
+            HTTPError(HTTPStatus.CONFLICT, "Conflicts with an existing record")
+        )

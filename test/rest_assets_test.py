@@ -1387,8 +1387,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
                 rest_assets.Account: QueryStub(
                     first_item=checking if body["targetAssetId"] == "Checking" else None
                 ),
+                # Another of the user's instruments; the new one isn't saved yet.
                 rest_assets.Instrument: QueryStub(
-                    all_items=[SimpleNamespace(location="Citi_I5902", symbol="USD")]
+                    all_items=[SimpleNamespace(location="Citi_I5902", symbol="EUR")]
                 ),
             }
         )

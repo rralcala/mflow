@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, String
+from sqlalchemy import Index, Integer, String
 from sqlalchemy.orm import mapped_column
 
 from data.base import Base
@@ -6,6 +6,10 @@ from data.base import Base
 
 class DepositCertificate(Base):
     __tablename__ = "deposit_certificate"
+    # Each asset type's identifier is unique per user (see asset_classes).
+    __table_args__ = (
+        Index("deposit_certificate_user_name", "user_id", "name", unique=True),
+    )
 
     id = mapped_column(Integer, primary_key=True)
     user_id = mapped_column(Integer, nullable=False)

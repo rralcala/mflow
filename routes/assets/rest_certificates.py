@@ -12,6 +12,7 @@ from lib.user_config import UserStore
 from lib.util import (
     children_error,
     country_for_update,
+    duplicate_error,
     normalize_country,
     normalize_currency,
     owned_or_404,
@@ -422,6 +423,9 @@ def certificate_update(cert_type, id, data):
             error = children_error(session, int(current_user.id), result.name, "rename")
             if error:
                 abort(HTTPStatus.BAD_REQUEST, error)
+            error = duplicate_error(session, int(current_user.id), name, result)
+            if error:
+                abort(HTTPStatus.CONFLICT, error)
         result.name = name
         result.capital = capital
         result.rate = rate
@@ -491,6 +495,9 @@ def certificate_create(cert_type, data):
             target_asset_id=target_asset_id,
         )
 
+        error = duplicate_error(session, int(current_user.id), new_item.name)
+        if error:
+            abort(HTTPStatus.CONFLICT, error)
         session.add(new_item)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))

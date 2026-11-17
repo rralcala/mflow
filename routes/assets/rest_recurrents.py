@@ -14,6 +14,7 @@ from lib.user_config import UserStore
 from lib.util import (
     children_error,
     country_for_update,
+    duplicate_error,
     normalize_country,
     normalize_currency,
     normalize_flow_class,
@@ -301,6 +302,9 @@ def recurrent_create(json_data):
             user_id=int(current_user.id),
             inflation=1 if data.get("inflation") else 0,
         )
+        error = duplicate_error(session, int(current_user.id), data.get("id"))
+        if error:
+            abort(HTTPStatus.CONFLICT, error)
         session.add(new_transaction)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))

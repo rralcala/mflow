@@ -383,7 +383,21 @@ class TestEndToEnd(AppTestCase):
         super().setUp()
         engine = create_engine("sqlite://")
         self.addCleanup(engine.dispose)
-        Base.metadata.create_all(engine, tables=[Account.__table__])
+        Base.metadata.create_all(
+            engine,
+            tables=[
+                model.__table__
+                for model in (
+                    Account,
+                    Bond,
+                    DepositCertificate,
+                    Instrument,
+                    Payable,
+                    Property,
+                    Recurrent,
+                )
+            ],
+        )
         for patcher in (
             patch.object(Config, "DB_SESSION", sessionmaker(bind=engine), create=True),
             patch("routes.assets.rest_assets.reload_asset_store"),

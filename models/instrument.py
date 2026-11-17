@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, String
+from sqlalchemy import Index, Integer, String
 from sqlalchemy.orm import mapped_column
 
 from data.base import Base
@@ -7,6 +7,16 @@ from data.exchange_rates import ExchangeRates
 
 class Instrument(Base):
     __tablename__ = "instrument"
+    # Each asset type's identifier is unique per user (see asset_classes).
+    __table_args__ = (
+        Index(
+            "instrument_user_location_symbol",
+            "user_id",
+            "location",
+            "symbol",
+            unique=True,
+        ),
+    )
 
     id = mapped_column(Integer, primary_key=True)
     user_id = mapped_column(Integer, nullable=False)

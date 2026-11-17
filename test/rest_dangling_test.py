@@ -101,7 +101,10 @@ def certificate(model, id, name, user_id=1):
     )
 
 
-class TestDanglingReferences(unittest.TestCase):
+class AssetDbTestCase(unittest.TestCase):
+    """Routes run against an in-memory database seeded with user 1's assets
+    (plus a bond and a CD of user 2's)."""
+
     def setUp(self):
         self.app = api_app()
         engine = create_engine("sqlite://")
@@ -139,6 +142,7 @@ class TestDanglingReferences(unittest.TestCase):
                         due_date="2027-01-01",
                         commited=0,
                         balance="10",
+                        flow_class="expense",
                         target_asset_id="Checking",
                     ),
                     certificate(Bond, 1, "BOND-A"),
@@ -196,6 +200,8 @@ class TestDanglingReferences(unittest.TestCase):
         with self.Session() as session:
             return session.query(model).filter_by(**filters).first() is not None
 
+
+class TestDanglingReferences(AssetDbTestCase):
     # Accounts
 
     def test_account_delete_refused_while_targeted(self):

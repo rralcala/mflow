@@ -324,6 +324,20 @@ def owns_asset(session, user_id: int, identifier: str) -> bool:
     )
 
 
+def duplicate_error(
+    session, user_id: int, identifier: str, exclude=None
+) -> Optional[str]:
+    """Why `identifier` can't be used: another of the user's assets, of any type,
+    already has it. `exclude` is the row being updated, which may keep its own."""
+    if not identifier:
+        return None
+    for model, label in _identifier_labels().items():
+        for row in session.query(model).filter_by(user_id=user_id).all():
+            if row is not exclude and label(row) == identifier:
+                return f"An asset named '{identifier}' already exists"
+    return None
+
+
 def child_references(session, user_id: int, identifier: str) -> List[str]:
     """Assets that would be left dangling without `identifier`: those whose
     flows target it, and recurrents attached to it as their parent asset."""
