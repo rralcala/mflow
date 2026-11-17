@@ -15,6 +15,7 @@ from test.views_future_timeline_test import account, instrument, recurrent, run
 from test.views_list_income_test import make_income, make_property
 from unittest.mock import patch
 
+from asset_classes.payable import Payable
 from asset_classes.recurrent import Recurrent
 from routes import schemas as s
 from views import investment_performance as vip
@@ -118,6 +119,19 @@ class TestReportSchemas(unittest.TestCase):
         for band in data:
             self.assert_declares(s.PerformanceBandOut(), band)
         self.assert_round_trip(s.PerformanceBandOut(many=True), data)
+
+    def test_investment_performance_skips_payables(self):
+        portfolio = self.portfolio()
+        portfolio["USD"].append(
+            Payable("US", "USD", "TAXES", 500.0, 500.0, datetime(2030, 1, 1), True, "")
+        )
+        with patch(
+            "reports.list_assets.ExchangeRates.exchange_rate", return_value=10.0
+        ):
+            data = vip.investment_performance(portfolio)
+        names = [a[0] for band in data for a in band["assets"]]
+        self.assertTrue(names)
+        self.assertNotIn("TAXES", names)
 
 
 class TestRecurrentHistorySchema(unittest.TestCase):

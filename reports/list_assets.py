@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Tuple
 
 from asset_classes.asset import Asset
+from asset_classes.payable import Payable
 from data.exchange_rates import ExchangeRates
 from lib.config import NEGATIVES, POSITIVES
 from lib.logger import get_logger
@@ -80,6 +81,9 @@ def list_asset_performance(
     for currency, sub in assets.items():
 
         for asset in sub:
+            # Payables are one-off obligations, not investments.
+            if isinstance(asset, Payable):
+                continue
             current_value, current_return, currency = asset.calculate_year_performance()
             if current_value <= 0.0:
                 continue
