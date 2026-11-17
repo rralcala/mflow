@@ -11,9 +11,10 @@ Modeling rules:
   * Payables happen once, on their due date, and only use their balance; their
     amount is informational.
   * Housing properties grow with their country's inflation; vehicles don't.
-  * Properties and non-liquid instruments with a sell-by date are sold then at
-    their simulated value into their target asset, and recurrents whose parent
-    is the sold asset stop.
+  * Properties and instruments with a sell-by date are sold then at their
+    simulated value into their target asset, and recurrents whose parent is
+    the sold asset stop. Instruments that are target pools, or that target
+    themselves, are never sold.
   * Instruments pay ``rate`` on their cron schedule, computed on their current
     simulated value, into their target (themselves when unset, so cash-like
     sweeps compound). ``capital_rate`` appreciation is opt-in: compounding
