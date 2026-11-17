@@ -41,14 +41,14 @@ class TestOutputSchemasMatchModels(unittest.TestCase):
                 Account(
                     id="Checking",
                     country="US",
-                    institution="Bank",
+                    location="Bank",
                     currency="USD",
                     balance="10.0",
                     factor="1.0",
                     account_type="Checking",
                     liquid=1,
                     transfer_by="2030-01-01",
-                    target_asset_id="Sweep_USD",
+                    target_asset_id="Sweep_A_USD",
                 ),
             ),
             (
@@ -151,6 +151,7 @@ class TestOutputSchemasMatchModels(unittest.TestCase):
             id=1,
             country="US",
             location="Broker",
+            account="A",
             symbol="VOO",
             factor="1.0",
             qty="2.0",
@@ -311,19 +312,6 @@ class TestOpenApiSpec(AppTestCase):
         "/assets/bondSchedulesUpload",
         "/assets/cdSchedulesUpload",
     }
-    # Reports whose payloads don't have output schemas yet (see TODO.md).
-    UNDOCUMENTED_RESPONSES = {
-        "/reports/assets_by_location",
-        "/reports/cash_flow",
-        "/reports/future_timeline",
-        "/reports/income_per_location",
-        "/reports/investment_performance",
-        "/reports/monthly_pnl",
-        "/reports/nw_summary",
-        "/reports/recurrent_history",
-        "/reports/spending_analysis",
-        "/reports/valuation_history",
-    }
 
     def setUp(self):
         super().setUp()
@@ -342,8 +330,6 @@ class TestOpenApiSpec(AppTestCase):
 
     def test_responses_have_schemas(self):
         for path, method, operation in self.operations():
-            if path in self.UNDOCUMENTED_RESPONSES:
-                continue
             with self.subTest(path=path, method=method):
                 success = [
                     response
@@ -409,7 +395,7 @@ class TestEndToEnd(AppTestCase):
         self.account = {
             "id": "Checking",
             "country": "us",
-            "institution": "Bank",
+            "location": "Bank",
             "currency": "usd",
             "balance": "100",
             "factor": 1,

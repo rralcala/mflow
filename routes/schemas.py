@@ -22,6 +22,7 @@ from apiflask.fields import (
     Integer,
     List,
     Nested,
+    Raw,
     String,
 )
 from apiflask.validators import Length, Range, Regexp
@@ -102,7 +103,7 @@ class ListQuery(PageQuery):
 class AccountIn(In):
     id = String(required=True)
     country = String(required=True)
-    institution = String(required=True)
+    location = String(required=True)
     currency = String(required=True)
     balance = Float(required=True)
     factor = Float(required=True)
@@ -117,8 +118,9 @@ class AccountIn(In):
 
 class AccountOut(Schema):
     id = String()
+    internalId = Integer()
     country = String()
-    institution = String()
+    location = String()
     currency = String()
     balance = Float()
     factor = Float()
@@ -152,6 +154,11 @@ class AssetOut(Schema):
 class InstrumentIn(In):
     country = String(required=True)
     location = String(required=True)
+    account = String(
+        required=True,
+        validate=Length(min=1),
+        metadata={"description": "The account at the location holding it."},
+    )
     symbol = String(required=True)
     currency = String(required=True)
     factor = Float(required=True)
@@ -172,8 +179,12 @@ class InstrumentIn(In):
 
 class InstrumentOut(Schema):
     id = Integer()
+    identifier = String(
+        metadata={"description": "Location_Account_Symbol, used as targetAssetId."}
+    )
     country = String()
     location = String()
+    account = String()
     symbol = String()
     factor = Float()
     qty = Float()
@@ -404,6 +415,7 @@ class RecurrentIn(In):
 
 class RecurrentOut(Schema):
     id = String()
+    internalId = Integer()
     assetId = String()
     targetAssetId = String()
     country = String()
@@ -550,6 +562,229 @@ class UpcomingPaymentOut(Schema):
     amount = Float()
     currency = String()
     capital = Boolean()
+
+
+# Analytic reports
+#
+# These mirror the payloads the dashboards read today, including rows sent as
+# lists and keys named after currencies (see TODO.md for reshaping them).
+# Payloads whose top level is an array of arrays, or whose rows have dynamic
+# keys, can't round-trip through a marshmallow schema; they're documented as
+# OpenAPI objects (`*_RESPONSE`) instead and returned as is.
+
+
+def _report_response(description, schema):
+    return {
+        200: {
+            "description": description,
+            "content": {"application/json": {"schema": schema}},
+        }
+    }
+
+
+_ROW = {"type": "array", "items": {"oneOf": [{"type": "string"}, {"type": "number"}]}}
+
+ASSETS_BY_LOCATION_RESPONSE = _report_response(
+    'A header row, then ["<country>: Property|Non-Property", USD value] rows.',
+    {"type": "array", "items": _ROW},
+)
+CASH_FLOW_RESPONSE = _report_response(
+    "Running balances per date over the next year, keyed by <currency>-<country> "
+    "(USD-US, USD-<secondary country>, <secondary currency>-<secondary country>) "
+    "plus `date` and `Total` (USD).",
+    {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {"date": {"type": "string"}, "Total": {"type": "number"}},
+            "additionalProperties": {"type": "number"},
+        },
+    },
+)
+VALUATION_HISTORY_RESPONSE = _report_response(
+    "Monthly [yearMonth, netWorth, fixed, change] rows, up to a year.",
+    {"type": "array", "items": _ROW},
+)
+
+
+class NetWorthSummaryOut(Schema):
+    net_worth = Float()
+    fixed_income = Float()
+    capital = Float()
+    debt = Float()
+    debt_to_assets = Float()
+    return_on_assets = Float()
+    estimated_monthly_income = Float()
+    tot_per_market = Dict(
+        keys=String(), values=Float(), metadata={"description": "Share of net worth."}
+    )
+    tot_per_location = List(
+        List(Raw()),
+        metadata={"description": "[location, USD value, share of net worth] rows."},
+    )
+
+
+class IncomePerLocationOut(NetWorthSummaryOut):
+    tot_per_location = List(
+        List(Raw()),
+        metadata={
+            "description": "[location, USD value, share of net worth, monthly "
+            "income in the secondary currency] rows."
+        },
+    )
+
+
+class PerformanceBandOut(Schema):
+    from_ = Float(
+        data_key="from", attribute="from", metadata={"description": "Lower bound, %."}
+    )
+    to = Float(metadata={"description": "Upper bound, %."})
+    assets = List(
+        List(Raw()),
+        metadata={"description": "[id, value, currency, return %] rows."},
+    )
+
+
+class MonthlyPnlSummaryOut(Schema):
+    net = List(Float(), metadata={"description": "[USD, secondary currency]."})
+    income = List(Float(), metadata={"description": "[USD, secondary currency]."})
+    expenses = List(Float(), metadata={"description": "[USD, secondary currency]."})
+    secondary_currency = String()
+
+
+class MonthlyPnlOut(Schema):
+    year_months = List(
+        Dict(),
+        metadata={
+            "description": "Per month: `month`, `income` and `expenses` as "
+            "[assetId, amount, currency] rows, and totals under income_USD, "
+            "expenses_USD, income_<secondary> and expenses_<secondary>."
+        },
+    )
+    summary = Nested(MonthlyPnlSummaryOut)
+
+
+class SeriesStatsOut(Schema):
+    total = Float()
+    transactions = Integer()
+    activeMonths = Integer()
+    monthlyAverage = Float()
+    activeAverage = Float(allow_none=True)
+    median = Float()
+    min = Float()
+    max = Float()
+    stdDev = Float()
+
+
+class RecurrentHistoryRowOut(Schema):
+    id = String()
+    currency = String(allow_none=True)
+    flowClass = String(allow_none=True)
+    missing = Boolean(metadata={"description": "The recurrent was deleted."})
+    target = Float(allow_none=True)
+    months = List(Float())
+    stats = Nested(SeriesStatsOut)
+
+
+class RecurrentHistoryTotalOut(Schema):
+    currency = String()
+    months = List(Float())
+    stats = Nested(SeriesStatsOut)
+
+
+class RecurrentHistoryOut(Schema):
+    months = List(String())
+    recurrents = List(Nested(RecurrentHistoryRowOut))
+    totals = List(Nested(RecurrentHistoryTotalOut))
+
+
+class SpendingAnalysisOut(Schema):
+    exchange = Float(metadata={"description": "USD to the secondary currency."})
+    total_budget = Dict(
+        keys=String(),
+        values=Float(),
+        metadata={"description": "Average monthly budget in USD per flow class."},
+    )
+    secondary_currency = String()
+
+
+class TimelineSummaryOut(Schema):
+    startDate = String()
+    endDate = String()
+    months = Integer()
+    startNetWorth = Float()
+    endNetWorth = Float()
+    desiredEstate = Float()
+    estateGap = Float()
+    firstNegativeDate = String(allow_none=True)
+    negativePools = Integer()
+    requiredTopUpUsd = Float()
+    minCashTotal = Float()
+    minCashTotalDate = String(allow_none=True)
+    onTrack = Boolean()
+
+
+class TimelinePoolOut(Schema):
+    id = String()
+    name = String()
+    type = String()
+    country = String()
+    currency = String()
+    liquid = Boolean()
+    isFallback = Boolean()
+    startBalance = Float()
+    endBalance = Float()
+    minBalance = Float()
+    minDate = String()
+    firstNegativeDate = String(allow_none=True)
+    monthsNegative = Integer()
+    requiredTopUp = Float()
+    requiredTopUpUsd = Float()
+
+
+class TimelineMonthOut(Schema):
+    id = String()
+    date = String()
+    income = Float()
+    expenses = Float()
+    interest = Float()
+    maturities = Float()
+    sales = Float()
+    transfers = Float()
+    netCashFlow = Float()
+    cashTotal = Float()
+    liquidTotal = Float()
+    netWorth = Float()
+    balances = Dict(keys=String(), values=Float())
+    minBalances = Dict(keys=String(), values=Float())
+    negativePools = List(String())
+
+
+class TimelineAssetOut(Schema):
+    id = String()
+    name = String()
+    type = String()
+    country = String()
+    currency = String()
+    growth = String(allow_none=True)
+    soldOn = String(allow_none=True)
+    transferredOn = String(allow_none=True)
+    transferredTo = String(allow_none=True)
+    isPool = Boolean()
+    startValue = Float()
+    endValue = Float()
+    startValueUsd = Float()
+    endValueUsd = Float()
+
+
+class FutureTimelineOut(Schema):
+    summary = Nested(TimelineSummaryOut)
+    inflationRates = Dict(keys=String(), values=Float())
+    fxRates = Dict(keys=String(), values=Float())
+    warnings = List(String())
+    pools = List(Nested(TimelinePoolOut))
+    months = List(Nested(TimelineMonthOut))
+    assets = List(Nested(TimelineAssetOut))
 
 
 # Auth

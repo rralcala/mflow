@@ -1,4 +1,5 @@
-"""Deletes and renames that would leave other assets dangling are refused, and
+"""Deletes that would leave other assets dangling are refused, renames move
+the references with them, and
 child rows can only be attached to parents the caller owns."""
 
 import unittest
@@ -38,7 +39,7 @@ def account(id, user_id=1, **kw):
     return Account(
         id=id,
         country="US",
-        institution="Bank",
+        location="Bank",
         currency="USD",
         balance="100",
         factor="1",
@@ -55,6 +56,7 @@ def instrument(id, location, symbol, user_id=1, **kw):
         user_id=user_id,
         country="US",
         location=location,
+        account="A",
         symbol=symbol,
         factor="1",
         qty="1",
@@ -116,6 +118,8 @@ class AssetDbTestCase(unittest.TestCase):
                 [
                     account("Checking"),
                     account("Spare"),
+                    account("Theirs", user_id=2),
+                    recurrent("TheirFood", user_id=2),
                     instrument(1, "Puente", "USD", is_target_pool=1),
                     instrument(2, "Citi", "VOO"),
                     Property(
@@ -160,7 +164,7 @@ class AssetDbTestCase(unittest.TestCase):
                     recurrent(
                         "Rent", target_asset_id="Checking", parent_asset_id="House"
                     ),
-                    recurrent("Interest", target_asset_id="Puente_USD"),
+                    recurrent("Interest", target_asset_id="Puente_A_USD"),
                     recurrent("Food", target_asset_id="Checking"),
                     RecurrentTransaction(
                         transaction_id=1,
@@ -229,7 +233,9 @@ class TestDanglingReferences(AssetDbTestCase):
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertIn("Can't change the currency of Checking", body["message"])
         with self.Session() as session:
-            self.assertEqual(session.get(Account, "Checking").currency, "USD")
+            self.assertEqual(
+                session.query(Account).filter_by(id="Checking").one().currency, "USD"
+            )
 
     def test_account_currency_change_allowed_when_unused(self):
         _, status = self.call(
@@ -245,16 +251,84 @@ class TestDanglingReferences(AssetDbTestCase):
         self.assertIn("still used by Interest", body["message"])
         self.assertTrue(self.exists(Instrument, id=1))
 
-    def test_instrument_rename_refused_while_targeted(self):
-        for change in ({"location": "Other"}, {"symbol": "PYG"}):
-            with patch.object(
-                rest_assets, "instrument_symbol_error", return_value=None
-            ):
-                body, status = self.call(
-                    rest_assets.instrument_update, 1, method="PUT", json=change
+    def rename_instrument(self, change, id=1):
+        with patch.object(
+            rest_assets, "instrument_symbol_error", return_value=None
+        ), patch("models.instrument.ExchangeRates.exchange_rate", return_value=1.0):
+            return self.call(
+                rest_assets.instrument_update,
+                id,
+                method="PUT",
+                json={"targetAssetId": "Checking", **change},
+            )
+
+    def test_instrument_rename_moves_its_references(self):
+        with self.Session() as session:
+            session.add(
+                RecurrentTransaction(
+                    transaction_id=2,
+                    parent_id="Interest",
+                    year_month="2026-10",
+                    description="Sweep",
+                    amount="1",
+                    transaction_date="2026-10-08",
+                    paid_with="Puente_A_USD",
+                    user_id=1,
                 )
-            self.assertEqual(status, HTTPStatus.BAD_REQUEST, change)
-            self.assertIn("Can't rename Puente_USD", body["message"])
+            )
+            session.commit()
+        body, status = self.rename_instrument({"account": "B5894"})
+        self.assertEqual(status, HTTPStatus.OK, body)
+        self.assertTrue(
+            self.exists(
+                Recurrent, identifier="Interest", target_asset_id="Puente_B5894_USD"
+            )
+        )
+        self.assertTrue(
+            self.exists(
+                RecurrentTransaction, transaction_id=2, paid_with="Puente_B5894_USD"
+            )
+        )
+        self.assertFalse(self.exists(Recurrent, target_asset_id="Puente_A_USD"))
+
+    def test_instrument_rename_leaves_other_users_alone(self):
+        with self.Session() as session:
+            session.add(
+                recurrent("TheirInterest", user_id=2, target_asset_id="Puente_A_USD")
+            )
+            session.commit()
+        _, status = self.rename_instrument({"location": "Bridge"})
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertTrue(
+            self.exists(
+                Recurrent, identifier="TheirInterest", target_asset_id="Puente_A_USD"
+            )
+        )
+
+    def test_pool_compounding_into_itself_follows_its_rename(self):
+        body, status = self.rename_instrument(
+            {"account": "B5894", "targetAssetId": "Puente_A_USD"}
+        )
+        self.assertEqual(status, HTTPStatus.OK, body)
+        self.assertTrue(
+            self.exists(Instrument, id=1, target_asset_id="Puente_B5894_USD")
+        )
+
+    def test_instrument_rename_onto_another_asset_is_refused(self):
+        body, status = self.rename_instrument(
+            {"location": "Puente", "symbol": "USD"}, id=2
+        )
+        self.assertEqual(status, HTTPStatus.CONFLICT)
+        self.assertEqual(
+            body["message"], "An asset named 'Puente_A_USD' already exists"
+        )
+        self.assertTrue(self.exists(Instrument, id=2, location="Citi"))
+
+    def test_symbol_change_refused_while_targeted(self):
+        body, status = self.rename_instrument({"symbol": "PYG"})
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertIn("Can't change the symbol of Puente_A_USD", body["message"])
+        self.assertTrue(self.exists(Recurrent, target_asset_id="Puente_A_USD"))
 
     def test_unused_instrument_deletes(self):
         # The response values the instrument from quotes.
@@ -270,15 +344,33 @@ class TestDanglingReferences(AssetDbTestCase):
         self.assertEqual(status, HTTPStatus.CONFLICT)
         self.assertIn("still used by Rent", body["message"])
 
-    def test_property_rename_refused_with_attached_recurrent(self):
+    def test_property_rename_moves_attached_recurrents(self):
         body, status = self.call(
             rest_assets.property_update,
             1,
             method="PUT",
             json={"propertyName": "Home"},
         )
-        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
-        self.assertIn("Can't rename House", body["message"])
+        self.assertEqual(status, HTTPStatus.OK, body)
+        self.assertTrue(
+            self.exists(Recurrent, identifier="Rent", parent_asset_id="Home")
+        )
+
+    def test_bond_rename_moves_attached_recurrents(self):
+        with self.Session() as session:
+            session.add(
+                recurrent(
+                    "Coupon", parent_asset_id="BOND-A", target_asset_id="Checking"
+                )
+            )
+            session.commit()
+        body, status = self.call(
+            rest_certificates.bond_update, "1", method="PUT", json={"name": "BOND-B"}
+        )
+        self.assertEqual(status, HTTPStatus.OK, body)
+        self.assertTrue(
+            self.exists(Recurrent, identifier="Coupon", parent_asset_id="BOND-B")
+        )
 
     def test_unused_payable_deletes(self):
         _, status = self.call(rest_assets.payable_delete, 1)
@@ -381,7 +473,7 @@ class TestDanglingReferences(AssetDbTestCase):
             rest_recurrents.recurrent_update,
             "Food",
             method="PUT",
-            json={"assetId": "Citi_VOO"},
+            json={"assetId": "Citi_A_VOO"},
         )
         self.assertEqual(status, HTTPStatus.OK)
 

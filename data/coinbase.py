@@ -45,11 +45,13 @@ def fetch_cb_assets(key, secret, portfolio_id, stake_rates) -> List[Instrument]:
         account = Instrument(
             country="US",
             location="Coinbase",
+            account="Portfolio",
             symbol=position["asset"],
             price=fiat_balance / qty,
             factor=1.0,
             qty=qty,
-            estimated_dividend=qty * rate / 12,
+            # Staking yield in USD per month (the price is USD per coin).
+            estimated_dividend=fiat_balance * rate / 12,
             rate=rate,
             dividend="0 0 1 * *",
             currency="USD",

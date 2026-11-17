@@ -19,10 +19,15 @@ from lib.user_config import UserStore
 
 class Account(Base):
     __tablename__ = "account"
+    # The name (`id`) is unique per user; internal_id is the primary key, so two
+    # users can use the same name.
+    __table_args__ = (Index("account_user_name", "user_id", "id", unique=True),)
 
-    id = mapped_column(String(80), primary_key=True)
+    internal_id = mapped_column(Integer, primary_key=True)
+    # The account's name/number, which the API and other assets use as its id.
+    id = mapped_column(String(80), nullable=False)
     country = mapped_column(String(2), nullable=False)
-    institution = mapped_column(String(80), nullable=False)
+    location = mapped_column(String(80), nullable=False)
     currency = mapped_column(String(3), nullable=False)
     balance = mapped_column(String(20), nullable=False)
     factor = mapped_column(String(20), nullable=False)
@@ -38,8 +43,9 @@ class Account(Base):
     def to_dict(self):
         return {
             "id": self.id,
+            "internalId": self.internal_id,
             "country": self.country,
-            "institution": self.institution,
+            "location": self.location,
             "currency": self.currency,
             "balance": float(self.balance),
             "factor": float(self.factor),
@@ -52,8 +58,14 @@ class Account(Base):
 
 class Recurrent(Base):
     __tablename__ = "recurrent"
+    # The identifier is unique per user; internal_id is the primary key, so two
+    # users can use the same name.
+    __table_args__ = (
+        Index("recurrent_user_identifier", "user_id", "identifier", unique=True),
+    )
 
-    identifier = mapped_column(String(80), primary_key=True)
+    internal_id = mapped_column(Integer, primary_key=True)
+    identifier = mapped_column(String(80), nullable=False)
     parent_asset_id = mapped_column(String(80), nullable=True)
     target_asset_id = mapped_column(String(80), nullable=True)
     country = mapped_column(String(2), nullable=False)
@@ -74,6 +86,7 @@ class Recurrent(Base):
     def to_dict(self):
         return {
             "id": self.identifier,
+            "internalId": self.internal_id,
             "assetId": self.parent_asset_id,
             "targetAssetId": self.target_asset_id,
             "country": self.country,

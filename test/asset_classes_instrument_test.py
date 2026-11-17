@@ -9,6 +9,7 @@ class TestInstrumentAssets(unittest.TestCase):
         acc = Instrument(
             country="US",
             location="NYSE",
+            account="A",
             symbol="AAPL",
             price=150.0,
             factor=1.0,
@@ -33,6 +34,7 @@ class TestInstrumentAssets(unittest.TestCase):
         voo = Instrument(
             country="US",
             location="Citi",
+            account="A",
             symbol="VOO",
             price=100.0,
             factor=0.7,
@@ -61,6 +63,7 @@ class TestInstrumentAssets(unittest.TestCase):
         old = Instrument(
             country="US",
             location="Gift",
+            account="A",
             symbol="X",
             price=10.0,
             factor=1.0,

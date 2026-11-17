@@ -35,6 +35,8 @@ The server reads everything from a base directory. `sample-base-dir/` shows the 
 
 Copy `sample-base-dir/config.sample.json` to `<base>/config.json` and set a real secret, then create a `user-<id>/config.json` for each id in `USERS` (see `sample-base-dir/user-1/`) and set passwords with `python -m scripts.set_passwords --base <base> --all`. Passwords are stored as salted scrypt hashes; users change their own from the profile page (`POST /auth/password`). Keep this directory out of version control.
 
+A database from before per-user identifiers (accounts and recurrents keyed by name, instruments without an `account`) is upgraded with `python -m scripts.migrate_internal_ids --base <base>` (`--check` for a dry run); it saves a `.bak` copy first and rewrites references to renamed instruments.
+
 The API never writes the main `config.json` (it can be mounted read-only), but it does rewrite `user-<id>/config.json` when a password changes, so those directories must be writable. A base directory from before the split, with logins inside the main config's `USERS`, is migrated with `python -m scripts.split_user_config --base <base>`; the server refuses to start until then.
 
 ## Run
@@ -67,6 +69,8 @@ All routes are served under `/api`. Authenticate with `/api/auth/jwt` and pass t
 Request and response bodies are defined by the marshmallow schemas in `routes/schemas.py`. Run the server with `--debug` to browse them at `/docs` (spec at `/openapi.json`). Bad input is a 400 whose `message` names each invalid field (e.g. `balance: Not a valid number.`) and whose `detail` holds the per-field errors.
 
 Main resources: `accounts`, `instruments`, `properties`, `payables`, `recurrents`, `monthlyTransactions`, and the aggregate `assets`.
+
+Assets refer to each other (`targetAssetId`, a recurrent's `assetId`) by identifier, which is unique per user across every asset type: an account's `id`, a recurrent's `id`, a payable's description, a property's name, a bond's or CD's name, and for instruments `<location>_<account>_<symbol>` (returned as `identifier`). Accounts and recurrents also carry an integer `internalId`, their primary key. Renaming an instrument, payable, property, bond or CD moves the user's references to it (`targetAssetId`, `assetId`, a transaction's `paidWithAssetId`) along with it; an instrument's symbol can't change while it's a target, since targets must hold the source's currency.
 
 ### Reports
 

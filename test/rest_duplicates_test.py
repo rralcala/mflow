@@ -9,13 +9,14 @@ from apiflask import APIFlask
 from sqlalchemy.exc import IntegrityError
 
 from models.bond import Bond
+from models.models import Account, Recurrent
 from models.payable import Payable
 from routes.assets import rest_assets, rest_certificates, rest_recurrents
 from routes.errors import configure_errors
 
 ACCOUNT = {
     "country": "US",
-    "institution": "Bank",
+    "location": "Bank",
     "currency": "USD",
     "balance": 1,
     "factor": 1,
@@ -27,6 +28,7 @@ INSTRUMENT = {
     "factor": 1,
     "qty": 1,
     "dividend": "N",
+    "account": "A",
     "dividend_rate": 0,
     "acquisition_date": "2026-01-01",
     "acquisition_price": 1,
@@ -98,7 +100,7 @@ class TestDuplicateIdentifiers(AssetDbTestCase):
                     rest_assets.instrument_create,
                     dict(INSTRUMENT, location="Citi", symbol="VOO"),
                 ),
-                "Citi_VOO",
+                "Citi_A_VOO",
             )
         self.assertDuplicate(
             self.post(rest_assets.payable_create, dict(PAYABLE, description="Car tax")),
@@ -138,8 +140,8 @@ class TestDuplicateIdentifiers(AssetDbTestCase):
             ),
             (
                 rest_recurrents.recurrent_create,
-                dict(RECURRENT, id="Citi_VOO"),
-                "Citi_VOO",
+                dict(RECURRENT, id="Citi_A_VOO"),
+                "Citi_A_VOO",
             ),
         ]
         for view, body, identifier in cases:
@@ -152,6 +154,16 @@ class TestDuplicateIdentifiers(AssetDbTestCase):
         )
         self.assertEqual(status, HTTPStatus.CREATED, body)
         self.assertEqual(self.count(Bond, name="BOND-THEIRS"), 2)
+
+    def test_another_users_account_and_recurrent_names_are_free_to_use(self):
+        body, status = self.post(rest_assets.account_create, dict(ACCOUNT, id="Theirs"))
+        self.assertEqual(status, HTTPStatus.CREATED, body)
+        self.assertEqual(self.count(Account, id="Theirs"), 2)
+        body, status = self.post(
+            rest_recurrents.recurrent_create, dict(RECURRENT, id="TheirFood")
+        )
+        self.assertEqual(status, HTTPStatus.CREATED, body)
+        self.assertEqual(self.count(Recurrent, identifier="TheirFood"), 2)
 
     # Renaming
 

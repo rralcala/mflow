@@ -36,7 +36,6 @@ def spending_analysis(main_assets: Dict[str, List[Asset]]) -> Dict[str, Any]:
             total_budget[recurrent.flow_class] += budget_usd
     for key in total_budget.keys():
         total_budget[key] = total_budget[key] / 12
-    result = "<table><tr><th>Flow Class</th><th  style='text-align: right;'>Monthly Spending</th><th  style='text-align: right;'>Secondary Currency</th></tr>"
     exchange = ExchangeRates.exchange_rate(f"USD{user_config.SECONDARY_CURRENCY}")
     result = {
         "exchange": exchange,

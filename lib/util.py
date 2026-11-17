@@ -214,7 +214,7 @@ def validate_target_asset(
 
     Each asset type defines its own `identifier` (see asset_classes/*.py), which
     is not always the model's primary key: Account.identifier is its `id` column,
-    but Instrument.identifier is `f"{location}_{symbol}"`. Matching must follow
+    but Instrument.identifier is `f"{location}_{account}_{symbol}"`. Matching must follow
     that per-type identifier, not the raw row id.
 
     For an Instrument target, the currency it holds is represented by its
@@ -245,7 +245,7 @@ def validate_pool_target(
     if not target_asset_id or not source_currency:
         return False
     return any(
-        f"{row.location}_{row.symbol}" == target_asset_id
+        row.identifier == target_asset_id
         and row.symbol.upper() == source_currency.upper()
         and row.is_target_pool == 1
         for row in session.query(Instrument).filter_by(user_id=user_id).all()
@@ -263,7 +263,7 @@ def target_country(session, user_id: int, target_asset_id: str) -> Optional[str]
     if account:
         return account.country
     for row in session.query(Instrument).filter_by(user_id=user_id).all():
-        if f"{row.location}_{row.symbol}" == target_asset_id:
+        if row.identifier == target_asset_id:
             return row.country
     return None
 
@@ -297,7 +297,7 @@ def _identifier_labels():
         Recurrent: lambda row: row.identifier,
         Payable: lambda row: row.description,
         Property: lambda row: row.property_name,
-        Instrument: lambda row: f"{row.location}_{row.symbol}",
+        Instrument: lambda row: row.identifier,
     }
 
 
@@ -366,6 +366,45 @@ def children_error(
         f"Can't {action} {identifier}: still used by {', '.join(references)}; "
         "retarget or remove them first"
     )
+
+
+def reference_columns():
+    """(model, column) pairs that hold another asset's identifier."""
+    from models.bond import Bond
+    from models.deposit_certificate import DepositCertificate
+    from models.instrument import Instrument
+    from models.models import Account, Recurrent, RecurrentTransaction
+    from models.payable import Payable
+    from models.property import Property
+
+    return [
+        (Account, "target_asset_id"),
+        (Instrument, "target_asset_id"),
+        (Recurrent, "target_asset_id"),
+        (Recurrent, "parent_asset_id"),
+        (Payable, "target_asset_id"),
+        (Property, "target_asset_id"),
+        (Bond, "target_asset_id"),
+        (DepositCertificate, "target_asset_id"),
+        (RecurrentTransaction, "paid_with"),
+    ]
+
+
+def rename_references(session, user_id: int, old: str, new: str) -> int:
+    """Point every reference to `old` among the user's rows at `new`, so a
+    rename doesn't leave other assets dangling. Rows already in the session
+    (e.g. the one being renamed, if it targets itself) are updated in place.
+    Returns how many references moved; the caller commits."""
+    if not old or old == new:
+        return 0
+    moved = 0
+    for model, column in reference_columns():
+        for row in (
+            session.query(model).filter_by(user_id=user_id, **{column: old}).all()
+        ):
+            setattr(row, column, new)
+            moved += 1
+    return moved
 
 
 def type_to_str(type_obj) -> str:

@@ -144,6 +144,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
             asset = Instrument(
                 country=row.country,
                 location=row.location,
+                account=row.account,
                 symbol=row.symbol,
                 factor=float(row.factor),
                 price=price,
@@ -171,7 +172,7 @@ def load_assets(user_config: UserConfig) -> Dict[str, List[Asset]]:
             asset = account.Account(
                 identifier=str(row.id),
                 country=row.country,
-                institution=row.institution,
+                location=row.location,
                 currency=row.currency,
                 balance=float(row.balance),
                 factor=float(row.factor),

@@ -70,6 +70,7 @@ def instrument_row(**overrides):
         user_id=1,
         country="US",
         location="Citi",
+        account="A",
         symbol="VOO",
         factor="1",
         qty="1",
@@ -85,7 +86,7 @@ def instrument_row(**overrides):
         is_target_pool=0,
     )
     fields.update(overrides)
-    row = SimpleNamespace(**fields)
+    row = rest_assets.Instrument(**fields)
     row.to_dict = lambda: {"id": row.id}
     return row
 
@@ -95,7 +96,7 @@ def account_row(**overrides):
     fields = dict(
         id="OldBank",
         country="US",
-        institution="Bank",
+        location="Bank",
         currency="USD",
         balance="100",
         factor="1",
@@ -652,11 +653,17 @@ class TestRestAssetsRoutes(unittest.TestCase):
             {
                 rest_assets.Instrument: QueryStub(
                     all_items=[
-                        SimpleNamespace(
-                            location="Sweep", symbol="USD", is_target_pool=1
+                        rest_assets.Instrument(
+                            location="Sweep",
+                            account="A",
+                            symbol="USD",
+                            is_target_pool=1,
                         ),
-                        SimpleNamespace(
-                            location="Broker", symbol="USD", is_target_pool=0
+                        rest_assets.Instrument(
+                            location="Broker",
+                            account="A",
+                            symbol="USD",
+                            is_target_pool=0,
                         ),
                     ]
                 )
@@ -665,7 +672,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         body = {
             "id": "OldBank",
             "country": "US",
-            "institution": "Bank",
+            "location": "Bank",
             "currency": "USD",
             "balance": 100,
             "factor": 1,
@@ -688,11 +695,11 @@ class TestRestAssetsRoutes(unittest.TestCase):
 
     def test_accounts_post_with_transfer_into_pool(self):
         _, status, session = self._post_account(
-            {"transferBy": "2030-01-01", "targetAssetId": "Sweep_USD"}
+            {"transferBy": "2030-01-01", "targetAssetId": "Sweep_A_USD"}
         )
         self.assertEqual(status, 201)
         self.assertEqual(session.added[0].transfer_by, "2030-01-01")
-        self.assertEqual(session.added[0].target_asset_id, "Sweep_USD")
+        self.assertEqual(session.added[0].target_asset_id, "Sweep_A_USD")
 
     def test_accounts_post_without_transfer_stores_nulls(self):
         _, status, session = self._post_account({"transferBy": ""})
@@ -707,19 +714,19 @@ class TestRestAssetsRoutes(unittest.TestCase):
                 "A target pool is required when a transfer-by date is set",
             ),
             (
-                {"transferBy": "2030-01-01", "targetAssetId": "Broker_USD"},
+                {"transferBy": "2030-01-01", "targetAssetId": "Broker_A_USD"},
                 "The target must be a target pool in the account's currency",
             ),
             (
                 {
                     "transferBy": "2030-01-01",
-                    "targetAssetId": "Sweep_USD",
+                    "targetAssetId": "Sweep_A_USD",
                     "currency": "PYG",
                 },
                 "The target must be a target pool in the account's currency",
             ),
             (
-                {"transferBy": "someday", "targetAssetId": "Sweep_USD"},
+                {"transferBy": "someday", "targetAssetId": "Sweep_A_USD"},
                 "transferBy: Not a valid date, expected YYYY-MM-DD.",
             ),
         ]
@@ -731,7 +738,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
                 self.assertEqual(session.added, [])
 
     def test_accounts_put_clears_transfer(self):
-        existing = account_row(transfer_by="2030-01-01", target_asset_id="Sweep_USD")
+        existing = account_row(transfer_by="2030-01-01", target_asset_id="Sweep_A_USD")
         session = SessionStub({rest_assets.Account: QueryStub(first_item=existing)})
         with self.app.test_request_context(
             "/accounts/OldBank",
@@ -845,7 +852,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         query = QueryStub(all_items=[row({"id": "a"})])
         session = SessionStub({Recurrent: query})
         with self.app.test_request_context(
-            "/recurrents?targetAssetId=Puente_PYG", method="GET"
+            "/recurrents?targetAssetId=Puente_A_PYG", method="GET"
         ), patch("routes.rest_recurrents.current_user", self.user), patch.object(
             Config, "DB_SESSION", lambda: session, create=True
         ), patch.object(
@@ -854,7 +861,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
             response, status = run_view(rest_recurrents.recurrents_list)
 
         self.assertEqual(status, 200)
-        filter_by.assert_any_call(target_asset_id="Puente_PYG")
+        filter_by.assert_any_call(target_asset_id="Puente_A_PYG")
 
     def test_recurrents_get_not_found(self):
         session = SessionStub({Recurrent: QueryStub(first_item=None)})
@@ -1224,9 +1231,10 @@ class TestRestAssetsRoutes(unittest.TestCase):
                 rest_assets.Account: QueryStub(first_item=None),
                 rest_assets.Instrument: QueryStub(
                     all_items=[
-                        SimpleNamespace(
+                        rest_assets.Instrument(
                             country="US",
                             location="NYSE",
+                            account="A",
                             symbol="USD",
                             is_target_pool=1,
                         )
@@ -1247,7 +1255,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
                 "end": "2027-01-01",
                 "flowClass": "Income",
                 "rate": 0.0,
-                "targetAssetId": "NYSE_USD",
+                "targetAssetId": "NYSE_A_USD",
             },
         ), patch("routes.rest_recurrents.current_user", self.user), patch(
             "routes.rest_recurrents.reload_asset_store"
@@ -1260,7 +1268,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
             response, status = run_view(rest_recurrents.recurrent_create)
 
         self.assertEqual(status, 201)
-        self.assertEqual(session.added[0].target_asset_id, "NYSE_USD")
+        self.assertEqual(session.added[0].target_asset_id, "NYSE_A_USD")
         # Inflation is opt-in: no flag in the payload means a fixed amount.
         self.assertEqual(session.added[0].inflation, 0)
 
@@ -1270,7 +1278,9 @@ class TestRestAssetsRoutes(unittest.TestCase):
                 rest_assets.Account: QueryStub(first_item=None),
                 rest_assets.Instrument: QueryStub(
                     all_items=[
-                        SimpleNamespace(country="US", location="NYSE", symbol="AAPL")
+                        rest_assets.Instrument(
+                            country="US", location="NYSE", account="A", symbol="AAPL"
+                        )
                     ]
                 ),
             }
@@ -1344,6 +1354,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
             json={
                 "country": "US",
                 "location": "NYSE",
+                "account": "A",
                 "symbol": "AAPL",
                 "currency": "USD",
                 "factor": 1.0,
@@ -1367,6 +1378,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         body = {
             "country": "US",
             "location": "Citi_I5902",
+            "account": "A",
             "symbol": "USD",
             "currency": "USD",
             "factor": 0.7,
@@ -1380,7 +1392,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
             **payload,
         }
         # validate_target_asset accepts Checking (a USD account) and
-        # Citi_I5902_USD (a USD cash-like instrument).
+        # Citi_I5902_A_USD (a USD cash-like instrument).
         checking = SimpleNamespace(id="Checking", currency="USD")
         session = SessionStub(
             {
@@ -1389,7 +1401,11 @@ class TestRestAssetsRoutes(unittest.TestCase):
                 ),
                 # Another of the user's instruments; the new one isn't saved yet.
                 rest_assets.Instrument: QueryStub(
-                    all_items=[SimpleNamespace(location="Citi_I5902", symbol="EUR")]
+                    all_items=[
+                        rest_assets.Instrument(
+                            location="Citi_I5902", account="A", symbol="EUR"
+                        )
+                    ]
                 ),
             }
         )
@@ -1440,13 +1456,15 @@ class TestRestAssetsRoutes(unittest.TestCase):
 
     def test_instruments_post_target_pool_can_target_itself(self):
         _, status, session = self._post_instrument(
-            {"targetAssetId": "Citi_I5902_USD", "isTargetPool": True}
+            {"targetAssetId": "Citi_I5902_A_USD", "isTargetPool": True}
         )
         self.assertEqual(status, 201)
         self.assertEqual(session.added[0].is_target_pool, 1)
 
     def test_instruments_post_rejects_non_pool_targeting_itself(self):
-        response, status, _ = self._post_instrument({"targetAssetId": "Citi_I5902_USD"})
+        response, status, _ = self._post_instrument(
+            {"targetAssetId": "Citi_I5902_A_USD"}
+        )
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(response.get_json()["message"], "Bad target asset")
 
@@ -1490,7 +1508,7 @@ class TestRestAssetsRoutes(unittest.TestCase):
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertEqual(
             response.get_json()["message"],
-            "Puente_USD is still the target of Mirador-MJ; " "retarget them first",
+            "Puente_A_USD is still the target of Mirador-MJ; " "retarget them first",
         )
         self.assertFalse(session.committed)
 

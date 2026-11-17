@@ -64,6 +64,20 @@ class TestTransfersAreExcludedFromReports(unittest.TestCase):
         }
         self.assertEqual(ids, {"Rent", "Salary"})
 
+    def test_pnl_totals_convert_other_currencies_to_usd(self):
+        stable = recurrent("Stable-Yield", 200.0, "income")
+        stable.currency = "USDC"
+        data = {"USD": [], "PYG": [], "USDC": [stable]}
+        with patch("reports.pnl.current_user", USER), patch(
+            "reports.pnl.UserStore.get_user_config", return_value=USER_CONFIG
+        ), patch(
+            "reports.pnl.ExchangeRates.exchange_rate",
+            side_effect=lambda pair: {"USDUSDC": 1.0}[pair],
+        ):
+            pnl = calculate_monthly_pnl_data(data, months=12)
+        self.assertAlmostEqual(pnl["p_totals"]["USD"], 12 * 200.0)
+        self.assertNotIn("USDC", pnl["monthly_data"][0]["income_sums"])
+
     def test_pnl_can_skip_one_off_payables(self):
         upfront = Payable(
             "US", "USD", "Upfront", -700.0, -700.0, datetime.now(), False, "expense"

@@ -36,6 +36,7 @@ def instrument(
     return Instrument(
         country="US",
         location=location,
+        account="A",
         symbol=symbol,
         price=1.0,
         factor=1.0,
@@ -178,7 +179,7 @@ class TestFutureTimeline(unittest.TestCase):
         result = run([sweep], end=date(2030, 2, 28))
         self.assertAlmostEqual(month(result, "2030-01")["interest"], 12.0)
         self.assertAlmostEqual(month(result, "2030-02")["interest"], 12.12)
-        self.assertAlmostEqual(asset_row(result, "Sweep_USD")["endValue"], 1224.12)
+        self.assertAlmostEqual(asset_row(result, "Sweep_A_USD")["endValue"], 1224.12)
 
     def test_instrument_dividends_go_to_target_account(self, *_):
         stock = instrument(
@@ -186,14 +187,14 @@ class TestFutureTimeline(unittest.TestCase):
         )
         result = run([account(), stock], end=date(2030, 4, 30))
         self.assertAlmostEqual(month(result, "2030-04")["balances"]["Checking"], 1200.0)
-        self.assertNotIn("Broker_VOO", month(result, "2030-04")["balances"])
+        self.assertNotIn("Broker_A_VOO", month(result, "2030-04")["balances"])
 
     def test_capital_growth_is_opt_in(self, *_):
         stock = instrument("Broker", "VOO", 1000.0, capital_rate=0.12)
         grown = run([stock], end=date(2030, 12, 31), include_capital_growth=True)
         flat = run([stock], end=date(2030, 12, 31))
-        self.assertAlmostEqual(asset_row(grown, "Broker_VOO")["endValue"], 1120.0)
-        self.assertAlmostEqual(asset_row(flat, "Broker_VOO")["endValue"], 1000.0)
+        self.assertAlmostEqual(asset_row(grown, "Broker_A_VOO")["endValue"], 1120.0)
+        self.assertAlmostEqual(asset_row(flat, "Broker_A_VOO")["endValue"], 1000.0)
 
     def test_bond_coupons_and_maturity_go_to_target(self, *_):
         bond = Bond(
@@ -276,8 +277,8 @@ class TestFutureTimeline(unittest.TestCase):
         result = run([account(), ira], end=date(2030, 12, 31))
         self.assertAlmostEqual(month(result, "2030-06")["sales"], 7000.0)
         self.assertAlmostEqual(month(result, "2030-06")["balances"]["Checking"], 8000.0)
-        self.assertEqual(asset_row(result, "Citi_I5902_USD")["soldOn"], "2030-06")
-        self.assertAlmostEqual(asset_row(result, "Citi_I5902_USD")["endValue"], 0.0)
+        self.assertEqual(asset_row(result, "Citi_I5902_A_USD")["soldOn"], "2030-06")
+        self.assertAlmostEqual(asset_row(result, "Citi_I5902_A_USD")["endValue"], 0.0)
 
     def test_sold_instrument_stops_paying_dividends(self, *_):
         bond_fund = instrument(
@@ -299,25 +300,25 @@ class TestFutureTimeline(unittest.TestCase):
         self.assertAlmostEqual(month(result, "2031-01")["sales"], 1120.0)
 
     def test_instrument_sold_into_itself_is_ignored(self, *_):
-        stuck = instrument("Vault", "USD", 500.0, liquid=False, target="Vault_USD")
+        stuck = instrument("Vault", "USD", 500.0, liquid=False, target="Vault_A_USD")
         stuck.sell_by = datetime(2030, 3, 1)
         result = run([stuck], end=date(2030, 6, 30))
         self.assertAlmostEqual(month(result, "2030-03")["sales"], 0.0)
         self.assertIn(
-            "Vault_USD can't be sold into itself; the sale is ignored.",
+            "Vault_A_USD can't be sold into itself; the sale is ignored.",
             result["warnings"],
         )
 
     def test_targeting_a_non_pool_instrument_warns(self, *_):
         broker = instrument("Broker", "USD", 1000.0)
-        result = run([broker, recurrent(target="Broker_USD")], end=date(2030, 1, 31))
+        result = run([broker, recurrent(target="Broker_A_USD")], end=date(2030, 1, 31))
         self.assertIn(
-            "Rent targets Broker_USD, which isn't marked as a target pool.",
+            "Rent targets Broker_A_USD, which isn't marked as a target pool.",
             result["warnings"],
         )
         pool = instrument("Sweep", "USD", 1000.0)
         pool.is_target_pool = True
-        result = run([pool, recurrent(target="Sweep_USD")], end=date(2030, 1, 31))
+        result = run([pool, recurrent(target="Sweep_A_USD")], end=date(2030, 1, 31))
         self.assertEqual(result["warnings"], [])
 
     def test_target_pool_is_never_sold(self, *_):
@@ -327,7 +328,7 @@ class TestFutureTimeline(unittest.TestCase):
         result = run([account(), pool], end=date(2030, 6, 30))
         self.assertAlmostEqual(month(result, "2030-03")["sales"], 0.0)
         self.assertIn(
-            "Sweep_USD is a target pool and can't be sold; the sale is ignored.",
+            "Sweep_A_USD is a target pool and can't be sold; the sale is ignored.",
             result["warnings"],
         )
 
@@ -336,10 +337,10 @@ class TestFutureTimeline(unittest.TestCase):
         sweep.is_target_pool = True
         old = account("OldBank", 2500.0)
         old.transfer_by = datetime(2030, 4, 10)
-        old.target_asset_id = "Sweep_USD"
+        old.target_asset_id = "Sweep_A_USD"
         result = run([sweep, old], end=date(2030, 6, 30))
         april = month(result, "2030-04")
-        self.assertAlmostEqual(april["balances"]["Sweep_USD"], 2500.0)
+        self.assertAlmostEqual(april["balances"]["Sweep_A_USD"], 2500.0)
         self.assertAlmostEqual(asset_row(result, "OldBank")["endValue"], 0.0)
         for category in ("income", "expenses", "transfers", "netCashFlow"):
             self.assertAlmostEqual(april[category], 0.0)
@@ -347,7 +348,7 @@ class TestFutureTimeline(unittest.TestCase):
             result["summary"]["endNetWorth"], result["summary"]["startNetWorth"]
         )
         self.assertEqual(asset_row(result, "OldBank")["transferredOn"], "2030-04")
-        self.assertEqual(asset_row(result, "OldBank")["transferredTo"], "Sweep_USD")
+        self.assertEqual(asset_row(result, "OldBank")["transferredTo"], "Sweep_A_USD")
         self.assertEqual(result["warnings"], [])
 
     def test_flows_aimed_at_a_transferred_account_go_to_the_pool(self, *_):
@@ -355,12 +356,12 @@ class TestFutureTimeline(unittest.TestCase):
         sweep.is_target_pool = True
         old = account("OldBank", 1000.0)
         old.transfer_by = datetime(2030, 1, 1)
-        old.target_asset_id = "Sweep_USD"
+        old.target_asset_id = "Sweep_A_USD"
         rent_out = recurrent(target="OldBank", inflation=True)  # -100 on the 5th
         result = run([sweep, old, rent_out], end=date(2030, 2, 28))
         # January's rent, then February's (one month of US inflation).
         self.assertAlmostEqual(
-            month(result, "2030-02")["balances"]["Sweep_USD"],
+            month(result, "2030-02")["balances"]["Sweep_A_USD"],
             1000.0 - 100.0 - 100.0 * 1.025 ** (1 / 12),
         )
         self.assertAlmostEqual(month(result, "2030-02")["balances"]["OldBank"], 0.0)
@@ -418,13 +419,13 @@ class TestFutureTimeline(unittest.TestCase):
         self.assertEqual(
             sorted((a["id"], a["startValue"]) for a in result["assets"]),
             [
-                ("Instrument:Sweep_USD", 2000.0),
-                ("Instrument:Sweep_USD #3", 3000.0),
-                ("Instrument:Sweep_USD #4", 4000.0),
-                ("Sweep_USD", 1000.0),
+                ("Instrument:Sweep_A_USD", 2000.0),
+                ("Instrument:Sweep_A_USD #3", 3000.0),
+                ("Instrument:Sweep_A_USD #4", 4000.0),
+                ("Sweep_A_USD", 1000.0),
             ],
         )
-        self.assertEqual({a["name"] for a in result["assets"]}, {"Sweep_USD"})
+        self.assertEqual({a["name"] for a in result["assets"]}, {"Sweep_A_USD"})
         self.assertAlmostEqual(result["summary"]["startNetWorth"], 10000.0)
 
     def test_committed_payables_sharing_a_description_all_count(self, *_):

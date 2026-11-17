@@ -10,7 +10,7 @@ class Account(Asset):
     def __init__(
         self,
         country: str,
-        institution: str,
+        location: str,
         identifier: str,
         currency: str,
         balance: float,
@@ -21,7 +21,7 @@ class Account(Asset):
         target_asset_id: str = "",
     ):
         self.country = country
-        self.institution = institution
+        self.location = location
         self._identifier = identifier
         self.currency = currency
         self.balance = balance
@@ -39,7 +39,7 @@ class Account(Asset):
         return self.liquid
 
     def get_location(self):
-        return self.country, self.institution
+        return self.country, self.location
 
     def get_market(self) -> str:
         return self.currency
@@ -79,7 +79,7 @@ class Account(Asset):
         return self.balance * self.factor, 0.0
 
     def __repr__(self):
-        return f"Account({self._identifier}, {self.institution}, {self.account_type}, Balance: {self.balance:,.0f} {self.currency})"
+        return f"Account({self._identifier}, {self.location}, {self.account_type}, Balance: {self.balance:,.0f} {self.currency})"
 
     def __str__(self):
         return self.__repr__()
@@ -87,7 +87,7 @@ class Account(Asset):
     def to_dict(self) -> dict:
         return {
             "country": self.country,
-            "institution": self.institution,
+            "location": self.location,
             "identifier": self._identifier,
             "currency": self.currency,
             "balance": self.balance,

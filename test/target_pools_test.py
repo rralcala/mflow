@@ -38,6 +38,7 @@ def instrument(symbol="USD", is_target_pool=False, liquid=True):
     return Instrument(
         country="US",
         location="Citi",
+        account="A",
         symbol=symbol,
         price=1.0,
         factor=1.0,
@@ -59,11 +60,19 @@ class TestValidateTargetAsset(unittest.TestCase):
         self.session = _Session(
             accounts=[SimpleNamespace(user_id=1, id="Checking", currency="USD")],
             instruments=[
-                SimpleNamespace(
-                    user_id=1, location="Puente", symbol="USD", is_target_pool=1
+                InstrumentModel(
+                    user_id=1,
+                    location="Puente",
+                    account="A",
+                    symbol="USD",
+                    is_target_pool=1,
                 ),
-                SimpleNamespace(
-                    user_id=1, location="Citi_B5894", symbol="USD", is_target_pool=0
+                InstrumentModel(
+                    user_id=1,
+                    location="Citi_B5894",
+                    account="A",
+                    symbol="USD",
+                    is_target_pool=0,
                 ),
             ],
         )
@@ -72,13 +81,13 @@ class TestValidateTargetAsset(unittest.TestCase):
         self.assertTrue(validate_target_asset(self.session, 1, "Checking", "USD"))
 
     def test_only_target_pool_instruments_are_valid(self):
-        self.assertTrue(validate_target_asset(self.session, 1, "Puente_USD", "USD"))
+        self.assertTrue(validate_target_asset(self.session, 1, "Puente_A_USD", "USD"))
         self.assertFalse(
-            validate_target_asset(self.session, 1, "Citi_B5894_USD", "USD")
+            validate_target_asset(self.session, 1, "Citi_B5894_A_USD", "USD")
         )
 
     def test_pool_must_hold_the_source_currency(self):
-        self.assertFalse(validate_target_asset(self.session, 1, "Puente_USD", "PYG"))
+        self.assertFalse(validate_target_asset(self.session, 1, "Puente_A_USD", "PYG"))
 
 
 class TestTargetOptions(unittest.TestCase):

@@ -7,6 +7,7 @@ from flask_login import current_user
 from asset_classes.asset import Asset
 from asset_classes.payable import Payable
 from data.constants import is_transfer
+from data.exchange_rates import ExchangeRates
 from lib.logger import get_logger
 from lib.user_config import UserStore
 
@@ -58,6 +59,25 @@ def monthly_transactions(
         start = start + relativedelta(months=1)
 
 
+def totals_currency(transaction: Dict[str, Any], secondary_currency: str) -> str:
+    """The currency a transaction is summed in: its own when it is USD or the
+    secondary currency; anything else (e.g. USDC) is converted to USD in place,
+    so it counts in the monthly sums and the totals."""
+    currency = transaction["currency"].upper()
+    if currency == "USD":
+        return currency
+    if currency == secondary_currency.upper():
+        return secondary_currency
+    try:
+        rate = ExchangeRates.exchange_rate(f"USD{currency}")
+    except ValueError:
+        Logger.warning("No USD rate for %s; left out of the P&L totals", currency)
+        return currency
+    transaction["amount"] = transaction["amount"] / rate
+    transaction["currency"] = "USD"
+    return "USD"
+
+
 def calculate_monthly_pnl_data(
     main_assets: Dict[str, List[Asset]],
     months: int = 12,
@@ -77,7 +97,7 @@ def calculate_monthly_pnl_data(
         month_expenses = []
 
         for transaction in transactions:
-            currency = transaction["currency"]
+            currency = totals_currency(transaction, secondary_currency)
 
             if transaction["amount"] < 0.0:
                 month_expenses.append(transaction)

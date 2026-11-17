@@ -58,6 +58,8 @@ def cash_flow(assets):
     tl_dates = sorted(timeline.keys())
     for date in tl_dates:
         tl_list.append((date, timeline[date]))
+    if not tl_list:  # No payments in the next year.
+        return []
     min_val = {
         "USD-US": tl_list[0][1]["USD-US"],
         pri_currency_sec_contry: tl_list[0][1][pri_currency_sec_contry],

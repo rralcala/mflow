@@ -19,6 +19,7 @@ from lib.util import (
     normalize_flow_class,
     owned_or_404,
     paginate,
+    rename_references,
     require_date,
     require_dividend,
     require_number,
@@ -28,7 +29,7 @@ from lib.util import (
     validate_pool_target,
     validate_target_asset,
 )
-from models.instrument import Instrument
+from models.instrument import Instrument, instrument_identifier
 from models.models import Account
 from models.payable import Payable
 from models.property import Property
@@ -74,12 +75,17 @@ def refuse_duplicate(session, identifier: str, exclude=None) -> None:
         abort(HTTPStatus.CONFLICT, error)
 
 
-def refuse_rename_if_used(session, old: str, new: str, row) -> None:
-    """Renaming an identifier would leave the assets that use it dangling, and
-    the new one must not belong to another asset."""
+def refuse_rename_duplicate(session, old: str, new: str, row) -> None:
+    """A new identifier must not belong to another of the user's assets. Call
+    it before changing the row: later queries would flush the clash into the
+    unique index first."""
     if new != old:
-        refuse_if_used(session, old, "rename", HTTPStatus.BAD_REQUEST)
         refuse_duplicate(session, new, exclude=row)
+
+
+def move_references(session, old: str, new: str) -> None:
+    """The assets that used the old identifier follow the rename."""
+    rename_references(session, int(current_user.id), old, new)
 
 
 def account_transfer_error(
@@ -126,7 +132,7 @@ def account_create(json_data):
         new_transaction = Account(
             id=data.get("id"),
             country=normalize_country(data.get("country")),
-            institution=data.get("institution"),
+            location=data.get("location"),
             currency=normalize_currency(data.get("currency")),
             balance=require_number(data.get("balance"), "balance"),
             factor=require_number(data.get("factor"), "factor"),
@@ -212,7 +218,7 @@ def account_update(name, json_data):
                     f"Can't change the currency of {name}: it's the target of "
                     f"{', '.join(references)}; retarget them first",
                 )
-        result.institution = data.get("institution", result.institution)
+        result.location = data.get("location", result.location)
         result.currency = currency
         result.balance = require_number(data.get("balance", result.balance), "balance")
         result.factor = require_number(data.get("factor", result.factor), "factor")
@@ -254,7 +260,7 @@ def find_account(session, name) -> Account:
 def instrument_target_ok(session, row: Instrument, target_asset_id: str) -> bool:
     """A target pool may target itself (e.g. a sweep compounding its interest);
     it's checked against the submitted row because it may not be saved yet."""
-    if target_asset_id == f"{row.location}_{row.symbol}":
+    if target_asset_id == row.identifier:
         return bool(row.is_target_pool) and (
             str(row.symbol).upper() == str(row.currency).upper()
         )
@@ -318,6 +324,7 @@ def instrument_create(json_data):
         new_transaction = Instrument(
             country=country,
             location=data.get("location"),
+            account=data.get("account"),
             symbol=data.get("symbol"),
             currency=currency,
             factor=require_number(data.get("factor"), "factor"),
@@ -345,9 +352,7 @@ def instrument_create(json_data):
         error = instrument_symbol_error(new_transaction.symbol)
         if error:
             abort(HTTPStatus.BAD_REQUEST, error)
-        refuse_duplicate(
-            session, f"{new_transaction.location}_{new_transaction.symbol}"
-        )
+        refuse_duplicate(session, new_transaction.identifier)
         session.add(new_transaction)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -375,17 +380,31 @@ def instrument_update(id, json_data):
             abort(HTTPStatus.BAD_REQUEST, f"Invalid date '{acquisition_date}'")
         target_asset_id = data.get("targetAssetId", result.target_asset_id)
         currency = normalize_currency(data.get("currency", result.currency))
-        identifier = f"{result.location}_{result.symbol}"
+        identifier = result.identifier
         symbol = data.get("symbol", result.symbol)
         if symbol != result.symbol:
             error = instrument_symbol_error(symbol)
             if error:
                 abort(HTTPStatus.BAD_REQUEST, error)
+        if symbol != result.symbol:
+            # Targets must hold the source's currency, which is a pool's symbol.
+            references = target_references(session, int(current_user.id), identifier)
+            if references:
+                abort(
+                    HTTPStatus.BAD_REQUEST,
+                    f"Can't change the symbol of {identifier}: it's the target of "
+                    f"{', '.join(references)}; retarget them first",
+                )
         location = data.get("location", result.location)
-        refuse_rename_if_used(session, identifier, f"{location}_{symbol}", result)
+        account = data.get("account", result.account)
+        new_identifier = instrument_identifier(location, account, symbol)
+        refuse_rename_duplicate(session, identifier, new_identifier, result)
+        if target_asset_id == identifier:  # A pool compounding into itself.
+            target_asset_id = new_identifier
         was_target_pool = result.is_target_pool == 1
         result.country = country_for_update(data, result.country)
         result.location = location
+        result.account = account
         result.symbol = symbol
         result.factor = require_number(data.get("factor", result.factor), "factor")
         result.qty = require_number(data.get("qty", result.qty), "qty")
@@ -421,6 +440,7 @@ def instrument_update(id, json_data):
         error = instrument_sale_error(result.sell_by, result.is_target_pool)
         if error:
             abort(HTTPStatus.BAD_REQUEST, error)
+        move_references(session, identifier, new_identifier)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
         return result.to_dict()
@@ -432,9 +452,7 @@ def instrument_update(id, json_data):
 def instrument_delete(id):
     with Config.DB_SESSION() as session:
         result = find_instrument(session, id)
-        refuse_if_used(
-            session, f"{result.location}_{result.symbol}", "delete", HTTPStatus.CONFLICT
-        )
+        refuse_if_used(session, result.identifier, "delete", HTTPStatus.CONFLICT)
         session.delete(result)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
@@ -611,12 +629,14 @@ def payable_update(id, json_data):
         result.amount = amount
         result.balance = balance
         result.due_date = due_date
+        old_description = result.description
         description = data.get("description", result.description)
-        refuse_rename_if_used(session, result.description, description, result)
+        refuse_rename_duplicate(session, old_description, description, result)
         result.description = description
         result.commited = 1 if data.get("commited", result.commited) else 0
         result.flow_class = flow_class
         result.target_asset_id = target_asset_id
+        move_references(session, old_description, result.description)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
         return result.to_dict()
@@ -725,8 +745,9 @@ def property_update(id, json_data):
         result = find_property(session, id)
         result.country = country_for_update(data, result.country)
         result.currency = normalize_currency(data.get("currency", result.currency))
+        old_name = result.property_name
         property_name = data.get("propertyName", result.property_name)
-        refuse_rename_if_used(session, result.property_name, property_name, result)
+        refuse_rename_duplicate(session, old_name, property_name, result)
         result.property_name = property_name
         result.purchase_price = require_number(
             data.get("purchasePrice", result.purchase_price), "purchasePrice"
@@ -756,7 +777,7 @@ def property_update(id, json_data):
         )
         if error:
             abort(HTTPStatus.BAD_REQUEST, error)
-
+        move_references(session, old_name, result.property_name)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
         return result.to_dict()

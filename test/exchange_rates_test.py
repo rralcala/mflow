@@ -105,7 +105,7 @@ class TestExchangeRates(unittest.TestCase):
 
         self.assertEqual(ExchangeRates.quote_cache["USDEUR"], 0.92)
         self.assertEqual(ExchangeRates.quote_cache["USDMXN"], 17.12)
-        self.assertEqual(ExchangeRates.quote_cache["BTCUSD"], 66666.1235)
+        self.assertEqual(ExchangeRates.quote_cache["BTCUSD"], 66666.123456)
         self.assertEqual(ExchangeRates.quote_cache["AAPL"], 205.99)
         self.assertEqual(ExchangeRates.quote_cache["LOCAL1"], 123.45)
         self.assertEqual(ExchangeRates.last_update, datetime(2026, 4, 19, 12, 0, 0))
@@ -157,7 +157,7 @@ class TestExchangeRates(unittest.TestCase):
         ):
             result = ExchangeRates.local_quotes_on("2026-04-19")
 
-        self.assertEqual(result, [("USDEUR", 0.9123), ("BTCUSD", 66000.13)])
+        self.assertEqual(result, [("USDEUR", 0.91234), ("BTCUSD", 66000.12999)])
 
     def _quotes_db(self):
         engine = create_engine("sqlite://")
@@ -194,8 +194,29 @@ class TestExchangeRates(unittest.TestCase):
             self._stored_quotes(db_session),
             {
                 ("2026-10-09", "USDEUR"): "0.91",
-                ("2026-10-09", "BTCUSD"): "67000.00",
+                ("2026-10-09", "BTCUSD"): "67000.0",
             },
+        )
+
+    def test_refresh_keeps_full_precision_and_updates_same_day(self):
+        db_session = self._quotes_db()
+        db_patch, file_patch = self._patch_store(db_session)
+
+        def refresh(price):
+            def fake():
+                ExchangeRates.quote_cache = {"SHIBUSD": price}
+                ExchangeRates.last_update = datetime(2026, 10, 9, 12, 0, 0)
+
+            with db_patch, file_patch, patch.object(
+                ExchangeRates, "_refresh_currency_data", side_effect=fake
+            ):
+                ExchangeRates.refresh()
+
+        refresh(0.00001234)
+        refresh(0.00001567)
+        self.assertEqual(
+            self._stored_quotes(db_session),
+            {("2026-10-09", "SHIBUSD"): "1.567e-05"},
         )
 
     def test_ensure_currency_data_stores_quotes_when_fetching(self):

@@ -12,12 +12,22 @@ from lib.logger import get_logger
 from lib.user_config import UserStore
 from lib.util import business_days_ago, paginate, sort_items
 from routes.schemas import (
+    ASSETS_BY_LOCATION_RESPONSE,
+    CASH_FLOW_RESPONSE,
+    VALUATION_HISTORY_RESPONSE,
     ExchangeRateOut,
+    FutureTimelineOut,
     FutureTimelineQuery,
+    IncomePerLocationOut,
     ListQuery,
     MessageOut,
+    MonthlyPnlOut,
     MonthlyPnlQuery,
+    NetWorthSummaryOut,
+    PerformanceBandOut,
+    RecurrentHistoryOut,
     RecurrentHistoryQuery,
+    SpendingAnalysisOut,
     TotalCountHeader,
     UpcomingPaymentOut,
     UpcomingPaymentsQuery,
@@ -41,6 +51,7 @@ Logger = get_logger()
 
 @reports_bp.route("/assets_by_location", methods=["GET"])
 @reports_bp.auth_required(auth)
+@reports_bp.doc(responses=ASSETS_BY_LOCATION_RESPONSE)
 def assets_by_location():
     user_config = UserStore.get_user_config(current_user.id)
     assets = get_asset_store(user_config)
@@ -54,6 +65,7 @@ def assets_by_location():
 
 @reports_bp.route("/cash_flow", methods=["GET"])
 @reports_bp.auth_required(auth)
+@reports_bp.doc(responses=CASH_FLOW_RESPONSE)
 def cash_flow():
     user_config = UserStore.get_user_config(current_user.id)
     assets = get_asset_store(user_config)
@@ -68,6 +80,7 @@ def cash_flow():
 @reports_bp.route("/future_timeline", methods=["GET"])
 @reports_bp.auth_required(auth)
 @reports_bp.input(FutureTimelineQuery, location="query")
+@reports_bp.output(FutureTimelineOut, headers=TotalCountHeader)
 def future_timeline(query_data):
     """Monthly simulation of every asset until the user's LAST_UNTIL date."""
     try:
@@ -81,11 +94,8 @@ def future_timeline(query_data):
             desired_estate=float(getattr(user_config, "DESIRED_ESTATE", 0.0)),
         )
     except ValueError as exc:
-        return jsonify({"message": str(exc)}), HTTPStatus.BAD_REQUEST
-
-    response = jsonify(data)
-    response.headers["X-Total-Count"] = len(data["months"])
-    return response, HTTPStatus.OK
+        abort(HTTPStatus.BAD_REQUEST, str(exc))
+    return data, HTTPStatus.OK, {"X-Total-Count": len(data["months"])}
 
 
 @reports_bp.route("/exchangeRatesRefresh", methods=["GET"])
@@ -146,59 +156,54 @@ def exchange_rates_get(name):
 
 @reports_bp.route("/income_per_location", methods=["GET"])
 @reports_bp.auth_required(auth)
+@reports_bp.output(IncomePerLocationOut, headers=TotalCountHeader)
 def income_per_location():
     user_config = UserStore.get_user_config(current_user.id)
     assets = get_asset_store(user_config)
     data = vla.list_income(assets, user_config.SECONDARY_CURRENCY)
-    count = len(data)
-
-    response = jsonify(data)
-    response.headers["X-Total-Count"] = count
-    return response, HTTPStatus.OK
+    return data, HTTPStatus.OK, {"X-Total-Count": len(data)}
 
 
 @reports_bp.route("/investment_performance", methods=["GET"])
 @reports_bp.auth_required(auth)
+@reports_bp.output(PerformanceBandOut(many=True), headers=TotalCountHeader)
 def investment_performance():
     user_config = UserStore.get_user_config(current_user.id)
     assets = get_asset_store(user_config)
     data = vip.investment_performance(assets)
-    count = len(data)
-
-    response = jsonify(data)
-    response.headers["X-Total-Count"] = count
-    return response, HTTPStatus.OK
+    return data, HTTPStatus.OK, {"X-Total-Count": len(data)}
 
 
 @reports_bp.route("/monthly_pnl", methods=["GET"])
 @reports_bp.auth_required(auth)
 @reports_bp.input(MonthlyPnlQuery, location="query")
+@reports_bp.output(MonthlyPnlOut, headers=TotalCountHeader)
 def monthly_pnl(query_data):
     skip_one_off = not query_data.get("oneOff", False)
     Logger.info(f"Calculating monthly P&L with skip_one_off={skip_one_off}")
     assets = get_asset_store(UserStore.get_user_config(current_user.id))
     year_months, summary = vmpnl.monthly_pnl(assets, skip_one_off=skip_one_off)
-    response = jsonify({"year_months": year_months, "summary": summary})
-    response.headers["X-Total-Count"] = len(year_months)
-    return response, HTTPStatus.OK
+    return (
+        {"year_months": year_months, "summary": summary},
+        HTTPStatus.OK,
+        {"X-Total-Count": len(year_months)},
+    )
 
 
 @reports_bp.route("/nw_summary", methods=["GET"])
 @reports_bp.auth_required(auth)
+@reports_bp.output(NetWorthSummaryOut, headers=TotalCountHeader)
 def net_worth_summary():
     user_config = UserStore.get_user_config(current_user.id)
     assets = get_asset_store(user_config)
     data = vla.list_assets(assets)
-    count = len(data)
-
-    response = jsonify(data)
-    response.headers["X-Total-Count"] = count
-    return response, HTTPStatus.OK
+    return data, HTTPStatus.OK, {"X-Total-Count": len(data)}
 
 
 @reports_bp.route("/recurrent_history", methods=["GET"])
 @reports_bp.auth_required(auth)
 @reports_bp.input(RecurrentHistoryQuery, location="query")
+@reports_bp.output(RecurrentHistoryOut, headers=TotalCountHeader)
 def recurrent_history(query_data):
     """Recorded transactions per recurrent and month, with statistics.
 
@@ -213,24 +218,18 @@ def recurrent_history(query_data):
             flow_class=query_data.get("flowClass") or None,
         )
     except ValueError as exc:
-        return jsonify({"message": str(exc)}), HTTPStatus.BAD_REQUEST
-
-    response = jsonify(data)
-    response.headers["X-Total-Count"] = len(data["recurrents"])
-    return response, HTTPStatus.OK
+        abort(HTTPStatus.BAD_REQUEST, str(exc))
+    return data, HTTPStatus.OK, {"X-Total-Count": len(data["recurrents"])}
 
 
 @reports_bp.route("/spending_analysis", methods=["GET"])
 @reports_bp.auth_required(auth)
+@reports_bp.output(SpendingAnalysisOut, headers=TotalCountHeader)
 def spending_analysis():
     user_config = UserStore.get_user_config(current_user.id)
     assets = get_asset_store(user_config)
     data = vs.spending_analysis(assets)
-    count = len(data)
-
-    response = jsonify(data)
-    response.headers["X-Total-Count"] = count
-    return response, HTTPStatus.OK
+    return data, HTTPStatus.OK, {"X-Total-Count": len(data)}
 
 
 @reports_bp.route("/upcoming_payments", methods=["GET"])
@@ -256,6 +255,7 @@ def upcoming_payments_flat(query_data):
 
 @reports_bp.route("/valuation_history", methods=["GET"])
 @reports_bp.auth_required(auth)
+@reports_bp.doc(responses=VALUATION_HISTORY_RESPONSE)
 def valuation_history():
     data = vnh.nw_history()
     count = len(data)

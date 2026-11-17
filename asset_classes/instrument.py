@@ -15,6 +15,7 @@ class Instrument(Asset):
         self,
         country: str,
         location: str,
+        account: str,
         symbol: str,
         price: float,
         factor: float,
@@ -32,7 +33,8 @@ class Instrument(Asset):
         is_target_pool: bool = False,
     ):
         self.symbol = symbol
-        self._identifier = f"{location}_{symbol}"
+        self.account = account
+        self._identifier = f"{location}_{account}_{symbol}"
         self.price = price
         self.factor = factor
         self.qty = qty
@@ -70,7 +72,7 @@ class Instrument(Asset):
         return self.symbol
 
     def get_location(self):
-        return self.country, self.location.split("_")[0]
+        return self.country, self.location
 
     def calculate_year_performance(self) -> Tuple[float, float, str]:
         value, currency = self.get_current_value()

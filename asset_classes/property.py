@@ -7,6 +7,13 @@ from data.exchange_rates import ExchangeRates
 from lib.config import Config
 
 
+def usd_rate(currency: str) -> float:
+    """Units of `currency` per USD."""
+    if currency.upper() == "USD":
+        return 1.0
+    return ExchangeRates.exchange_rate(f"USD{currency.upper()}")
+
+
 class Property(Asset):
     """Represents a property asset with its attributes and methods to calculate its value."""
 
@@ -47,14 +54,21 @@ class Property(Asset):
         if years_owned < 1.0:
             years_owned = 1
 
-        annualized_return = (
-            (self.latest_price / self.purchase_price) - 1.0
-        ) / years_owned
+        if self.purchase_price:
+            annualized_return = (
+                (self.latest_price / self.purchase_price) - 1.0
+            ) / years_owned
+        else:  # A gift or inheritance: no purchase price to grow from.
+            annualized_return = 0.0
         # Assuming rented_price is the mothly rental income
         rented_price = self.rented_price
-        if self.rent_currency != self.currency:
-            exchange = ExchangeRates.exchange_rate(f"USD{self.rent_currency}")
-            rented_price = self.rented_price / exchange
+        if self.rent_currency.upper() != self.currency.upper():
+            # Rent in the property's currency, through USD.
+            rented_price = (
+                self.rented_price
+                / usd_rate(self.rent_currency)
+                * usd_rate(self.currency)
+            )
         if self.latest_price != 0.0:
             rental_return = rented_price * 12 / self.latest_price
         else:

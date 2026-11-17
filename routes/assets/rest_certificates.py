@@ -17,6 +17,7 @@ from lib.util import (
     normalize_currency,
     owned_or_404,
     paginate,
+    rename_references,
     require_date,
     require_number,
     sort_items,
@@ -419,10 +420,8 @@ def certificate_update(cert_type, id, data):
         ):
             abort(HTTPStatus.BAD_REQUEST, "Bad target asset")
         name = data.get("name", result.name)
-        if name != result.name:
-            error = children_error(session, int(current_user.id), result.name, "rename")
-            if error:
-                abort(HTTPStatus.BAD_REQUEST, error)
+        old_name = result.name
+        if name != old_name:
             error = duplicate_error(session, int(current_user.id), name, result)
             if error:
                 abort(HTTPStatus.CONFLICT, error)
@@ -434,6 +433,8 @@ def certificate_update(cert_type, id, data):
         result.entity = data.get("entity", result.entity)
         result.country = country_for_update(data, result.country)
         result.target_asset_id = target_asset_id
+        # Assets attached to it follow the rename.
+        rename_references(session, int(current_user.id), old_name, name)
         session.commit()
         reload_asset_store(UserStore.get_user_config(current_user.id))
         return result.to_dict()

@@ -5,14 +5,20 @@ from data.base import Base
 from data.exchange_rates import ExchangeRates
 
 
+def instrument_identifier(location: str, account: str, symbol: str) -> str:
+    """How other assets refer to an instrument: Location_Account_Symbol."""
+    return f"{location}_{account}_{symbol}"
+
+
 class Instrument(Base):
     __tablename__ = "instrument"
     # Each asset type's identifier is unique per user (see asset_classes).
     __table_args__ = (
         Index(
-            "instrument_user_location_symbol",
+            "instrument_user_location_account_symbol",
             "user_id",
             "location",
+            "account",
             "symbol",
             unique=True,
         ),
@@ -22,6 +28,9 @@ class Instrument(Base):
     user_id = mapped_column(Integer, nullable=False)
     country = mapped_column(String(2), nullable=False)
     location = mapped_column(String(80), nullable=False)
+    # The account at the location that holds the instrument (e.g. a brokerage
+    # account number); one location can have several accounts.
+    account = mapped_column(String(80), nullable=False)
     symbol = mapped_column(String(80), nullable=False)
     factor = mapped_column(String(80), nullable=False)
     qty = mapped_column(String(80), nullable=False)
@@ -40,6 +49,10 @@ class Instrument(Base):
     def __str__(self):
         return str(self.id)
 
+    @property
+    def identifier(self) -> str:
+        return instrument_identifier(self.location, self.account, self.symbol)
+
     def to_dict(self):
         value = (
             float(self.qty)
@@ -51,6 +64,8 @@ class Instrument(Base):
             "id": self.id,
             "country": self.country,
             "location": self.location,
+            "account": self.account,
+            "identifier": self.identifier,
             "symbol": self.symbol,
             "factor": float(self.factor),
             "qty": float(self.qty),

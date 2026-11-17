@@ -48,6 +48,7 @@ class TestLoadAssetsDividend(unittest.TestCase):
                     user_id=1,
                     country="US",
                     location="Citi",
+                    account="A",
                     symbol="VOO",
                     factor="1",
                     qty="10",

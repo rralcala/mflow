@@ -65,7 +65,8 @@ class ExchangeRates:
         for crypto in Config.TRADED_CRYPTO:
             key = crypto.upper() + "USD"
             ticker = yf.Ticker(crypto + "-USD")
-            quote_cache[key] = round(ticker.fast_info["last_price"], 4)
+            # Low-priced coins need more than a few decimals.
+            quote_cache[key] = round(ticker.fast_info["last_price"], 8)
             Logger.info(f"Loaded cryto price for {crypto}: {quote_cache[key]}")
 
         for stock in Config.TRADED_STOCKS + Config.TRADED_METALS:
@@ -95,7 +96,7 @@ class ExchangeRates:
             results = []
             for quote in quotes:
                 Logger.info(f"Loaded quote from DB: {quote.symbol} = {quote.value}")
-                results.append((quote.symbol, round(float(quote.value), 4)))
+                results.append((quote.symbol, float(quote.value)))
         return results
 
     @staticmethod
@@ -160,9 +161,11 @@ class ExchangeRates:
                 quote = session.scalars(
                     select(Quote).filter_by(date=date_str, symbol=key)
                 ).one_or_none()
+                # Full precision: low-priced coins round to 0 at 2 decimals.
                 if quote is None:
-                    quote = Quote(date=date_str, symbol=key, value=f"{value:.2f}")
-                session.merge(quote)
+                    session.add(Quote(date=date_str, symbol=key, value=repr(value)))
+                else:  # A later refresh the same day updates the day's quote.
+                    quote.value = repr(value)
             session.commit()
         with open(FX_LAST_UPDATE_FILE, "wb") as f:
             pickle.dump(datetime.now(), f)

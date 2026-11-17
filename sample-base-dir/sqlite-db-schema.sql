@@ -1,18 +1,4 @@
 BEGIN TRANSACTION;
-CREATE TABLE IF NOT EXISTS "account" (
-	"id"	TEXT NOT NULL,
-	"country"	TEXT NOT NULL,
-	"institution"	TEXT NOT NULL,
-	"currency"	TEXT NOT NULL,
-	"balance"	TEXT NOT NULL,
-	"factor"	TEXT NOT NULL,
-	"account_type"	TEXT NOT NULL,
-	"liquid"	INTEGER NOT NULL,
-	"user_id"	INTEGER NOT NULL DEFAULT 1,
-	"transfer_by"	TEXT,
-	"target_asset_id"	TEXT,
-	PRIMARY KEY("id")
-);
 CREATE TABLE IF NOT EXISTS "bond" (
 	"id"	INTEGER NOT NULL,
 	"user_id"	INTEGER NOT NULL,
@@ -67,26 +53,6 @@ CREATE TABLE IF NOT EXISTS "history" (
 	"id"	INTEGER NOT NULL,
 	PRIMARY KEY("id" AUTOINCREMENT)
 );
-CREATE TABLE IF NOT EXISTS "instrument" (
-	"id"	INTEGER NOT NULL,
-	"user_id"	INTEGER NOT NULL,
-	"country"	TEXT NOT NULL,
-	"location"	TEXT NOT NULL,
-	"symbol"	TEXT NOT NULL,
-	"factor"	TEXT NOT NULL,
-	"qty"	TEXT NOT NULL,
-	"dividend"	TEXT NOT NULL,
-	"dividend_rate"	TEXT NOT NULL,
-	"currency"	TEXT NOT NULL,
-	"acquisition_date"	TEXT NOT NULL,
-	"acquisition_price"	TEXT NOT NULL,
-	"liquid"	INTEGER NOT NULL,
-	"capital_rate"	TEXT NOT NULL DEFAULT 0,
-	"target_asset_id"	TEXT,
-	"sell_by"	TEXT,
-	"is_target_pool"	INTEGER NOT NULL DEFAULT 0,
-	PRIMARY KEY("id")
-);
 CREATE TABLE IF NOT EXISTS "payable" (
 	"id"	INTEGER,
 	"user_id"	INTEGER NOT NULL,
@@ -125,22 +91,6 @@ CREATE TABLE IF NOT EXISTS "quotes" (
 	"value"	TEXT NOT NULL,
 	PRIMARY KEY("id" AUTOINCREMENT)
 );
-CREATE TABLE IF NOT EXISTS "recurrent" (
-	"identifier"	TEXT NOT NULL UNIQUE,
-	"parent_asset_id"	TEXT,
-	"country"	TEXT NOT NULL,
-	"amount"	TEXT NOT NULL,
-	"currency"	TEXT NOT NULL,
-	"recurrence"	TEXT NOT NULL,
-	"start"	TEXT NOT NULL,
-	"end"	TEXT NOT NULL,
-	"flow_class"	TEXT NOT NULL,
-	"rate"	TEXT NOT NULL,
-	"user_Id"	INTEGER NOT NULL DEFAULT 1,
-	"target_asset_id"	TEXT,
-	"inflation"	INTEGER NOT NULL DEFAULT 0,
-	PRIMARY KEY("identifier")
-);
 CREATE TABLE IF NOT EXISTS "recurrent_transaction" (
 	"transaction_id"	INTEGER,
 	"parent_id"	TEXT NOT NULL,
@@ -163,9 +113,6 @@ CREATE TABLE IF NOT EXISTS "ignored_transaction" (
 	"amount"	TEXT NOT NULL,
 	"create_date"	TEXT NOT NULL,
 	PRIMARY KEY("id" AUTOINCREMENT)
-);
-CREATE INDEX IF NOT EXISTS "account_user_id" ON "account" (
-	"user_id"
 );
 CREATE INDEX IF NOT EXISTS "bond_schedule_user_bond" ON "bond_schedule" (
 	"bond_id",
@@ -202,14 +149,68 @@ CREATE UNIQUE INDEX IF NOT EXISTS "recurrent_transaction_user_import_hash" ON "r
 	"user_id",
 	"import_hash"
 );
-CREATE INDEX IF NOT EXISTS "recurrent_user_id" ON "recurrent" (
-	"user_Id"
-);
-CREATE INDEX IF NOT EXISTS "user_id" ON "account" (
-	"user_id"
-);
 CREATE UNIQUE INDEX IF NOT EXISTS "ignored_transaction_user_import_hash" ON "ignored_transaction" (
 	"user_id",
 	"import_hash"
 );
+CREATE TABLE IF NOT EXISTS account (
+	internal_id INTEGER NOT NULL, 
+	id VARCHAR(80) NOT NULL, 
+	country VARCHAR(2) NOT NULL, 
+	location VARCHAR(80) NOT NULL, 
+	currency VARCHAR(3) NOT NULL, 
+	balance VARCHAR(20) NOT NULL, 
+	factor VARCHAR(20) NOT NULL, 
+	account_type VARCHAR(35) NOT NULL, 
+	liquid INTEGER NOT NULL, 
+	user_id INTEGER NOT NULL, 
+	transfer_by VARCHAR(20), 
+	target_asset_id VARCHAR(80), 
+	PRIMARY KEY (internal_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS account_user_name ON account (user_id, id);
+CREATE TABLE IF NOT EXISTS recurrent (
+	internal_id INTEGER NOT NULL, 
+	identifier VARCHAR(80) NOT NULL, 
+	parent_asset_id VARCHAR(80), 
+	target_asset_id VARCHAR(80), 
+	country VARCHAR(2) NOT NULL, 
+	amount VARCHAR(20) NOT NULL, 
+	currency VARCHAR(3) NOT NULL, 
+	recurrence VARCHAR(20) NOT NULL, 
+	start VARCHAR(35) NOT NULL, 
+	"end" VARCHAR(35) NOT NULL, 
+	flow_class VARCHAR(20) NOT NULL, 
+	rate VARCHAR(20) NOT NULL, 
+	user_id INTEGER NOT NULL, 
+	inflation INTEGER NOT NULL, 
+	PRIMARY KEY (internal_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS recurrent_user_identifier ON recurrent (user_id, identifier);
+CREATE TABLE IF NOT EXISTS instrument (
+	id INTEGER NOT NULL, 
+	user_id INTEGER NOT NULL, 
+	country VARCHAR(2) NOT NULL, 
+	location VARCHAR(80) NOT NULL, 
+	account VARCHAR(80) NOT NULL, 
+	symbol VARCHAR(80) NOT NULL, 
+	factor VARCHAR(80) NOT NULL, 
+	qty VARCHAR(80) NOT NULL, 
+	dividend VARCHAR(80) NOT NULL, 
+	dividend_rate VARCHAR(80) NOT NULL, 
+	currency VARCHAR(3) NOT NULL, 
+	acquisition_date VARCHAR(35) NOT NULL, 
+	acquisition_price VARCHAR(80) NOT NULL, 
+	liquid INTEGER NOT NULL, 
+	capital_rate VARCHAR(80) NOT NULL, 
+	target_asset_id VARCHAR(80), 
+	sell_by VARCHAR(20), 
+	is_target_pool INTEGER NOT NULL, 
+	PRIMARY KEY (id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS instrument_user_location_account_symbol ON instrument (user_id, location, account, symbol);
+CREATE UNIQUE INDEX IF NOT EXISTS payable_user_description ON payable (user_id, description);
+CREATE UNIQUE INDEX IF NOT EXISTS property_user_name ON property (user_id, property_name);
+CREATE UNIQUE INDEX IF NOT EXISTS bond_user_name ON bond (user_id, name);
+CREATE UNIQUE INDEX IF NOT EXISTS deposit_certificate_user_name ON deposit_certificate (user_id, name);
 COMMIT;
